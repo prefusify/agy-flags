@@ -26,6 +26,7 @@ import { allOurEnv, applyEnv, clearEnv, launchctlRunner, ourEnv, ourUiEnv, readE
 import { PING_PATH, createForwarder } from './forward.mjs';
 import { MODELS_KIND, isValidFlagName } from './patch.mjs';
 import { createUiServer } from './uiserver.mjs';
+import { clientFiles, scanClientInWorker } from './usage.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -33,6 +34,7 @@ export const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'
 const UPSTREAM_NAMES = ['cloudcode', 'aicode'];
 const MAX_OVERRIDES = 2000;
 const CATALOG_FILE = path.join(ROOT, 'src', 'catalog.json');
+const NOTES_FILE = path.join(ROOT, 'src', 'flag-notes.json');
 
 /**
  * The flags that the client reads per model. The catalog marks their groups with "perModel".
@@ -209,7 +211,9 @@ export async function startDaemon({
   pollMs = 1000,
   envCheckMs = 60_000,
   catalogFile = CATALOG_FILE,
+  notesFile = NOTES_FILE,
   unrecognizedGraceMs = 150_000,
+  usageRetryMs = 5 * 60_000,
 } = {}) {
   ensureDataDir();
   let config = loadConfig();
@@ -230,7 +234,9 @@ export async function startDaemon({
     serverFlags[name] = saved && typeof saved === 'object' ? saved : null;
     serverSeenAt[name] = Number(persisted.serverSeenAt?.[name]) || null;
   }
-  let serverVersion = 1;
+  // The page asks for the flag list again when this number changes. It starts at the start
+  // time, so that a page that was open before a restart never meets a number it already has.
+  let serverVersion = startedAt;
 
   const lastInjection = {};
   const lastSignature = {};
@@ -282,6 +288,8 @@ export async function startDaemon({
         serverVersion += 1;
         saveState({ serverFlags, serverSeenAt });
       }
+      // New names, or a client that was updated: search the app again. Cheap when nothing changed.
+      refreshUsage();
     }
   }
 
@@ -392,6 +400,81 @@ export async function startDaemon({
     return out;
   }
 
+  // ---- which flags the app contains -----------------------------------------------------
+
+  // status: 'pending' (not searched yet), 'ready' or 'failed'. `names` are the names searched for.
+  let usage = { status: 'pending', used: null, names: null, error: null, key: null, at: null };
+  let usageRun = null;
+  let usageAgain = false;
+  // The search that is running now, in a thread of its own: { result, cancel }.
+  let usageScan = null;
+
+  /** Every name the page can list: what the servers send, and every override. */
+  function usageNames() {
+    const names = new Set(Object.keys(config.flags));
+    for (const name of UPSTREAM_NAMES) for (const flag of Object.keys(serverFlags[name] || {})) names.add(flag);
+    return [...names].sort();
+  }
+
+  /**
+   * Search the app again when its programs or the names have changed. One search at a time.
+   * A search that failed is tried again after `usageRetryMs`, also when nothing has changed:
+   * the failure can be one that goes away by itself.
+   */
+  function refreshUsage() {
+    // A flag response can still arrive while the daemon stops. No new search then.
+    if (stopped) return usageRun ?? Promise.resolve();
+    if (usageRun) {
+      usageAgain = true;
+      return usageRun;
+    }
+    usageRun = (async () => {
+      do {
+        usageAgain = false;
+        const names = usageNames();
+        if (names.length === 0) break;
+        let key;
+        try {
+          key = JSON.stringify([clientFiles(config.appPath), names]);
+        } catch (err) {
+          key = JSON.stringify(['unreadable', String(err?.message || err), names]);
+        }
+        const retryDue = usage.status === 'failed' && Date.now() - usage.at >= usageRetryMs;
+        if (key === usage.key && !retryDue) continue;
+        const scanStartedAt = Date.now();
+        try {
+          usageScan = scanClientInWorker({ appPath: config.appPath, names });
+          const result = await usageScan.result;
+          usage = { status: 'ready', used: result.used, names: new Set(names), error: null, key, at: Date.now() };
+          log(`flag usage: the app contains ${result.used.size} of ${names.length} flag names (${result.files} files, ${Date.now() - scanStartedAt} ms)`);
+        } catch (err) {
+          if (stopped) break;
+          const error = String(err?.message || err);
+          const sameFailure = usage.status === 'failed' && usage.error === error;
+          if (!sameFailure) log(`flag usage: not checked, nothing is left out (${error})`);
+          usage = { status: 'failed', used: null, names: null, error, key, at: Date.now() };
+          // The page already shows this failure: no new version of the list.
+          if (sameFailure) continue;
+        } finally {
+          usageScan = null;
+        }
+        serverVersion += 1;
+      } while (usageAgain && !stopped);
+    })().finally(() => {
+      usageRun = null;
+    });
+    return usageRun;
+  }
+
+  /** For the page: the names of the list that the app does not contain. */
+  function usageView() {
+    const unused = [];
+    if (usage.status === 'ready') {
+      for (const name of usageNames()) if (usage.names.has(name) && !usage.used.has(name)) unused.push(name);
+    }
+    return { status: usage.status, error: usage.error, at: usage.at, unused };
+  }
+
   function serverTypeOf(flag) {
     for (const name of UPSTREAM_NAMES) {
       const info = serverFlags[name]?.[flag];
@@ -453,6 +536,7 @@ export async function startDaemon({
     }
     // A page feature that was turned on or off changes which variables are wanted.
     if (enabledChanged || flagsChanged) await reconcileEnv();
+    if (flagsChanged) refreshUsage();
   }
 
   const getApp = cached(() => client.appInfo(config.appPath), 30_000);
@@ -585,6 +669,8 @@ export async function startDaemon({
         log(`overrides changed: ${Object.keys(config.flags).length} in total`);
         // A page feature that was turned on or off changes which variables are wanted.
         await reconcileEnv();
+        // A custom name is searched for too.
+        refreshUsage();
       }
       return { ok: true };
     },
@@ -617,9 +703,10 @@ export async function startDaemon({
     token,
     uiDir: path.join(ROOT, 'ui'),
     catalogFile,
+    notesFile,
     identity,
     getState,
-    getServerFlags: () => ({ version: serverVersion, flags: mergedServerFlags() }),
+    getServerFlags: () => ({ version: serverVersion, flags: mergedServerFlags(), usage: usageView() }),
     actions,
   });
 
@@ -665,6 +752,7 @@ export async function startDaemon({
   log(`listening: cloudcode ${ports.cloudcode}, aicode ${ports.aicode}, page files ${ports.devui}, ui ${ports.ui}`);
 
   await reconcileEnv();
+  refreshUsage();
 
   const pollTimer = setInterval(() => {
     if (stopped) return;
@@ -686,6 +774,9 @@ export async function startDaemon({
     stopped = true;
     clearInterval(pollTimer);
     clearInterval(envTimer);
+    // A search of the app that is still running is ended.
+    usageScan?.cancel();
+    await usageRun?.catch(() => {});
     // Variables first, listeners second.
     try {
       await clearEnv(runner, allEnv);

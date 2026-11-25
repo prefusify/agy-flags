@@ -183,13 +183,27 @@ pre { background: var(--chip); padding: 10px 12px; border-radius: 8px; overflow-
 .toolbar button[type="submit"] { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; white-space: nowrap; }
 .check { white-space: nowrap; color: var(--muted); }
 
-#list { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+/* The flag list: one section per group, then the folded list of flags that are left out. */
+.notes p { margin: 4px 0; }
+#list { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
 #list:empty { display: none; }
+.flag-group h3 { margin: 0 0 6px; font-size: 14.5px; }
+.flag-group .count { margin-left: 8px; color: var(--muted); font-weight: normal; font-size: 12.5px; }
+.flag-rows { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 .flag { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--line); }
 .flag:first-child { border-top: none; }
 .flag-main { flex: 1; min-width: 0; }
 .flag-name { overflow-wrap: anywhere; }
+.flag-desc { margin: 2px 0; font-size: 13.5px; }
 .flag-meta { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.removed { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.removed summary { cursor: pointer; color: var(--muted); }
+.removed h4 { margin: 12px 0 4px; font-size: 13px; }
+.removed ul { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+.removed li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.removed li:first-child { border-top: none; }
+.removed-control { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+button.small { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; font-size: 12px; }
 
 .seg { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { background: none; border: none; padding: 4px 10px; color: var(--muted); }

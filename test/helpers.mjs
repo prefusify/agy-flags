@@ -143,14 +143,23 @@ export function fakePageScript({ anchor = 'contextUsageIndicator:void 0,' } = {}
 }
 
 /**
- * A directory that looks like the app as far as the page files go: a "language server"
- * that is some bytes with a page archive inside. Returns the .app path.
+ * A directory that looks like the app as far as its programs go: a "language server" that is
+ * some bytes with a page archive inside, other programs in the same folder, and app.asar.
+ * `unpacked` are files below app.asar.unpacked: { 'folder/name.js': text }.
+ * Returns the .app path.
  */
-export function fakeApp(dir, files) {
+export function fakeApp(dir, files, { serverText = '', asar = 'asar', programs = {}, unpacked = {} } = {}) {
   const appPath = path.join(dir, 'Fake.app');
   const bin = path.join(appPath, 'Contents', 'Resources', 'bin');
   fs.mkdirSync(bin, { recursive: true });
   const padding = Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 31) % 251));
-  fs.writeFileSync(path.join(bin, 'language_server'), Buffer.concat([padding, makeZip(files), padding]));
+  fs.writeFileSync(path.join(bin, 'language_server'), Buffer.concat([padding, Buffer.from(serverText), makeZip(files), padding]));
+  for (const [name, text] of Object.entries(programs)) fs.writeFileSync(path.join(bin, name), text);
+  if (asar !== null) fs.writeFileSync(path.join(appPath, 'Contents', 'Resources', 'app.asar'), asar);
+  for (const [name, text] of Object.entries(unpacked)) {
+    const file = path.join(appPath, 'Contents', 'Resources', 'app.asar.unpacked', name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+  }
   return appPath;
 }

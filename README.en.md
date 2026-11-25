@@ -90,18 +90,27 @@ agy-flags ui
 
 This opens the settings page in your browser. After a one-step install there is no `agy-flags` command: the page was already opened for you, and later you open it from your bookmark or with the line under "To open the settings page again" above.
 
-1. Turn on a feature under "Features", or search under "All flags" and change any boolean flag.
+1. Turn on a feature under "Features", or find the flag you want to change in its group under "All flags".
 2. The page says that a restart is needed. Click "Restart Antigravity". Antigravity reads its flags only when it starts.
 3. To go back, set the flag back and restart again.
 
-"All flags" lists every flag the server sends (651 on 2.35.0). A boolean flag has three states: "Default" (what the server sends), "On" and "Off". An integer flag has an input field: a number is an override, and an empty field means the default. Flags of other types (string, ...) are read-only on the page.
+"All flags" lists only the flags that the client can use, grouped by function, each with a short description. On 2.35.1 (2026-11-25) the server sends 661 flags; the list shows 253 of them. A boolean flag has three states: "Default" (what the server sends), "On" and "Off". An integer flag has an input field: a number is an override, and an empty field means the default. Flags of other types (string, ...) are read-only on the page.
 
-The entries under "Features" were chosen on 2.35.0, after the candidate flags were turned on and looked at one by one. Only features with an effect that was seen, and that is useful in daily work, are listed. Each entry is marked "tested" or "untested":
+Two rules leave flags out of the list:
+
+- **No program of the client contains the name.** The daemon searches every program of Antigravity for each flag name: the language server, the desktop main process (`app.asar`, and the folder `app.asar.unpacked` next to it with the files that are not packed into it), the other programs in the `bin` folder, and the page script inside the language server. Other spellings that code uses (for example `enable_foo` or `EnableFoo`) count too. When no spelling is found, the client has no code that reads the flag, and changing it has no effect. On 2.35.1 this applies to 334 flags: 200 have `__` in the name and, judging by the names, belong to other Google products that use the same backend; 14 occur only in the `agy` command line, whose requests this tool does not change. Code can also put a flag name together from pieces before it reads the flag: only one template in the programs can build one of these names (`disable-%s-%s` can build `disable-search-tools`), so `src/flag-notes.json` marks that flag to be kept, and it is listed. After a client update the search runs again by itself (it takes a few seconds). When any program cannot be read, this rule leaves nothing out, and the page says why.
+- **The client knows the flag, but it does not work for you.** `src/flag-notes.json` marks these one by one, in two kinds: flags that work only inside Google (16 on 2.35.1), and flags that have no effect when turned on (59). Most of the second kind are: names that occur only in a built-in table of default values in the language server, with no code that reads them; features that the page code defines but never uses; and features that need a component that the public build does not have, or that work only on the web version or on Windows. Interface features that only require a "Google" user are not left out: the Feature Environment Override on the Developer settings page can set User type to Google, and according to the interface code such a feature then appears. The description says so; this was not tried in the app.
+
+The flags that are left out are folded away at the bottom of the list, with the reason. A reason can be wrong, so each of these flags can still be changed there; when a search finds a flag that is left out, this block opens by itself. When a changed flag is left out, the page says so at the top, and you can reset it at the bottom. Flags of a curated feature are never left out. The marks and descriptions in `src/flag-notes.json` were checked on one client version (2.35.1 at present); when the installed client has another version, the page says that they can be out of date.
+
+A name that is found only shows that the client knows the flag, not that turning it on has an effect. The descriptions come from reading the client code and were not tested one by one in the app. A description marked "inferred" rests only on the flag name and the value the server sends; no code that uses the flag was found.
+
+The entries under "Features" were chosen after the candidate flags were turned on and looked at one by one ("Token usage of each reply" on 2.35.1, the others on 2.35.0). Only features with an effect that was seen, and that is useful in daily work, are listed. Each entry is marked "tested" or "untested":
 
 - **tested**: the effect was seen in the app on the version shown. The description says what was seen. Where only the entry point was confirmed and the feature itself was not tried, the description says so.
 - **untested**: the effect is known from the app's page code only and was not seen in the app. At present no entry is like this.
 
-Flags that showed no effect are not under "Features"; "Verified and not verified" lists them. You can still turn them on under "All flags".
+Flags that showed no effect are not under "Features"; "Verified and not verified" lists them. Where the client code also shows that a flag has no effect, "All flags" folds it away under "left out" at the bottom, where it can still be changed; the others are in the list of "All flags" as before.
 
 Other commands:
 
@@ -217,6 +226,10 @@ Looked at again on 2.35.1:
 - The "file pane sidebar" was seen this time with `enable-enhanced-file-viewer` as the only file-related flag that was on. This adds the step that was missing on 2.35.0.
 - With the "redesigned sidebar" turned on this time, the grouping stayed at Project, which had been chosen by hand before. It did not change to Status again.
 
+Added to "Features" on 2.35.1:
+
+- "Token usage of each reply" (`enable-cost-accumulator`): after the flag was turned on and the app restarted, a dollar-sign button showed under each reply, and a click on it listed the tokens of the turn and the running total. The second turn on the same model showed Cache 14.7K (input 2.2K); the turn after a model change showed Cache 0. The cost column showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5. By the fourth turn the total input was 62.1K, so the zero is not a small number rounded down. After the flag was turned off and the app restarted, the button was gone from the earlier replies, and a new reply did not have it either.
+
 Effect on the command line `agy` (1.5.17):
 
 - Before the change, for comparison: when the command line ran through the old agy-flags, the flag responses it received were rewritten (9 flags).
@@ -279,13 +292,15 @@ Flags that were looked at and are not under "Features" (2.35.0):
 | `enable-battle-mode` | No new entry point was seen in the input box or the menus |
 | `enable-upload-html-artifact-to-drive`, `enable-resume-conversations-from-restart`, `enable-text-transitions`, `markdown-virtualize-long-documents`, `enable-marketplace-new-badge` | They were turned on, but their effect was not checked specifically |
 
-You can still turn these flags on under "All flags". Another set of flags cannot work in the public build: some require a Google-internal identity (for example `context-window-selector`), and for some the interface component is not shipped in the public build (for example code search).
+Where the client code also shows that one of these flags has no effect, "All flags" leaves it out, with the reason at the bottom of the list, where it can still be changed; the others are in the list of "All flags" as before. Another set of flags cannot work in the public build: some work only inside Google (for example `enable-fig-vcs-ui`, which is for Fig, a version control system inside Google), and for some the interface component is not shipped in the public build (for example `context-window-selector` and code search). "All flags" leaves out these two kinds of flags too.
 
 Not verified:
 
 - Features other than text chat, for example voice mode, remote control and the built-in browser. Only text chat was tried with the real app.
 - The tunnel for connection upgrades (WebSocket). It has a unit test only; no such request was seen in real traffic.
 - String flags. They are read-only on the page. You can write them into `flags` in `config.json` by hand, but this was not tested with the real app.
+- The descriptions and the left-out marks under "All flags". The descriptions come from reading the code and were not tested one by one in the app. Whether a feature that only requires a Google user really appears and works after User type is set to Google on the Developer settings page was not tried either. For the rule "no name found, so left out", the search result was checked on 2.35.1: it is the same as the result of an offline search for each name.
+- Why the cost column of "Token usage of each reply" shows $0.0000; this was not looked into. The other 6 models of the model menu, and turns with tool calls or subagents, were not looked at.
 - An app update while the "Context usage indicator" is on. By design the page files change together with the app's program, and they are served unchanged when they cannot be changed safely; this has unit tests only.
 - Antigravity was started with the `open` command and with the "Restart" button of agy-flags only. Starting it from the Dock or Launchpad was not tested separately.
 - Networks where Google is reachable only through a system proxy. The forwarder connects to Google directly and does not read proxy settings.
@@ -368,6 +383,8 @@ The tests do not call `launchctl`, do not touch the real settings directory, and
 - `src/client.mjs`: reads the app's version and run state, and restarts it.
 - `src/launchd.mjs`: the login item.
 - `src/catalog.json`: the "Features" list. Test results are welcome.
+- `src/usage.mjs`: searches the client programs for flag names, to find the flags that the client cannot use. The search runs in a thread of its own (`src/usage-worker.mjs`), so that it does not hold up the forwarding of requests.
+- `src/flag-notes.json`: the groups and descriptions of "All flags", and the flags that are left out by hand.
 - `ui/`: the settings page. No framework, no build step.
 - `install.sh`: the one-step install and uninstall script.
 

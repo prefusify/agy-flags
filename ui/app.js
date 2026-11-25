@@ -55,12 +55,29 @@
       flagServerAbsent: '服务端未下发',
       flagOverrideOn: '本工具：开',
       flagOverrideOff: '本工具：关',
-      searchPlaceholder: '搜索开关名',
+      searchPlaceholder: '搜索开关名或说明',
       onlyChanged: '只看已改动',
       addPlaceholder: '自定义开关名，例如 enable-some-feature',
       addButton: '添加并开启',
       allEmpty: '还没有看到服务端的开关清单。让 Antigravity 经过本工具启动一次，这里就会列出全部开关。',
-      allCount: '显示 {shown} / {total} 个。布尔开关和整数开关可以改；其他类型只读。',
+      allCount: '显示 {shown} 个开关，按功能分成 {groups} 组。布尔开关和整数开关可以改；其他类型只读。',
+      allLegend: '说明是读客户端的代码写的。标「推断」的只根据开关名和服务端下发的值写成，没有找到使用它的代码。',
+      inferred: '推断',
+      inferredTitle: '只根据开关名和服务端下发的值写成',
+      curatedBadge: '精选',
+      groupOther: '其他（暂无说明）',
+      usagePending: '正在核对客户端用到哪些开关……',
+      usageFailed: '没能核对客户端用到哪些开关（{error}），所以这次没有剔除客户端用不到的开关。',
+      removedSummary: '已剔除 {n} 个开关',
+      removedSummaryMatch: '已剔除 {n} 个开关，其中 {m} 个符合当前的搜索或筛选',
+      removedNote: '按现有的判断，这些开关改了也不起作用，所以不在上面的列表里。这里列出名字和原因，方便核对。判断可能有错或过时，所以每一行仍然可以改；改过的可以在这里恢复默认。',
+      removedUnused: '客户端的程序里找不到这个名字（{n} 个）',
+      removedInternal: '只在 Google 内部环境有效（{n} 个）',
+      removedNoEffect: '客户端认识这个名字，但打开后没有效果（{n} 个）',
+      removedChanged: '有 {n} 个改过的开关被剔除了（改了也不起作用）：{names}。可以在页面底部「已剔除」里修改或恢复默认。',
+      resetButton: '恢复默认',
+      notesVersion: '手工标出的剔除项和开关说明是在 Antigravity {checked} 上核对的，而安装的客户端是 {version}。它们可能已经过时；被剔除的开关仍然可以在页面底部改。',
+      notesMissing: '没能取到开关的分组和说明（{error}），所以下面不分组、没有说明，手工标出的剔除项也没有被剔除。页面会自动再试。',
       intPlaceholder: '默认',
       paramHint: '范围 {min}–{max}',
       keepAliveNone: '保活请求：常驻进程本次启动以来还没有看到。',
@@ -146,12 +163,29 @@
       flagServerAbsent: 'not sent by the server',
       flagOverrideOn: 'agy-flags: on',
       flagOverrideOff: 'agy-flags: off',
-      searchPlaceholder: 'Search flag names',
+      searchPlaceholder: 'Search flag names and descriptions',
       onlyChanged: 'Changed only',
       addPlaceholder: 'Custom flag name, for example enable-some-feature',
       addButton: 'Add and turn on',
       allEmpty: 'The server flag list has not been seen yet. Start Antigravity through agy-flags once and all flags are listed here.',
-      allCount: 'Showing {shown} of {total}. Boolean and integer flags can be changed; other types are read-only.',
+      allCount: 'Showing {shown} flags in {groups} groups. Boolean and integer flags can be changed; other types are read-only.',
+      allLegend: 'The descriptions come from reading the client code. A description marked "inferred" rests only on the flag name and the value the server sends; no code that uses the flag was found.',
+      inferred: 'inferred',
+      inferredTitle: 'Based only on the flag name and the value the server sends',
+      curatedBadge: 'curated',
+      groupOther: 'Other (no description yet)',
+      usagePending: 'Checking which flags the client uses…',
+      usageFailed: 'Could not check which flags the client uses ({error}), so flags that the client does not use are not left out this time.',
+      removedSummary: '{n} flags left out',
+      removedSummaryMatch: '{n} flags left out; {m} of them match the search or the filter',
+      removedNote: 'As far as is known, changing these flags has no effect, so they are not in the list above. They are listed here with the reason, so that you can check them. A reason can be wrong or out of date, so each flag can still be changed here; a changed one can be reset here.',
+      removedUnused: 'The client programs do not contain the name ({n})',
+      removedInternal: 'Works only inside Google ({n})',
+      removedNoEffect: 'The client knows the name, but turning it on has no effect ({n})',
+      removedChanged: 'Changed, but left out because changing them has no effect ({n}): {names}. You can change or reset them under "left out" at the bottom of the page.',
+      resetButton: 'Reset',
+      notesVersion: 'The flags that are left out by hand and the descriptions were checked on Antigravity {checked}, and the installed client is {version}. They can be out of date; a flag that is left out can still be changed at the bottom of the page.',
+      notesMissing: 'Could not load the groups and descriptions of the flags ({error}). The list below has no groups and no descriptions, and the flags that are left out by hand are not left out. The page tries again by itself.',
       intPlaceholder: 'default',
       paramHint: 'range {min}–{max}',
       keepAliveNone: 'Keep-alive requests: none seen since the daemon started.',
@@ -280,7 +314,12 @@
   let state = null;
   let server = { version: 0, flags: {} };
   let catalog = { groups: [] };
-  const view = { tab: 'curated', search: '', onlyChanged: false };
+  let notes = { groups: [], flags: {} };
+  /** Why the notes could not be loaded, or null. */
+  let notesError = null;
+  /** Counts the loads of the catalog and the notes, so that what is drawn from them is drawn again. */
+  let loads = 0;
+  const view = { tab: 'curated', search: '', onlyChanged: false, removedOpen: false };
   const drawn = {};
   /** What the user typed into a number field of a feature that is still off. */
   const drafts = {};
@@ -365,6 +404,51 @@
 
   const timeOf = (ms) => (ms ? new Date(ms).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB') : '');
   const hasOverride = (name) => Object.hasOwn(state.overrides, name);
+  const textOf = (texts) => texts?.[lang] || texts?.en || '';
+  const noteOf = (name) => (Object.hasOwn(notes.flags || {}, name) ? notes.flags[name] : null);
+
+  /** Every flag of a curated feature. Such a flag is never left out of the list. */
+  function curatedFlags() {
+    const names = new Set();
+    for (const group of catalog.groups || []) {
+      for (const name of group.flags || []) names.add(name);
+      for (const param of group.params || []) names.add(param.flag);
+    }
+    return names;
+  }
+
+  /** The last answer of listModel() and what it was made from. */
+  let modelCache = null;
+
+  /**
+   * Which flags the list shows, and which it leaves out and why:
+   * 'unused' (no program of the client contains the name), 'internal' or 'noEffect' (from the notes).
+   */
+  function listModel() {
+    // The same answer as long as its inputs are the same: every drawing of the page asks for it.
+    const overridesText = JSON.stringify(state.overrides);
+    if (modelCache && modelCache.server === server && modelCache.loads === loads && modelCache.overridesText === overridesText) {
+      return modelCache.value;
+    }
+    const names = [...new Set([...Object.keys(server.flags), ...Object.keys(state.overrides)])].sort((a, b) => a.localeCompare(b));
+    const unused = new Set(server.usage?.unused || []);
+    const curated = curatedFlags();
+    const listed = [];
+    const removed = { unused: [], internal: [], noEffect: [] };
+    for (const name of names) {
+      const note = noteOf(name);
+      let reason = null;
+      // keep: the name is not in the programs, but they may build it from pieces at run time.
+      if (curated.has(name)) reason = null;
+      else if (unused.has(name) && note?.keep !== true) reason = 'unused';
+      else if (note?.hide === 'internal' || note?.hide === 'noEffect') reason = note.hide;
+      if (reason) removed[reason].push(name);
+      else listed.push(name);
+    }
+    const value = { names, listed, removed, curated };
+    modelCache = { server, loads, overridesText, value };
+    return value;
+  }
 
   /** What the server sends for a flag: true, false, or null when it is absent or not boolean. */
   function serverBool(name) {
@@ -497,9 +581,8 @@
   }
 
   function renderTabs() {
-    const total = new Set([...Object.keys(server.flags), ...Object.keys(state.overrides)]).size;
     $('tab-curated').textContent = t('tabCurated');
-    $('tab-all').textContent = t('tabAll', { n: total });
+    $('tab-all').textContent = t('tabAll', { n: listModel().listed.length });
     for (const tab of ['curated', 'all']) {
       $(`tab-${tab}`).setAttribute('aria-selected', String(view.tab === tab));
       $(`panel-${tab}`).hidden = view.tab !== tab;
@@ -594,65 +677,175 @@
     });
   }
 
-  function renderAll() {
-    draw('all', [lang, view.search, view.onlyChanged, state.overrides, server.version], () => {
-      const names = [...new Set([...Object.keys(server.flags), ...Object.keys(state.overrides)])].sort((a, b) => a.localeCompare(b));
-      const needle = view.search.trim().toLowerCase();
-      const shown = names.filter((name) => {
-        if (view.onlyChanged && !hasOverride(name)) return false;
-        return !needle || name.toLowerCase().includes(needle);
+  /** The type of a flag. A flag the server does not send has the type of the override. */
+  function flagType(name) {
+    const info = server.flags[name];
+    return info ? info.type : typeof state.overrides[name] === 'number' ? 'intValue' : 'boolValue';
+  }
+
+  /** What changes one flag: three states for a boolean, a number field for an integer. */
+  function flagControl(name) {
+    const type = flagType(name);
+    if (type === 'boolValue') {
+      const current = hasOverride(name) ? (state.overrides[name] ? 'on' : 'off') : 'default';
+      const seg = (value, label) =>
+        h('button', { type: 'button', 'aria-pressed': String(current === value), dataset: { name, value } }, label);
+      return h('div', { class: 'seg', role: 'group', 'aria-label': name }, seg('default', t('segDefault')), seg('on', t('segOn')), seg('off', t('segOff')));
+    }
+    if (type === 'intValue') {
+      // An empty field means "what the server sends".
+      return h('input', {
+        class: 'int',
+        type: 'number',
+        inputmode: 'numeric',
+        step: 1,
+        'aria-label': name,
+        placeholder: t('intPlaceholder'),
+        value: hasOverride(name) ? state.overrides[name] : null,
+        dataset: { int: name },
       });
-      $('all-note').textContent =
-        Object.keys(server.flags).length === 0 && names.length === 0
-          ? t('allEmpty')
-          : t('allCount', { shown: shown.length, total: names.length });
+    }
+    return h('span', { class: 'badge' }, t('readOnly'));
+  }
 
-      const list = $('list');
-      const rows = [];
-      for (const name of shown) {
-        const info = server.flags[name];
-        // A flag the server does not send has the type of the override.
-        const type = info ? info.type : typeof state.overrides[name] === 'number' ? 'intValue' : 'boolValue';
-        const meta = [serverLabel(name)];
-        if (info?.sources) meta.push(info.sources.join(', '));
-        if (info?.differs) meta.push(t('differs'));
+  /** One row of the flag list: name, badges, description, what the server sends, the control. */
+  function flagRow(name, curated) {
+    const info = server.flags[name];
+    const note = noteOf(name);
+    const meta = [serverLabel(name)];
+    if (info?.sources) meta.push(info.sources.join(', '));
+    if (info?.differs) meta.push(t('differs'));
+    const badges = [];
+    if (hasOverride(name)) badges.push(h('span', { class: 'badge changed' }, t('changed')));
+    if (curated.has(name)) badges.push(h('span', { class: 'badge tested' }, t('curatedBadge')));
+    if (note && note.basis === 'name') badges.push(h('span', { class: 'badge', title: t('inferredTitle') }, t('inferred')));
+    const description = textOf(note?.text);
+    return h(
+      'div',
+      { class: 'flag' },
+      h(
+        'div',
+        { class: 'flag-main' },
+        h('div', { class: 'flag-name' }, h('span', { class: 'mono' }, name), ...badges.flatMap((badge) => [' ', badge])),
+        description ? h('div', { class: 'flag-desc' }, description) : null,
+        h('div', { class: 'flag-meta' }, meta.join(' · '))
+      ),
+      flagControl(name)
+    );
+  }
 
-        let control;
-        if (type === 'boolValue') {
-          const current = hasOverride(name) ? (state.overrides[name] ? 'on' : 'off') : 'default';
-          const seg = (value, label) =>
-            h('button', { type: 'button', 'aria-pressed': String(current === value), dataset: { name, value } }, label);
-          control = h('div', { class: 'seg', role: 'group', 'aria-label': name }, seg('default', t('segDefault')), seg('on', t('segOn')), seg('off', t('segOff')));
-        } else if (type === 'intValue') {
-          // An empty field means "what the server sends".
-          control = h('input', {
-            class: 'int',
-            type: 'number',
-            inputmode: 'numeric',
-            step: 1,
-            'aria-label': name,
-            placeholder: t('intPlaceholder'),
-            value: hasOverride(name) ? state.overrides[name] : null,
-            dataset: { int: name },
-          });
-        } else {
-          control = h('span', { class: 'badge' }, t('readOnly'));
-        }
-        rows.push(
+  /**
+   * The flags that are left out, with the reason, folded away at the end of the list.
+   * While a search or the "changed only" filter is on (`filtering`), the heading says how many
+   * of them match, and the block is open when some do: a search must not hide what it found.
+   * Each flag keeps its control: a reason can be wrong, or out of date after a client update.
+   */
+  function removedBlock(removed, matches, filtering) {
+    const reasons = [
+      ['unused', 'removedUnused'],
+      ['internal', 'removedInternal'],
+      ['noEffect', 'removedNoEffect'],
+    ];
+    const total = reasons.reduce((n, [reason]) => n + removed[reason].length, 0);
+    if (total === 0) return null;
+    const parts = [];
+    let matched = 0;
+    for (const [reason, key] of reasons) {
+      const names = removed[reason].filter(matches);
+      matched += names.length;
+      if (names.length === 0) continue;
+      // Changed flags first: they are the ones to reset.
+      names.sort((a, b) => Number(hasOverride(b)) - Number(hasOverride(a)) || a.localeCompare(b));
+      const items = names.map((name) => {
+        const why = reason === 'unused' ? '' : textOf(noteOf(name)?.text);
+        return h(
+          'li',
+          null,
+          h('span', { class: 'mono' }, name),
+          hasOverride(name) ? h('span', { class: 'badge changed' }, t('changed')) : null,
+          why ? h('span', { class: 'muted' }, why) : null,
           h(
-            'div',
-            { class: 'flag' },
-            h(
-              'div',
-              { class: 'flag-main' },
-              h('div', { class: 'flag-name mono' }, name, hasOverride(name) ? ' ' : null, hasOverride(name) ? h('span', { class: 'badge changed' }, t('changed')) : null),
-              h('div', { class: 'flag-meta' }, meta.join(' · '))
-            ),
-            control
+            'span',
+            { class: 'removed-control' },
+            flagControl(name),
+            // A boolean is reset with "Default". The other types get a button for it.
+            hasOverride(name) && flagType(name) !== 'boolValue'
+              ? h('button', { type: 'button', class: 'small', dataset: { name, value: 'default' } }, t('resetButton'))
+              : null
+          )
+        );
+      });
+      parts.push(h('h4', null, t(key, { n: names.length })), h('ul', null, ...items));
+    }
+    const heldOpen = filtering && matched > 0;
+    const details = h(
+      'details',
+      { class: 'removed', open: view.removedOpen || heldOpen },
+      h('summary', null, filtering ? t('removedSummaryMatch', { n: total, m: matched }) : t('removedSummary', { n: total })),
+      h('p', { class: 'muted' }, t('removedNote')),
+      ...parts
+    );
+    details.addEventListener('toggle', () => {
+      // Open because of a match is not the user's choice: it must not stay open afterwards.
+      if (!heldOpen) view.removedOpen = details.open;
+    });
+    return details;
+  }
+
+  function renderAll() {
+    draw('all', [lang, view.search, view.onlyChanged, state.overrides, server.version, loads, notesError, state.app?.version], () => {
+      const { names, listed, removed, curated } = listModel();
+      const needle = view.search.trim().toLowerCase();
+      const matches = (name) => {
+        if (view.onlyChanged && !hasOverride(name)) return false;
+        if (!needle) return true;
+        return name.toLowerCase().includes(needle) || textOf(noteOf(name)?.text).toLowerCase().includes(needle);
+      };
+      const shown = listed.filter(matches);
+
+      // Groups in the order of the notes; flags without a known group go last.
+      const known = new Set((notes.groups || []).map((group) => group.id));
+      const byGroup = new Map();
+      for (const name of shown) {
+        const group = noteOf(name)?.group;
+        const id = known.has(group) ? group : 'other';
+        if (!byGroup.has(id)) byGroup.set(id, []);
+        byGroup.get(id).push(name);
+      }
+      const order = [...(notes.groups || []), { id: 'other', title: { [lang]: t('groupOther') } }];
+      const sections = [];
+      for (const group of order) {
+        const members = byGroup.get(group.id);
+        if (!members) continue;
+        sections.push(
+          h(
+            'section',
+            { class: 'flag-group' },
+            h('h3', null, textOf(group.title) || group.id, h('span', { class: 'count' }, String(members.length))),
+            h('div', { class: 'flag-rows' }, ...members.map((name) => flagRow(name, curated)))
           )
         );
       }
-      list.replaceChildren(...rows);
+
+      const lines = [];
+      if (Object.keys(server.flags).length === 0 && names.length === 0) lines.push(t('allEmpty'));
+      else {
+        const usage = server.usage || { status: 'pending' };
+        if (usage.status === 'pending') lines.push(t('usagePending'));
+        if (usage.status === 'failed') lines.push(t('usageFailed', { error: usage.error || '?' }));
+        const changedOut = [...removed.unused, ...removed.internal, ...removed.noEffect].filter(hasOverride).sort();
+        if (changedOut.length > 0) lines.push(t('removedChanged', { n: changedOut.length, names: changedOut.join(', ') }));
+        // The marks made by hand are for one client version. The search of the app is always for the installed one.
+        const checked = typeof notes.checked === 'string' ? notes.checked : '';
+        const version = state.app?.version || '';
+        if (checked && version && checked !== version) lines.push(t('notesVersion', { checked, version }));
+        if (notesError) lines.push(t('notesMissing', { error: notesError }));
+        lines.push(t('allCount', { shown: shown.length, groups: sections.length }));
+        if (!notesError) lines.push(t('allLegend'));
+      }
+      $('all-note').replaceChildren(...lines.map((line) => h('p', null, line)));
+      const filtering = needle !== '' || view.onlyChanged;
+      $('list').replaceChildren(...sections, ...[removedBlock(removed, matches, filtering)].filter(Boolean));
     });
   }
 
@@ -783,6 +976,30 @@
   renderStatic();
 
   let loaded = false;
+  let notesLoaded = false;
+  /**
+   * The groups and descriptions of the flags. The page works without them (one group, no
+   * descriptions), so a daemon that cannot give them does not keep the page from showing.
+   * It is asked again at the next tick.
+   */
+  async function loadNotes() {
+    try {
+      const data = await api('GET', '/api/flag-notes');
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('bad answer');
+      notes = {
+        ...data,
+        groups: Array.isArray(data.groups) ? data.groups : [],
+        flags: data.flags && typeof data.flags === 'object' && !Array.isArray(data.flags) ? data.flags : {},
+      };
+      notesError = null;
+      notesLoaded = true;
+      loads += 1;
+    } catch (err) {
+      // No token or no daemon: the page as a whole cannot work, and says so.
+      if (err?.unauthorized || err?.offline) throw err;
+      notesError = err?.message || String(err);
+    }
+  }
   /** Load everything once, then keep the state fresh. Without a token nothing is asked from the daemon. */
   async function tick() {
     if (!token) {
@@ -795,8 +1012,10 @@
     }
     if (!loaded) {
       catalog = await api('GET', '/api/catalog');
+      loads += 1;
       loaded = true;
     }
+    if (!notesLoaded) await loadNotes();
     await refresh();
   }
 

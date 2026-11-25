@@ -80,6 +80,21 @@
       }
     },
     {
+      "id": "turn-token-usage",
+      "flags": [
+        "enable-cost-accumulator"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "每条回复的 token 用量",
+        "en": "Token usage of each reply"
+      },
+      "description": {
+        "zh": "每条回复下面多一个美元符号按钮。点开后显示这一轮的 token 数和累计数：输入、从提示词缓存读出的部分（Cache）、输出，输出再分成思考和回复，以及模型生成了几次。Cache 一行能看出缓存有没有命中：实测同一个模型的第二轮显示 Cache 14.7K，换了模型的那一轮是 0。每个数字旁边还有一栏按公开 API 价格估算的费用，但在 2.35.1 上，Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 都显示 $0.0000，不能当作费用。关掉这一项后，已有回复下面的按钮也不再显示。只在纯文字的短对话里看过，没有看带工具调用或子代理的回合。",
+        "en": "Adds a dollar-sign button under each reply. It opens the token counts of that turn and the running total: input, the part read from the prompt cache (Cache), and output, with output split into thinking and response, and how many times the model generated. The Cache row shows whether the cache was hit: in the test, the second turn on the same model showed Cache 14.7K, and the turn after a model change showed 0. Next to each number there is also a cost estimated from public API prices, but on 2.35.1 it showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5, so do not read it as a cost. When this is turned off, the button is gone from earlier replies too. Seen only in short text-only conversations; turns with tool calls or subagents were not looked at."
+      }
+    },
+    {
       "id": "conversation-forking",
       "flags": [
         "enable-conversation-forking",

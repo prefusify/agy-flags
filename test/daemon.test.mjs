@@ -6,8 +6,8 @@ import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
 import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, waitFor } from './helpers.mjs';
 
-/** A fake Google: answers the two flag paths and one ordinary path. */
-function fakeUpstream() {
+/** A fake Google: answers the two flag paths and one ordinary path. `flags` is its flag list. */
+function fakeUpstream(flags = [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }]) {
   return http.createServer((req, res) => {
     const pathname = req.url.split('?')[0];
     req.resume();
@@ -16,7 +16,7 @@ function fakeUpstream() {
       if (pathname.endsWith(':fetchAvailableModels')) {
         res.end(JSON.stringify({ models: { one: {}, two: { modelExperiments: { experiments: { other: { boolValue: true } } } } } }));
       } else if (pathname.endsWith(':listExperiments')) {
-        res.end(JSON.stringify({ flags: [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }] }));
+        res.end(JSON.stringify({ flags }));
       } else if (pathname.endsWith(':fetchConfig')) {
         res.end(JSON.stringify({ experimentConfig: { experimentFlags: [{ name: 'x', boolValue: false }] } }));
       } else {
@@ -42,22 +42,36 @@ function fakeClient(state = {}) {
 
 async function setup(
   t,
-  { flags = { x: true }, enabled = true, runner = fakeRunner(), client = fakeClient(), start = true, pageScript = fakePageScript(), app = true } = {}
+  {
+    flags = { x: true },
+    enabled = true,
+    runner = fakeRunner(),
+    client = fakeClient(),
+    start = true,
+    pageScript = fakePageScript(),
+    app = true,
+    appOptions = {},
+    upstreamFlags,
+  } = {}
 ) {
   const home = tempHome();
   const before = process.env.AGY_FLAGS_HOME;
   process.env.AGY_FLAGS_HOME = home;
-  const upstream = fakeUpstream();
+  const upstream = fakeUpstream(upstreamFlags);
   const upstreamPort = await listen(upstream);
   const [cloudcode, aicode, ui, devui] = await freePorts(4);
   const origin = `http://127.0.0.1:${upstreamPort}`;
   // The "app" is a directory with a page archive in its language server, or nothing at all.
   const appPath = app
-    ? fakeApp(home, [
-        { name: 'index.html', data: Buffer.from('<!doctype html><script src="/main.js"></script>') },
-        { name: 'main.js', data: Buffer.from(pageScript) },
-        { name: 'icons/a.svg', data: Buffer.from('<svg/>') },
-      ])
+    ? fakeApp(
+        home,
+        [
+          { name: 'index.html', data: Buffer.from('<!doctype html><script src="/main.js"></script>') },
+          { name: 'main.js', data: Buffer.from(pageScript) },
+          { name: 'icons/a.svg', data: Buffer.from('<svg/>') },
+        ],
+        appOptions
+      )
     : `${home}/Missing.app`;
   fs.writeFileSync(
     files.config(),
@@ -492,4 +506,81 @@ test('an unknown sender next to a working desktop app raises no warning', async 
   await waitFor(async () => (await ctx.handle.getState()).client.routed === true);
   assert.deepEqual(await codes(), []);
   assert.equal((await ctx.handle.getState()).traffic.byClient.other, 1);
+});
+
+test('the server flag list says which names the app does not contain, and searches again for new names', async (t) => {
+  // Every name that must be found is written into the page script or into a program, and has
+  // more than one character: no name is found by chance in other bytes of the fake app.
+  const ctx = await setup(t, {
+    flags: { 'page-flag': true, 'custom-gone': true },
+    pageScript: `${fakePageScript()}var g={customFlag:"page-flag"};`,
+    appOptions: { serverText: 'server-seen', asar: 'asar-flag' },
+    upstreamFlags: [
+      { name: 'server-seen', boolValue: false },
+      { name: 'server-gone', boolValue: false },
+    ],
+  });
+  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  const list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
+  // The first search ends before the server names arrive: wait for one of them.
+  await waitFor(async () => (await list()).usage.unused.includes('server-gone'));
+  const first = await list();
+  assert.equal(first.usage.status, 'ready');
+  assert.deepEqual(first.usage.unused, ['custom-gone', 'server-gone']);
+  assert.ok(ctx.logs.some((line) => line.startsWith('flag usage: the app contains')));
+
+  // A new custom name is searched for, and the page sees a new version of the list.
+  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"asar-flag":true,"also-gone":true}}' });
+  await waitFor(async () => (await list()).usage.unused.includes('also-gone'));
+  const second = await list();
+  assert.deepEqual(second.usage.unused, ['also-gone', 'custom-gone', 'server-gone']);
+  assert.ok(second.version > first.version);
+});
+
+/**
+ * A daemon whose search of the app fails: app.asar cannot be opened. Its size and its time
+ * stay the same, and the names are the ones the fake server sends, so for the daemon nothing
+ * changes between the failure and the next flag response.
+ */
+async function setupFailedSearch(t, options) {
+  const ctx = await setup(t, { flags: { x: true, n: 3 }, start: false });
+  const asar = `${ctx.home}/Fake.app/Contents/Resources/app.asar`;
+  fs.chmodSync(asar, 0o000);
+  ctx.handle = await ctx.start(options);
+  const headers = { 'x-agy-flags-token': ctx.handle.token };
+  ctx.list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
+  await waitFor(async () => (await ctx.list()).usage.status === 'failed');
+  assert.match((await ctx.list()).usage.error, /EACCES/);
+  // The file can be read again. A flag response then asks for the search.
+  fs.chmodSync(asar, 0o644);
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  await waitFor(async () => (await ctx.handle.getState()).server.count === 2);
+  return ctx;
+}
+
+// The user root can open every file, so the failure cannot be made.
+const isRoot = process.getuid?.() === 0;
+
+test('a search of the app that failed is tried again later, also when nothing has changed', { skip: isRoot }, async (t) => {
+  const ctx = await setupFailedSearch(t, { usageRetryMs: 0 });
+  await waitFor(async () => (await ctx.list()).usage.status === 'ready');
+  assert.deepEqual((await ctx.list()).usage.unused, []);
+});
+
+test('a search of the app that failed is not tried again before the waiting time is over', { skip: isRoot }, async (t) => {
+  const ctx = await setupFailedSearch(t, { usageRetryMs: 60_000 });
+  // Much longer than a search of the fake app takes in its own thread.
+  await sleep(400);
+  assert.equal((await ctx.list()).usage.status, 'failed');
+});
+
+test('without app.asar nothing is left out, and the reason is given', async (t) => {
+  const ctx = await setup(t, { flags: { x: true, 'custom-gone': true }, appOptions: { asar: null } });
+  const headers = { 'x-agy-flags-token': ctx.handle.token };
+  const list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
+  await waitFor(async () => (await list()).usage.status === 'failed');
+  const result = await list();
+  assert.deepEqual(result.usage.unused, []);
+  assert.match(result.usage.error, /app\.asar|ENOENT/);
 });

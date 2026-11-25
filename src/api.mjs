@@ -42,6 +42,14 @@ function sendJson(res, status, body) {
   res.end(text);
 }
 
+function readJsonFile(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
 function tokenMatches(given, expected) {
   if (typeof given !== 'string') return false;
   const a = Buffer.from(given, 'utf8');
@@ -83,13 +91,14 @@ function readJsonBody(req) {
  * @param {string} options.token
  * @param {string} options.uiDir         Directory that holds index.html, app.js and style.css.
  * @param {string} [options.catalogFile] JSON file served at /api/catalog.
+ * @param {string} [options.notesFile]   JSON file served at /api/flag-notes.
  * @param {() => object} [options.identity]
  * @param {() => Promise<object>} options.getState
  * @param {() => object} options.getServerFlags
  * @param {{ setFlags: Function, setEnabled: Function, restartClient: Function }} options.actions
  * @returns {http.Server} A server that is not listening yet.
  */
-export function createApi({ token, uiDir, catalogFile, identity = () => ({}), getState, getServerFlags, actions }) {
+export function createApi({ token, uiDir, catalogFile, notesFile, identity = () => ({}), getState, getServerFlags, actions }) {
   let server;
 
   function ownOrigins() {
@@ -115,13 +124,13 @@ export function createApi({ token, uiDir, catalogFile, identity = () => ({}), ge
         return;
       }
       if (pathname === '/api/catalog') {
-        let catalog = { groups: [] };
-        try {
-          catalog = JSON.parse(fs.readFileSync(catalogFile, 'utf8'));
-        } catch {
-          // an unreadable catalog only empties the curated tab
-        }
-        sendJson(res, 200, catalog);
+        // An unreadable catalog only empties the curated tab.
+        sendJson(res, 200, readJsonFile(catalogFile, { groups: [] }));
+        return;
+      }
+      if (pathname === '/api/flag-notes') {
+        // Without notes the flag list is shown in one group, without descriptions.
+        sendJson(res, 200, readJsonFile(notesFile, { groups: [], flags: {} }));
         return;
       }
       sendJson(res, 404, { error: 'not found' });
