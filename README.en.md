@@ -227,8 +227,8 @@ The one-step install script:
 
 - Tested from the source folder on this machine: install when the computer has Node.js; uninstall, with and without `--purge`; uninstall when the program files are already gone.
 - The case without Node.js was tested with a download address set up on this machine. With a wrong checksum the install stops and leaves nothing behind. With the right checksum, Node.js goes into the folder of agy-flags, the login item uses it, and the daemon starts. On a system older than 13.5 the script explains and stops.
-- Running the script through a pipe (`… | bash`) was tested too, with an archive on this machine in place of the download from GitHub: the script unpacks the archive, installs from a temporary folder and deletes that folder afterwards.
-- **Not tested**: the two real downloads over the network, that is agy-flags from GitHub and Node.js from nodejs.org.
+- The real one-step command (`curl … | bash`) was tested on a computer that already had Node.js: the script and agy-flags were both downloaded from GitHub, the install succeeded, the installed program was the same as the one in the repository, and the temporary folder was deleted. `status` run in the same way worked too.
+- **Not tested**: the real download of Node.js from nodejs.org. That step was tested only with a download address set up on this machine.
 
 The results below are from 2.35.0.
 
