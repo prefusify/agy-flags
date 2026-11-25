@@ -228,7 +228,8 @@ The one-step install script:
 - Tested from the source folder on this machine: install when the computer has Node.js; uninstall, with and without `--purge`; uninstall when the program files are already gone.
 - The case without Node.js was tested with a download address set up on this machine. With a wrong checksum the install stops and leaves nothing behind. With the right checksum, Node.js goes into the folder of agy-flags, the login item uses it, and the daemon starts. On a system older than 13.5 the script explains and stops.
 - The real one-step command (`curl … | bash`) was tested on a computer that already had Node.js: the script and agy-flags were both downloaded from GitHub, the install succeeded, the installed program was the same as the one in the repository, and the temporary folder was deleted. `status` run in the same way worked too.
-- **Not tested**: the real download of Node.js from nodejs.org. That step was tested only with a download address set up on this machine.
+- The real one-step command was also tested in an environment where no Node.js can be found (a Mac with Apple silicon): the script downloaded Node.js 24.22.3 from nodejs.org, the checksum matched, and only the `node` program and the licence file went into the folder of agy-flags. The login item uses that Node.js, the daemon started, and Antigravity kept running through agy-flags. The unit tests of this project all pass on that Node.js.
+- **Not tested**: a Mac with an Intel processor. The checksum of the Intel build of Node.js in the script is taken from the list that nodejs.org publishes, but the script did not run on an Intel Mac.
 
 The results below are from 2.35.0.
 

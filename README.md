@@ -228,7 +228,8 @@ unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 - 用本机的源码文件夹测过：电脑上有 Node.js 时直接安装；卸载（带和不带 `--purge`）；程序文件已经不在时的卸载。
 - 没有 Node.js 的情况，用本机搭的下载地址测过：校验值不符时停止安装，什么都不留下；校验值相符时，Node.js 被放进本工具的文件夹，登录自启项用的就是它，常驻进程正常启动。系统版本低于 13.5 时给出说明并停止。
 - 真实的一键命令（`curl … | bash`）在一台已经有 Node.js 的电脑上测过：脚本和本工具都从 GitHub 下载，安装成功，装上的程序和仓库里的一致，临时文件夹被删掉。用同样方式运行 `status` 也正常。
-- **没有测**：从 nodejs.org 真实下载 Node.js。这一步只用本机搭的下载地址测过。
+- 真实的一键命令在找不到 Node.js 的环境里也测过（Apple 芯片的 Mac）：脚本从 nodejs.org 下载了 Node.js 24.22.3，校验值相符，只把 `node` 程序和许可文件放进本工具的文件夹；登录自启项用的就是它，常驻进程正常启动，Antigravity 照常经过本工具。本项目的单元测试在这份 Node.js 上全部通过。
+- **没有测**：Intel 芯片的 Mac。脚本里 Intel 版 Node.js 的校验值取自 nodejs.org 公布的清单，但没有在 Intel 的 Mac 上跑过。
 
 以下是 2.35.0 上的结果。
 
