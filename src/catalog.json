@@ -106,14 +106,14 @@
         "enable-sidebar-redesign",
         "enable-sidebar-inbox-mode"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "新版侧边栏",
         "en": "Redesigned sidebar"
       },
       "description": {
-        "zh": "侧边栏换成新版：对话按状态分组（Unread、Idle 等），每组只显示最近几条。标题旁多一个「Customize Sidebar」菜单，里面有 Inbox Mode、Group By、Sort By、Archived Only。原来的 Customizations 入口改名为 Plugins。Inbox Mode 这一项来自第二个开关，它要和新版侧边栏一起开才出现。注意：新版侧边栏会把分组方式设成 Status，关掉这一项后旧侧边栏仍按 Status 分组；想恢复，在侧边栏的 Display Options → Group By 里选回 Project。",
-        "en": "Replaces the sidebar with the new one: conversations are grouped by status (Unread, Idle and so on), and each group shows only the most recent ones. Next to the heading there is a \"Customize Sidebar\" menu with Inbox Mode, Group By, Sort By and Archived Only. The Customizations entry is renamed Plugins. Inbox Mode comes from the second flag; it only appears together with the new sidebar. Note: the new sidebar sets the grouping to Status, and the old sidebar keeps that grouping after you turn this off; to go back, choose Project under Display Options → Group By in the sidebar."
+        "zh": "侧边栏换成新版：对话按状态分组（Unread、Idle 等），每组只显示最近几条。标题旁多一个「Customize Sidebar」菜单，里面有 Inbox Mode、Group By、Sort By、Archived Only。原来的 Customizations 入口改名为 Plugins。Inbox Mode 这一项来自第二个开关，它要和新版侧边栏一起开才出现。注意：第一次打开时，新版侧边栏把分组方式设成了 Status，关掉这一项后旧侧边栏仍按 Status 分组；想恢复，在侧边栏的 Display Options → Group By 里选回 Project。手动选回 Project 之后再打开这一项，分组方式保持 Project。",
+        "en": "Replaces the sidebar with the new one: conversations are grouped by status (Unread, Idle and so on), and each group shows only the most recent ones. Next to the heading there is a \"Customize Sidebar\" menu with Inbox Mode, Group By, Sort By and Archived Only. The Customizations entry is renamed Plugins. Inbox Mode comes from the second flag; it only appears together with the new sidebar. Note: when it was turned on for the first time, the new sidebar set the grouping to Status, and the old sidebar kept that grouping after this was turned off; to go back, choose Project under Display Options → Group By in the sidebar. After Project was chosen by hand, turning this on again kept the grouping at Project."
       }
     },
     {
@@ -121,7 +121,7 @@
       "flags": [
         "enable-conversation-groups"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "对话分组",
         "en": "Conversation groups"
@@ -136,7 +136,7 @@
       "flags": [
         "enable-resource-manager"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "后台任务一览",
         "en": "Overview of background tasks"
@@ -151,7 +151,7 @@
       "flags": [
         "configure-artifact-width"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "调整 Markdown 工件宽度",
         "en": "Configurable Markdown artifact width"
@@ -166,7 +166,7 @@
       "flags": [
         "enable-open-with"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "用其他应用打开文件",
         "en": "Open a file with another app"
@@ -181,14 +181,14 @@
       "flags": [
         "enable-enhanced-file-viewer"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "文件面板侧栏：筛选和工件列表",
         "en": "File pane sidebar: filter and artifact list"
       },
       "description": {
-        "zh": "在侧面板里查看文件时，文件面板自带的侧栏（Toggle sidebar）除了原有的文件树，多出「Artifacts」一栏和「Filter files...」筛选框。测试时还同时开着另外 4 个和文件有关的开关；从界面代码看，这两处只由这一个开关控制。这个开关在界面代码里还有十几处用到，对外版本又缺少它的一部分组件，其他地方的效果没有逐一确认。",
-        "en": "While a file is shown in the side panel, the sidebar of the file pane (Toggle sidebar) gets an \"Artifacts\" section and a \"Filter files...\" box, next to the file tree it already had. Four other file-related flags were on during the test; according to the page code, these two additions depend on this flag only. The page code uses this flag in a dozen more places, and the public build lacks part of its components; the effect in those other places was not checked one by one."
+        "zh": "在侧面板里查看文件时，文件面板自带的侧栏（Toggle sidebar）除了原有的文件树，多出「Artifacts」一栏和「Filter files...」筛选框。在 2.35.1 上只开这一个和文件有关的开关时，就看到了这两处。这个开关在界面代码里还有十几处用到，对外版本又缺少它的一部分组件，其他地方的效果没有逐一确认。",
+        "en": "While a file is shown in the side panel, the sidebar of the file pane (Toggle sidebar) gets an \"Artifacts\" section and a \"Filter files...\" box, next to the file tree it already had. On 2.35.1 both additions showed with this one file-related flag on and no other. The page code uses this flag in a dozen more places, and the public build lacks part of its components; the effect in those other places was not checked one by one."
       }
     },
     {
@@ -196,7 +196,7 @@
       "flags": [
         "enable-composer-connectors"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "输入框里的连接器入口",
         "en": "Connectors in the input box"
@@ -211,7 +211,7 @@
       "flags": [
         "enable-per-conversation-telemetry-toggle"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "按对话开关遥测",
         "en": "Telemetry switch per conversation"
@@ -226,7 +226,7 @@
       "flags": [
         "enable-dictation-rework"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "新版听写",
         "en": "Reworked dictation"

@@ -10,7 +10,7 @@ Many Antigravity features are controlled by "experiment flags" that Google's ser
 
 Besides flags, it carries two features that a flag alone cannot turn on: **prompt cache keep-alive** and the **context usage indicator**. "How it works" says how each is done and what it costs.
 
-macOS only for now. This tool ran on Antigravity 2.35.0 and 2.35.1. The same approach was verified earlier on 2.34.0 with a prototype.
+macOS only for now. This tool ran on Antigravity 2.35.0 and 2.35.1; the effect of every curated feature except "Conversation forking" was seen on 2.35.1. The same approach was verified earlier on 2.34.0 with a prototype.
 
 agy-flags changes requests of the desktop app only. Requests of the Antigravity command line `agy` pass through unchanged; see "Effect on the agy command line".
 
@@ -213,7 +213,9 @@ Looked at again on 2.35.1:
 - "Context usage indicator": a ring and a percentage show next to the input box, and a click lists the usage of each part.
 - "Prompt cache keep-alive": the two keep-alive flags were written into all 41 models. About 4 minutes 50 seconds after a message was sent, agy-flags saw the first keep-alive request. The exact interval was not checked separately this time, and neither was a cache hit; the results for both are in the 2.35.0 part below.
 - "Conversation forking": a Fork button shows below a reply, but as on 2.35.0 this does not prove that agy-flags turned it on (the reason is given below).
-- The other curated features were not looked at again on 2.35.1. The catalog still marks them 2.35.0.
+- The other 9 curated features: they were turned on together, and for each one the entry or setting named in the catalog was seen. They are the redesigned sidebar (the Customize Sidebar menu, with Inbox Mode), conversation groups (Move to Group), the list of background tasks (the Running page), the Markdown artifact width, opening a file with another app (Open with), the sidebar of the file pane (the Artifacts section and the filter box), the connectors entry of the input box, the telemetry switch per conversation, and the new dictation (Dictation languages). This time only the state with the flags on was looked at; the comparison with the flags off is in the 2.35.0 part below.
+- The "file pane sidebar" was seen this time with `enable-enhanced-file-viewer` as the only file-related flag that was on. This adds the step that was missing on 2.35.0.
+- With the "redesigned sidebar" turned on this time, the grouping stayed at Project, which had been chosen by hand before. It did not change to Status again.
 
 Effect on the command line `agy` (1.5.17):
 
