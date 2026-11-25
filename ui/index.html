@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>agy-flags</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>agy-flags</h1>
+  <span class="tagline" data-i18n="tagline"></span>
+  <span class="spacer"></span>
+  <button id="lang" class="link" type="button"></button>
+</header>
+
+<main>
+  <section id="gate" class="card" hidden>
+    <h2 data-i18n="gateTitle"></h2>
+    <p data-i18n="gateBody"></p>
+    <pre><code>agy-flags ui</code></pre>
+  </section>
+
+  <div id="app" hidden>
+    <section id="status" class="card">
+      <div class="master">
+        <div>
+          <div class="master-title" data-i18n="injection"></div>
+          <div class="muted" id="injection-desc"></div>
+        </div>
+        <button id="enabled" class="switch" role="switch" type="button" aria-checked="false"><span></span></button>
+      </div>
+      <dl id="facts"></dl>
+      <ul id="warnings" hidden></ul>
+    </section>
+
+    <section id="banner" class="banner" hidden>
+      <div id="banner-text"></div>
+      <button id="restart" class="primary" type="button"></button>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="curated" id="tab-curated"></button>
+      <button type="button" role="tab" data-tab="all" id="tab-all"></button>
+    </nav>
+
+    <section id="panel-curated" role="tabpanel">
+      <p class="muted" data-i18n="curatedNote"></p>
+      <div id="features"></div>
+    </section>
+
+    <section id="panel-all" role="tabpanel" hidden>
+      <div class="toolbar">
+        <input id="search" type="search" autocomplete="off" spellcheck="false">
+        <label class="check"><input id="only-changed" type="checkbox"> <span data-i18n="onlyChanged"></span></label>
+      </div>
+      <form id="add" class="toolbar">
+        <input id="add-name" type="text" autocomplete="off" spellcheck="false" maxlength="160">
+        <button type="submit" data-i18n="addButton"></button>
+      </form>
+      <p id="all-note" class="muted"></p>
+      <div id="list"></div>
+    </section>
+
+    <footer class="muted" data-i18n="footer"></footer>
+  </div>
+</main>
+
+<div id="toast" role="status" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

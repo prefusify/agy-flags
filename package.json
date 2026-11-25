@@ -1,0 +1,32 @@
+{
+  "name": "agy-flags",
+  "version": "0.1.0",
+  "description": "Choose which Antigravity experiment flags are on, from a local web page. No app modification, no certificates.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prefusify/agy-flags.git"
+  },
+  "homepage": "https://github.com/prefusify/agy-flags",
+  "bin": {
+    "agy-flags": "bin/agy-flags.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ui",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

@@ -1,0 +1,351 @@
+// A plain-HTTP reverse proxy for one upstream host.
+//
+// Antigravity's language server is pointed at it with an environment variable. Everything
+// is streamed through unchanged (connection upgrades included), except the flag-config
+// responses, which are buffered, patched and sent on: the two flag lists always, and the
+// model list only while there is a per-model flag to write. Nothing here adds credentials
+// or follows redirects; the upstream is fixed when the forwarder is created.
+
+import http from 'node:http';
+import https from 'node:https';
+import zlib from 'node:zlib';
+import { MODELS_KIND, kindOf, patchFlagConfig, patchModelExperiments, summarizeFlags } from './patch.mjs';
+
+export const PING_PATH = '/__agy_flags_ping';
+
+const HOP_BY_HOP = new Set([
+  'connection',
+  'proxy-connection',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade',
+  'te',
+  'trailer',
+  'proxy-authenticate',
+  'proxy-authorization',
+]);
+
+/** A flag-config response larger than this is passed through unpatched. */
+const MAX_CONFIG_BYTES = 32 * 1024 * 1024;
+/** A request body is kept for one retry only up to this size. */
+const MAX_REPLAY_BYTES = 16 * 1024 * 1024;
+const STALE_SOCKET_ERRORS = new Set(['ECONNRESET', 'EPIPE']);
+/**
+ * The client marks its own cache keep-alive requests with this label. The quotes matter:
+ * inside conversation text the same words arrive escaped (\"...\") and do not match.
+ */
+const KEEP_ALIVE_NAME = Buffer.from('"prompt_cache_keep_alive"');
+const KEEP_ALIVE_RE = /"prompt_cache_keep_alive"\s*:\s*"true"/;
+/** Longer than the whole label, so that one split over two chunks is still seen. */
+const KEEP_ALIVE_TAIL = 64;
+
+function withoutHopByHop(headers) {
+  const out = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (value !== undefined && !HOP_BY_HOP.has(name)) out[name] = value;
+  }
+  return out;
+}
+
+function decodeBody(raw, encoding) {
+  const enc = String(encoding || '').toLowerCase();
+  if (!enc || enc === 'identity') return raw;
+  if (enc === 'gzip') return zlib.gunzipSync(raw);
+  if (enc === 'br') return zlib.brotliDecompressSync(raw);
+  if (enc === 'deflate') return zlib.inflateSync(raw);
+  throw new Error(`unsupported content-encoding ${enc}`);
+}
+
+/**
+ * @param {object} options
+ * @param {string} options.name      Label used in reports ("cloudcode" or "aicode").
+ * @param {string} options.upstream  Origin to forward to, for example https://aicode.googleapis.com.
+ * @param {() => object} options.getFlags   Current overrides, { name: value }. Empty disables patching.
+ * @param {() => object} [options.getModelFlags]  The overrides that also go into every model of the
+ *                                                model list. Empty leaves the model list untouched.
+ * @param {(report: object) => void} [options.onConfig]   Called for every flag-config response.
+ * @param {(report: object) => void} [options.onRequest]  Called once per finished request. `keepAlive`
+ *                                                is true for a cache keep-alive request of the client.
+ * @param {() => object} [options.identity]  Extra fields for the ping answer.
+ * @returns {http.Server} A server that is not listening yet.
+ */
+export function createForwarder({
+  name,
+  upstream,
+  getFlags,
+  getModelFlags = () => ({}),
+  onConfig = () => {},
+  onRequest = () => {},
+  identity = () => ({}),
+}) {
+  const target = new URL(upstream);
+  const secure = target.protocol === 'https:';
+  const transport = secure ? https : http;
+  const agent = new transport.Agent({ keepAlive: true });
+  const port = Number(target.port) || (secure ? 443 : 80);
+
+  function handle(req, res) {
+    const pathname = (req.url || '/').split('?')[0];
+    if (pathname === PING_PATH) {
+      const body = JSON.stringify({ app: 'agy-flags', role: name, ...identity() });
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      res.end(body);
+      return;
+    }
+
+    const started = Date.now();
+    const kind = kindOf(pathname);
+    const headers = withoutHopByHop(req.headers);
+    headers.host = target.host;
+
+    // Keep a copy of the request body so that one retry is possible.
+    const copy = [];
+    let copied = 0;
+    let replayable = true;
+    let bodyEnded = false;
+    let afterBody = null;
+    // A model request is only looked at for one label name. Nothing of it is kept or logged.
+    // A compressed body cannot be read this way and is not counted.
+    const watchKeepAlive =
+      req.method === 'POST' && pathname.endsWith('GenerateContent') && !req.headers['content-encoding'];
+    let keepAlive = false;
+    let tail = Buffer.alloc(0);
+    req.on('data', (chunk) => {
+      if (watchKeepAlive && !keepAlive) {
+        const window = tail.length > 0 ? Buffer.concat([tail, chunk]) : chunk;
+        if (window.includes(KEEP_ALIVE_NAME) && KEEP_ALIVE_RE.test(window.toString('latin1'))) keepAlive = true;
+        else tail = Buffer.from(window.subarray(Math.max(0, window.length - KEEP_ALIVE_TAIL)));
+      }
+      if (!replayable) return;
+      copied += chunk.length;
+      if (copied > MAX_REPLAY_BYTES) {
+        replayable = false;
+        copy.length = 0;
+      } else {
+        copy.push(chunk);
+      }
+    });
+    req.on('end', () => {
+      bodyEnded = true;
+      if (afterBody) afterBody();
+    });
+
+    let settled = false;
+    let gotResponse = false;
+    let clientGone = false;
+    let upstreamReq = null;
+
+    const done = (status, extra = {}) => {
+      if (settled) return;
+      settled = true;
+      onRequest({ upstream: name, method: req.method, path: pathname, status, ms: Date.now() - started, keepAlive, ...extra });
+    };
+
+    const fail = (err) => {
+      if (settled) return;
+      if (clientGone) {
+        // The client went away and we closed the upstream request ourselves. Not an upstream failure.
+        res.destroy();
+        done(499);
+        return;
+      }
+      if (!res.headersSent) {
+        res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end('agy-flags: upstream request failed\n');
+      } else {
+        res.destroy();
+      }
+      done(502, { error: `${err?.code || ''} ${err?.message || err}`.trim() });
+    };
+
+    res.on('close', () => {
+      if (res.writableEnded) return;
+      // The client cancelled (for example Stop in the app). Cancel upstream too, and never retry.
+      clientGone = true;
+      if (upstreamReq) upstreamReq.destroy();
+      done(499);
+    });
+
+    const patchAndSend = (upRes, status, respHeaders) => {
+      const chunks = [];
+      let size = 0;
+      let passthrough = false;
+      upRes.on('data', (chunk) => {
+        if (passthrough) return;
+        size += chunk.length;
+        if (size <= MAX_CONFIG_BYTES) {
+          chunks.push(chunk);
+          return;
+        }
+        passthrough = true;
+        res.writeHead(status, respHeaders);
+        for (const c of chunks) res.write(c);
+        res.write(chunk);
+        chunks.length = 0;
+        upRes.pipe(res);
+        onConfig({ upstream: name, kind, at: Date.now(), ok: false, error: 'response too large to patch' });
+      });
+      upRes.on('end', () => {
+        if (passthrough) {
+          done(status);
+          return;
+        }
+        const raw = Buffer.concat(chunks);
+        const report = { upstream: name, kind, at: Date.now(), ok: false };
+        let body = raw;
+        let outHeaders = respHeaders;
+        try {
+          const data = JSON.parse(decodeBody(raw, upRes.headers['content-encoding']).toString('utf8'));
+          let result;
+          if (kind === MODELS_KIND) {
+            result = patchModelExperiments(data, getModelFlags() || {});
+            report.models = result.models;
+          } else {
+            report.server = summarizeFlags(kind, data);
+            result = patchFlagConfig(kind, data, getFlags() || {});
+          }
+          report.applied = result.applied;
+          report.skipped = result.skipped;
+          report.ok = true;
+          if (result.applied.length > 0) {
+            // Re-serialised only when something changed; otherwise the original bytes go out.
+            body = Buffer.from(JSON.stringify(data), 'utf8');
+            outHeaders = { ...respHeaders, 'content-length': String(body.length) };
+            delete outHeaders['content-encoding'];
+          }
+        } catch (err) {
+          // Fail open: the client gets exactly what the server sent.
+          report.error = String(err?.message || err);
+          body = raw;
+          outHeaders = respHeaders;
+        }
+        res.writeHead(status, outHeaders);
+        res.end(body);
+        onConfig(report);
+        done(status, { patched: report.ok ? report.applied.length : 0 });
+      });
+    };
+
+    const respond = (upRes) => {
+      gotResponse = true;
+      const status = upRes.statusCode || 502;
+      const respHeaders = withoutHopByHop(upRes.headers);
+      upRes.on('error', fail);
+      // The model list is buffered only while there is something to write into it.
+      const wanted = kind !== MODELS_KIND || Object.keys(getModelFlags() || {}).length > 0;
+      if (kind && status === 200 && wanted) {
+        patchAndSend(upRes, status, respHeaders);
+        return;
+      }
+      res.writeHead(status, respHeaders);
+      res.flushHeaders();
+      upRes.pipe(res);
+      upRes.on('end', () => done(status));
+    };
+
+    const send = (attempt) => {
+      const upReq = transport.request({
+        host: target.hostname,
+        port,
+        method: req.method,
+        path: req.url,
+        headers,
+        agent: attempt === 1 ? agent : false,
+      });
+      upstreamReq = upReq;
+      upReq.on('response', respond);
+      upReq.on('error', (err) => {
+        // A kept-alive socket can be closed by the server just as we reuse it. Nothing has
+        // reached the upstream application in that case, so one retry on a fresh socket is safe.
+        const staleSocket =
+          attempt === 1 &&
+          upReq.reusedSocket &&
+          STALE_SOCKET_ERRORS.has(err?.code) &&
+          !gotResponse &&
+          !settled &&
+          !clientGone &&
+          replayable;
+        if (!staleSocket) {
+          fail(err);
+          return;
+        }
+        const retry = () => send(2);
+        if (bodyEnded) retry();
+        else afterBody = retry;
+      });
+      if (attempt === 1) req.pipe(upReq);
+      else upReq.end(Buffer.concat(copy));
+    };
+
+    send(1);
+  }
+
+  // A connection upgrade (WebSocket) is tunnelled as it is: the request head goes upstream
+  // with only Host changed, and after that bytes are copied in both directions.
+  function handleUpgrade(req, socket, head) {
+    const pathname = (req.url || '/').split('?')[0];
+    const started = Date.now();
+    let reported = false;
+    const report = (status, extra = {}) => {
+      if (reported) return;
+      reported = true;
+      onRequest({ upstream: name, method: req.method, path: pathname, status, ms: Date.now() - started, ...extra });
+    };
+    const headText = (res) => {
+      const lines = [`HTTP/1.1 ${res.statusCode} ${res.statusMessage || ''}`];
+      for (let i = 0; i + 1 < res.rawHeaders.length; i += 2) lines.push(`${res.rawHeaders[i]}: ${res.rawHeaders[i + 1]}`);
+      return `${lines.join('\r\n')}\r\n\r\n`;
+    };
+    const upReq = transport.request({
+      host: target.hostname,
+      port,
+      method: req.method,
+      path: req.url,
+      headers: { ...req.headers, host: target.host },
+      agent: false,
+    });
+    upReq.on('upgrade', (upRes, upSocket, upHead) => {
+      socket.write(headText(upRes));
+      if (upHead && upHead.length > 0) socket.write(upHead);
+      if (head && head.length > 0) upSocket.write(head);
+      upSocket.pipe(socket);
+      socket.pipe(upSocket);
+      const closeBoth = () => {
+        socket.destroy();
+        upSocket.destroy();
+      };
+      for (const s of [socket, upSocket]) {
+        s.on('error', closeBoth);
+        s.on('close', closeBoth);
+        // Server-side sockets stay half-open after the peer hangs up. Finish our side too,
+        // so that the socket closes and the tunnel does not leak.
+        s.on('end', () => s.end());
+      }
+      report(upRes.statusCode);
+    });
+    // The upstream answered without upgrading: pass its answer on and close.
+    upReq.on('response', (upRes) => {
+      socket.write(headText(upRes));
+      upRes.pipe(socket);
+      upRes.on('end', () => socket.end());
+      report(upRes.statusCode || 502);
+    });
+    upReq.on('error', (err) => {
+      if (!reported) socket.end('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      else socket.destroy();
+      report(502, { error: `${err?.code || ''} ${err?.message || err}`.trim() });
+    });
+    socket.on('error', () => upReq.destroy());
+    upReq.end();
+  }
+
+  const server = http.createServer(handle);
+  server.on('upgrade', handleUpgrade);
+  // Longer than the 90 s the Go client keeps idle connections, so that we are not the side
+  // that closes a connection the client is about to reuse.
+  server.keepAliveTimeout = 120_000;
+  server.headersTimeout = 125_000;
+  server.on('clientError', (_err, socket) => socket.destroy());
+  server.on('close', () => agent.destroy());
+  return server;
+}
