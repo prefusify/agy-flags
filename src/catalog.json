@@ -6,7 +6,7 @@
       "flags": [
         "enable-developer-mode"
       ],
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "title": {
         "zh": "开发者设置页",
         "en": "Developer settings page"
@@ -23,7 +23,7 @@
       ],
       "uiPatch": "contextUsageIndicator",
       "status": "page",
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "riskLabel": {
         "zh": "改变界面加载方式",
         "en": "changes how the page loads"
@@ -61,7 +61,7 @@
       ],
       "perModel": true,
       "status": "keepAlive",
-      "tested": "2.35.0",
+      "tested": "2.35.1",
       "riskLabel": {
         "zh": "消耗配额",
         "en": "uses quota"
@@ -75,8 +75,8 @@
         "en": "Prompt cache keep-alive"
       },
       "description": {
-        "zh": "对话空闲时，客户端自己每 270 秒发一次很小的请求，让服务端的提示词缓存不过期，下一条消息更容易命中缓存。次数用完，或者某一次保活没有命中缓存，这段空闲的保活就停；8 次全部命中时大约覆盖 36 分钟。客户端退出后不再保活。实测中保活请求按时发出，第 1 次命中了缓存，第 2 次没有命中，所以它不能保证缓存一直有效。",
-        "en": "While a conversation is idle, the client itself sends a very small request every 270 seconds, so that the prompt cache on the server does not expire and the next message is more likely to hit it. It stops for that idle stretch when the count is used up, or when one keep-alive misses the cache; 8 requests that all hit cover about 36 minutes. Nothing is sent after the client quits. In the test the requests went out on time; the first one hit the cache and the second one did not, so this does not guarantee that the cache stays valid."
+        "zh": "对话空闲时，客户端自己每 270 秒发一次很小的请求，让服务端的提示词缓存不过期，下一条消息更容易命中缓存。次数用完，或者某一次保活没有命中缓存，这段空闲的保活就停；8 次全部命中时大约覆盖 36 分钟。客户端退出后不再保活。2.35.0 的实测中保活请求按时发出，第 1 次命中了缓存，第 2 次没有命中，所以它不能保证缓存一直有效。2.35.1 上看到保活请求照常发出，没有再测是否命中。",
+        "en": "While a conversation is idle, the client itself sends a very small request every 270 seconds, so that the prompt cache on the server does not expire and the next message is more likely to hit it. It stops for that idle stretch when the count is used up, or when one keep-alive misses the cache; 8 requests that all hit cover about 36 minutes. Nothing is sent after the client quits. In the test on 2.35.0 the requests went out on time; the first one hit the cache and the second one did not, so this does not guarantee that the cache stays valid. On 2.35.1 the request was seen to go out as before; whether it hit the cache was not tested again."
       }
     },
     {

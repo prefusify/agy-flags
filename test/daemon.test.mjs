@@ -4,7 +4,7 @@ import http from 'node:http';
 import test from 'node:test';
 import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
-import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, tempHome, waitFor } from './helpers.mjs';
+import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, waitFor } from './helpers.mjs';
 
 /** A fake Google: answers the two flag paths and one ordinary path. */
 function fakeUpstream() {
@@ -414,4 +414,82 @@ test('a page script that cannot be changed is served as it is, with a warning', 
   const state = await ctx.handle.getState();
   assert.deepEqual(state.warnings.map((w) => w.code), ['page-not-changed']);
   assert.match(state.warnings[0].detail, /place for the indicator was not found/);
+});
+
+test('a request of the command line is not changed and leaves no trace in the flag status', async (t) => {
+  const ctx = await setup(t, { flags: { x: true, 'keep-on': true } });
+  const original = [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }];
+  const res = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}', as: 'cli' });
+  assert.deepEqual(parse(res).flags, original);
+  const config = await request({ port: ctx.ports.aicode, path: '/v1alpha:fetchConfig', as: 'cli' });
+  assert.deepEqual(parse(config).experimentConfig.experimentFlags, [{ name: 'x', boolValue: false }]);
+  const models = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: 'cli' });
+  assert.deepEqual(parse(models).models.one, {});
+
+  let state = await ctx.handle.getState();
+  assert.deepEqual(state.lastInjection, {});
+  assert.equal(state.modelPatch, null);
+  assert.equal(state.server.count, 0);
+  assert.deepEqual(state.traffic.byClient, { desktop: 0, cli: 3, other: 0 });
+  assert.match(state.traffic.agents.cli, /^antigravity\/cli\//);
+  assert.deepEqual(state.warnings, []);
+
+  // The desktop app asks for the same thing and gets the override.
+  const desktop = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  assert.deepEqual(parse(desktop).flags.slice(0, 2), [{ name: 'x', boolValue: true }, { name: 'n', intValue: '3' }]);
+  state = await ctx.handle.getState();
+  assert.deepEqual(state.lastInjection.cloudcode.applied, ['x', 'keep-on']);
+  assert.equal(state.server.count, 2);
+  assert.deepEqual(state.traffic.byClient, { desktop: 1, cli: 3, other: 0 });
+});
+
+test('a desktop app that runs through us under an unknown name gets a warning', async (t) => {
+  const client = fakeClient();
+  const ctx = await setup(t, { client, start: false });
+  ctx.handle = await ctx.start({ unrecognizedGraceMs: 0 });
+  const codes = async () => (await ctx.handle.getState()).warnings.map((w) => w.code);
+  const list = (as) => request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}', as });
+
+  // An unknown sender while the desktop app does not run through us: nothing to warn about.
+  await list('antigravity/ide/1.20.0 (aidev_client)');
+  assert.deepEqual(await codes(), []);
+
+  // The desktop app starts, routed through us. The command line alone is no reason either.
+  await sleep(5);
+  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now(), env: ours(ctx.ports) });
+  await list('cli');
+  await waitFor(async () => (await ctx.handle.getState()).client.routed === true);
+  assert.deepEqual(await codes(), []);
+
+  // A flag request with a name we do not know, and none with the desktop name since the start.
+  const renamed = 'antigravity/desk/3.0.0 (aidev_client; os_type=darwin)';
+  const res = await list(renamed);
+  assert.deepEqual(parse(res).flags, [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }]);
+  const state = await ctx.handle.getState();
+  assert.deepEqual(state.warnings, [{ code: 'desktop-not-recognized', detail: renamed }]);
+  assert.equal(state.traffic.byClient.other, 2);
+
+  // Once a request carries the desktop name, the warning goes away.
+  await list('desktop');
+  assert.deepEqual(await codes(), []);
+
+  // The model list of an unknown sender is no sign of a renamed app.
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: renamed });
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:loadCodeAssist', body: '{}', as: renamed });
+  assert.deepEqual(await codes(), []);
+});
+
+test('an unknown sender next to a working desktop app raises no warning', async (t) => {
+  const client = fakeClient();
+  const ctx = await setup(t, { client, start: false });
+  // The default wait is longer than the app's own minute between two flag requests.
+  ctx.handle = await ctx.start();
+  const codes = async () => (await ctx.handle.getState()).warnings.map((w) => w.code);
+  const list = (as) => request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}', as });
+  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now() - 1000, env: ours(ctx.ports) });
+  await list('desktop');
+  await list('antigravity/ide/1.20.0 (aidev_client)');
+  await waitFor(async () => (await ctx.handle.getState()).client.routed === true);
+  assert.deepEqual(await codes(), []);
+  assert.equal((await ctx.handle.getState()).traffic.byClient.other, 1);
 });

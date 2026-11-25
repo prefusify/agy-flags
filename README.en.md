@@ -10,11 +10,59 @@ Many Antigravity features are controlled by "experiment flags" that Google's ser
 
 Besides flags, it carries two features that a flag alone cannot turn on: **prompt cache keep-alive** and the **context usage indicator**. "How it works" says how each is done and what it costs.
 
-macOS only for now. This tool ran on Antigravity 2.35.0. The same approach was verified earlier on 2.34.0 with a prototype.
+macOS only for now. This tool ran on Antigravity 2.35.0 and 2.35.1. The same approach was verified earlier on 2.34.0 with a prototype.
+
+agy-flags changes requests of the desktop app only. Requests of the Antigravity command line `agy` pass through unchanged; see "Effect on the agy command line".
 
 > These features are unreleased and may be unstable. Rewriting the configuration that the server sends may be against Google's terms of service. You use this at your own risk. This project is not affiliated with Google.
 
 ## Install
+
+### One-step install (recommended)
+
+Open Terminal (search for "Terminal" in Launchpad), paste the line below and press Return:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash
+```
+
+When it is done, the settings page opens in your browser. Choose features on the page, then restart Antigravity when the page asks you to. The features are then on. You do not need to know how to code, and no password is asked.
+
+The command does four things, in this order:
+
+1. It looks for Node.js (18 or later). If the computer has none, it downloads the official Node.js 24.22.3 from nodejs.org (about 55 MB) into the folder of agy-flags, `~/Library/Application Support/agy-flags/runtime`, and checks its SHA-256. If the checksum is wrong, it stops and does not run the download. Nothing is installed system-wide.
+2. It downloads agy-flags from GitHub.
+3. It runs `install`, described below.
+4. It opens the settings page in the browser.
+
+Notes:
+
+- The Node.js that is downloaded automatically needs macOS 13.5 or later. On an older system the script stops and says what to do.
+- Bookmark the settings page and open it from the bookmark later. If the bookmark stops working, use the line under "To open the settings page again" below.
+- To update agy-flags, run the install command above again. It restarts the agy-flags daemon, and an answer that Antigravity or the command line `agy` is producing at that moment is cut off, so update when they are idle.
+- If you reach Google through a proxy app: use the TUN mode of that app (some apps call it enhanced mode or virtual network adapter). The download command in Terminal and the forwarder of agy-flags connect directly and do not read the "system proxy" setting. A setup with the system proxy only was not tested; by the code, the install may fail to download there, and Antigravity may fail to reach its servers after the install.
+
+To open the settings page again (no update, nothing is restarted):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- open
+```
+
+To see the status:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- status
+```
+
+To remove agy-flags:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- uninstall
+```
+
+This stops and removes agy-flags and deletes the Node.js it downloaded. If Antigravity is running through agy-flags, it is restarted once (when the program files of agy-flags are damaged and the script has to clean up by hand, it asks you to restart Antigravity yourself instead). The features you chose are kept in `~/Library/Application Support/agy-flags` and come back after a new install; add `--purge` at the end of the command to delete them too. After you remove agy-flags, quit Terminal completely and open it again; "Effect on the agy command line" explains why.
+
+### Install from source
 
 Node.js 18 or later is required (it ran on Node.js 24 only).
 
@@ -40,7 +88,7 @@ Run `npm link` in the repository to get the `agy-flags` command. Without it, use
 agy-flags ui
 ```
 
-This opens the settings page in your browser.
+This opens the settings page in your browser. After a one-step install there is no `agy-flags` command: the page was already opened for you, and later you open it from your bookmark or with the line under "To open the settings page again" above.
 
 1. Turn on a feature under "Features", or search under "All flags" and change any boolean flag.
 2. The page says that a restart is needed. Click "Restart Antigravity". Antigravity reads its flags only when it starts.
@@ -84,6 +132,7 @@ Antigravity ──HTTP──▶ agy-flags (127.0.0.1:47931 / 47932) ──HTTPS�
 - The two responses above are rewritten: the flag values you chose are written into them.
 - Some flags are read per model (at present only the "Prompt cache keep-alive" group). Only while such a feature is on, agy-flags rewrites one more response: the model list (`v1internal:fetchAvailableModels`). It writes these flags into the flags that each model carries.
 - **Every other request and response is streamed through unchanged**, conversations included. A connection upgrade (WebSocket) is tunnelled unchanged too.
+- **Only requests of the desktop app are rewritten.** A request from any other program passes through unchanged; see "Effect on the agy command line" below.
 - A third port (47930) serves the settings page.
 
 Guarantees by design:
@@ -93,6 +142,28 @@ Guarantees by design:
 - If a response cannot be rewritten (for example, the server changed the format), it is passed through unchanged.
 - Only the responses named above, with status 200, are rewritten. For a flag the server sends, only the value is replaced; every other field is kept. In the model list nothing changes except the flags that are written into it.
 - When the daemon crashes, the system starts it again (in under 1 second in our test). The app retries in the meantime.
+
+### Effect on the agy command line
+
+The variables live in the login session, so every program started afterwards inherits them, Terminal included. The Antigravity command line `agy` reads the same variables, so when you run `agy` in a terminal, its requests come to agy-flags too. agy-flags handles this by rewriting requests of the desktop app only:
+
+- The Antigravity programs say who they are in every request: the desktop app sends `antigravity/hub/<version>`, the command line sends `antigravity/cli/<version>` (the `User-Agent` header).
+- Only a request that names the desktop app is rewritten. A request from the command line, or from any other sender, passes through unchanged: the response is not buffered, not decompressed and not changed, so the flag values are the ones the server sent. The keep-alive count and the "Server flags" list on the page also look at requests of the desktop app only.
+- The status area of the settings page shows how many requests of the command line were passed through. The status command shows it too.
+- If a version of the desktop app changes the name it gives itself, agy-flags no longer recognises it and the flags stop taking effect. After two or three minutes of this, the settings page shows a warning with the name the app now uses.
+
+Two things agy-flags cannot change:
+
+- A request of the command line still goes through agy-flags on its way to Google, so **the command line works only while the agy-flags daemon is running**. The system keeps the daemon running; normally it is always there.
+- A program inherits the variables when it starts. When agy-flags stops or is removed, it clears the variables of the login session, but **a terminal that was already open still carries them**, and `agy` in that terminal cannot reach its servers ("When something goes wrong" shows what that looks like). Quit Terminal completely and open it again.
+
+The command line and the desktop app use the same server by default (`daily-cloudcode-pa.googleapis.com`), so going through agy-flags does not move the command line to another server. The third variable, `AGY_DEV_UI_URL`, has no effect on the command line: in print mode and in interactive mode the command line serves no page and does not ask for page files.
+
+To keep `agy` in one terminal away from agy-flags completely, run this in that terminal first:
+
+```bash
+unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
+```
 
 ### Prompt cache keep-alive
 
@@ -123,14 +194,43 @@ Your Google sign-in token and all conversation content pass through the local fo
 - The log records events only (start, how many flags were rewritten, failure reasons). It records no headers and no bodies.
 - To show on the page how many keep-alive requests were sent, the forwarder looks for one fixed label name (`prompt_cache_keep_alive`) in model requests as they pass. It only counts. It does not keep or log the request content.
 - The port that serves the page files (47933) answers read requests only, and serves only the app's own page files. Conversation traffic does not pass through it: the page talks to the language server directly. The indicator component that is added to the page script sends no network requests and writes everything into the page as plain text.
+- The forwarder reads the `User-Agent` of every request to tell whether it comes from the desktop app or from another program. It keeps the last `User-Agent` of each kind of sender in memory, for the status API and for a warning on the page. It does not write it to the log. The Antigravity programs put their program name, version and system type there.
 - The page's API needs a random token. `agy-flags ui` passes it to the page in the part of the address after `#`, which browsers send to no server. The API also checks `Host` and `Origin`, so another website cannot change your settings through your browser.
+- The page keeps the token in the browser's local storage for this page, so that a bookmark keeps working. Only the scripts of this page can read it, and the page deletes it when the daemon refuses it. If you do not want the token kept, clear the site data of `127.0.0.1:47930` in the browser.
+- The one-step install script downloads from `github.com` and `nodejs.org` only. The Node.js it downloads must match the SHA-256 written in the script before it is run. The script does not use `sudo` and writes only to the folder of agy-flags and to the login item.
 - There are no third-party dependencies, and the code is small enough to read.
 
 Other programs that run as you on this machine can already read your files. agy-flags does not defend against them.
 
 ## Verified and not verified
 
-Everything below was tested with this tool on Antigravity 2.35.0 (macOS).
+Unless stated otherwise, everything below was tested with this tool on Antigravity 2.35.0 (macOS).
+
+Looked at again on 2.35.1:
+
+- Both flag responses were rewritten, the indicator component was added to the page script, and there was no warning.
+- "Developer settings page": Settings has a Developer page.
+- "Context usage indicator": a ring and a percentage show next to the input box, and a click lists the usage of each part.
+- "Prompt cache keep-alive": the two keep-alive flags were written into all 41 models. About 4 minutes 50 seconds after a message was sent, agy-flags saw the first keep-alive request. The exact interval was not checked separately this time, and neither was a cache hit; the results for both are in the 2.35.0 part below.
+- "Conversation forking": a Fork button shows below a reply, but as on 2.35.0 this does not prove that agy-flags turned it on (the reason is given below).
+- The other curated features were not looked at again on 2.35.1. The catalog still marks them 2.35.0.
+
+Effect on the command line `agy` (1.5.17):
+
+- Before the change, for comparison: when the command line ran through the old agy-flags, the flag responses it received were rewritten (9 flags).
+- Now: with the same run of the command line, agy-flags passed 17 of its requests through and rewrote none. "Last rewrite" and "Server flags" on the page did not change. The command line gave its answer as usual.
+- A recording program was put between the command line and agy-flags to see the flag values that the command line really receives. The server sent 8 of the 9 flags, and all had the server's value, off, the same as on a direct connection. The response was still compressed and had not been encoded again. At the same time the desktop app received the rewritten value, on.
+- When the port of agy-flags is not listening, the command line fails with `failed to construct executor: plan model not specified` and gives no answer.
+- The third variable: in print mode and in interactive mode the local port of the command line answered a page request with 404, and the command line did not ask agy-flags for page files. The `remote-control` mode was not tested.
+
+The one-step install script:
+
+- Tested from the source folder on this machine: install when the computer has Node.js; uninstall, with and without `--purge`; uninstall when the program files are already gone.
+- The case without Node.js was tested with a download address set up on this machine. With a wrong checksum the install stops and leaves nothing behind. With the right checksum, Node.js goes into the folder of agy-flags, the login item uses it, and the daemon starts. On a system older than 13.5 the script explains and stops.
+- Running the script through a pipe (`… | bash`) was tested too, with an archive on this machine in place of the download from GitHub: the script unpacks the archive, installs from a temporary folder and deletes that folder afterwards.
+- **Not tested**: the two real downloads over the network, that is agy-flags from GitHub and Node.js from nodejs.org.
+
+The results below are from 2.35.0.
 
 Basics:
 
@@ -186,7 +286,7 @@ Not verified:
 - An app update while the "Context usage indicator" is on. By design the page files change together with the app's program, and they are served unchanged when they cannot be changed safely; this has unit tests only.
 - Antigravity was started with the `open` command and with the "Restart" button of agy-flags only. Starting it from the Dock or Launchpad was not tested separately.
 - Networks where Google is reachable only through a system proxy. The forwarder connects to Google directly and does not read proxy settings.
-- The Antigravity IDE and the command line (`agy`). See the next section.
+- The Antigravity IDE. See the next section.
 
 Verified on 2.34.0 with a prototype (not this code): when the forwarder stops for a while, the app shows a retry message and recovers. This was not tested again on 2.35.0 with this tool.
 
@@ -197,7 +297,8 @@ Verified on 2.34.0 with a prototype (not this code): when the forwarder stops fo
 - **While the "Context usage indicator" is on, the page depends on agy-flags.** While agy-flags is not running, an Antigravity window that is reloaded shows an error text (see "When something goes wrong"). If you do not want this, leave that feature off; the other features are not affected.
 - **The indicator component is written by agy-flags; it is not Google's original.** It shows context usage only, not the model quota. If the structure of the page script changes after an app update, the component turns itself off until agy-flags is updated.
 - **Keep-alive does not guarantee a cache hit.** In the test the first keep-alive hit the cache and the second one did not. The one that missed is charged as uncached input for the whole context.
-- **Other programs inherit the variables too.** The variables live in the login session, so every program started afterwards (terminals included) carries them. Almost all programs ignore these names. The Antigravity command line `agy` does read `CLOUD_CODE_URL`: when you run `agy` in a terminal that was opened after the variables were set, its requests go through agy-flags too, and its flags are rewritten too. This combination was not tested, and neither was the IDE. To keep `agy` in one terminal away from agy-flags, run `unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL` in that terminal first.
+- **Other programs inherit the variables too.** The variables live in the login session, so every program started afterwards (terminals included) carries them. Almost all programs ignore these names. The Antigravity command line `agy` reads them: its requests go through agy-flags, but they are not rewritten. It therefore needs the agy-flags daemon to be running, and after agy-flags stops or is removed, a terminal that was already open must be quit and opened again. See "Effect on the agy command line". The Antigravity IDE was not tested; by the same rule its requests only pass through.
+- **The desktop app is recognised by the name it gives itself.** If a version of the desktop app changes that name, the flags stop taking effect and the page shows a warning, until agy-flags is updated.
 - **The cloud addresses are fixed in the configuration.** If a version of Antigravity moves to another host, the page shows an "endpoint mismatch" warning. Update agy-flags, or edit `upstreams` in `config.json`.
 - **This can stop working at any time.** Google can remove these variables or change how flags are delivered in any release.
 
@@ -208,6 +309,10 @@ If the app cannot reach its servers or shows "Error Loading Models", look at the
 ```bash
 agy-flags status
 ```
+
+After a one-step install there is no `agy-flags` command. Use the line under "To see the status" in "One-step install" instead.
+
+If the command line `agy` fails in a terminal with `failed to construct executor: plan model not specified; you must specify a valid model`, and you did not change any model setting: that terminal probably still carries the variables of agy-flags, while agy-flags has stopped or was removed. Quit Terminal completely and open it again, or run `unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL` in that terminal.
 
 If an Antigravity window shows only a text that starts with "The dev UI server at … is not reachable", the "Context usage indicator" is on and agy-flags is not running. Get agy-flags running again and reload the window, or clear the variables as shown below.
 
@@ -236,9 +341,10 @@ The log is at `~/Library/Application Support/agy-flags/daemon.log`.
 | `~/Library/Application Support/agy-flags/state.json` | The server flag list as last seen |
 | `~/Library/Application Support/agy-flags/daemon.log` | The log |
 | `~/Library/Application Support/agy-flags/app/` | The program copied by `install` |
+| `~/Library/Application Support/agy-flags/runtime/` | The Node.js downloaded by the one-step install script. Absent when the computer had Node.js already |
 | `~/Library/LaunchAgents/dev.agy-flags.daemon.plist` | The login item |
 
-To update agy-flags, pull the new code and run `agy-flags install` again.
+To update agy-flags, run the one-step install command again. After an install from source, pull the new code and run `agy-flags install` again.
 
 ## Development
 
@@ -249,7 +355,7 @@ npm test
 The tests do not call `launchctl`, do not touch the real settings directory, and do not use the network.
 
 - `src/patch.mjs`: pure functions that rewrite the two flag responses and the model list.
-- `src/forward.mjs`: the HTTP forwarder for one upstream.
+- `src/forward.mjs`: the HTTP forwarder for one upstream, and the rule that tells from the `User-Agent` who sent a request.
 - `src/bundle.mjs`: finds and reads the page files inside the language server program.
 - `src/uipatch.mjs`: the indicator component, and the change that puts it into the page script.
 - `src/uiserver.mjs`: the server that gives the page files to the language server.
@@ -260,6 +366,7 @@ The tests do not call `launchctl`, do not touch the real settings directory, and
 - `src/launchd.mjs`: the login item.
 - `src/catalog.json`: the "Features" list. Test results are welcome.
 - `ui/`: the settings page. No framework, no build step.
+- `install.sh`: the one-step install and uninstall script.
 
 ## License
 

@@ -209,6 +209,7 @@ export async function startDaemon({
   pollMs = 1000,
   envCheckMs = 60_000,
   catalogFile = CATALOG_FILE,
+  unrecognizedGraceMs = 150_000,
 } = {}) {
   ensureDataDir();
   let config = loadConfig();
@@ -239,7 +240,11 @@ export async function startDaemon({
   let lastScript = null;
   let pageError = null;
   const keepAlive = { count: 0, lastAt: null };
-  const traffic = { requests: 0, failures: 0, lastFailure: null };
+  // byClient counts who sent the requests. Only the desktop app is changed; the rest pass through.
+  const traffic = { requests: 0, failures: 0, lastFailure: null, byClient: { desktop: 0, cli: 0, other: 0 }, agents: {} };
+  // Flag-config requests of a sender that is neither the desktop app nor the command line, as
+  // long as no request named the desktop app in between: { firstAt, lastAt, agent }.
+  let unrecognized = null;
   const lastFailureLog = {};
   let envState = { status: 'pending', conflicts: {} };
   let stopped = false;
@@ -282,6 +287,15 @@ export async function startDaemon({
 
   function onRequest(report) {
     traffic.requests += 1;
+    const who = Object.hasOwn(traffic.byClient, report.client) ? report.client : 'other';
+    traffic.byClient[who] += 1;
+    if (report.agent) traffic.agents[who] = report.agent;
+    if (who === 'desktop') {
+      unrecognized = null;
+    } else if (who === 'other' && report.kind && report.kind !== MODELS_KIND && report.status === 200) {
+      const now = Date.now();
+      unrecognized = { firstAt: unrecognized?.firstAt ?? now, lastAt: now, agent: report.agent || '' };
+    }
     if (report.keepAlive) {
       keepAlive.count += 1;
       keepAlive.lastAt = Date.now();
@@ -480,6 +494,20 @@ export async function startDaemon({
         warnings.push({ code: 'skipped', detail: last.skipped.map((s) => `${s.name} (${s.reason})`).join(', ') });
       }
     }
+    // The desktop app runs through us and asks for its flags about once a minute. If flag
+    // requests with an unknown name keep arriving for longer than that, and none names the
+    // desktop app, the app has probably changed its name: its flags now pass through unchanged.
+    // The wait keeps a third program from raising the warning between two requests of the app.
+    if (
+      config.enabled &&
+      pend.routed &&
+      cl.lsStartedAt !== null &&
+      unrecognized &&
+      unrecognized.lastAt >= cl.lsStartedAt &&
+      Date.now() - unrecognized.firstAt >= unrecognizedGraceMs
+    ) {
+      warnings.push({ code: 'desktop-not-recognized', detail: unrecognized.agent || '?' });
+    }
     if (anyPageFeatureOn() && pageError) warnings.push({ code: 'page-unavailable', detail: pageError });
     if (pageFeatureOn('contextUsageIndicator') && lastScript && !lastScript.patched) {
       warnings.push({ code: 'page-not-changed', detail: lastScript.reason || '' });
@@ -522,7 +550,7 @@ export async function startDaemon({
       modelPatch: lastModelPatch,
       page: { wanted: wantPage, carried: Object.entries(pageEnv).some(([name, value]) => cl.env?.[name] === value), script: lastScript },
       keepAlive: { ...keepAlive },
-      traffic,
+      traffic: { ...traffic, byClient: { ...traffic.byClient }, agents: { ...traffic.agents } },
       warnings,
     };
   }

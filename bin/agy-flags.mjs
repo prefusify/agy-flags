@@ -21,7 +21,8 @@ Usage: agy-flags <command>
   help, --version
 
 agy-flags does not modify the Antigravity app. It runs two local forwarders and points the
-app at them with two login-session environment variables. See README.md.
+app at them with two login-session environment variables. Only requests of the desktop app
+are changed; requests of the agy command line pass through unchanged. See README.md.
 `;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -213,6 +214,9 @@ async function cmdUninstall(args) {
       console.log('Quit and reopen Antigravity now.');
     }
   }
+  // The variables were inherited by every program started while agy-flags was on.
+  console.log('Programs that were opened while agy-flags was on (Terminal, for example) still carry its');
+  console.log('variables. Quit and reopen them before you use the agy command line there.');
 }
 
 async function cmdUi(args) {
@@ -270,6 +274,10 @@ async function cmdStatus() {
   const names = Object.keys(state.overrides);
   console.log(`overrides:      ${names.length}`);
   for (const name of names) console.log(`  ${name} = ${state.overrides[name]}`);
+  const by = state.traffic?.byClient;
+  if (by) {
+    console.log(`requests:       desktop app ${by.desktop}; passed through unchanged: agy command line ${by.cli}, other ${by.other}`);
+  }
   for (const [name, last] of Object.entries(state.lastInjection)) {
     console.log(`last rewrite:   ${name} ${new Date(last.at).toLocaleTimeString()} ${last.ok ? `${last.applied.length} applied` : 'NOT PATCHED'}`);
   }

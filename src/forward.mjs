@@ -2,9 +2,13 @@
 //
 // Antigravity's language server is pointed at it with an environment variable. Everything
 // is streamed through unchanged (connection upgrades included), except the flag-config
-// responses, which are buffered, patched and sent on: the two flag lists always, and the
-// model list only while there is a per-model flag to write. Nothing here adds credentials
-// or follows redirects; the upstream is fixed when the forwarder is created.
+// responses of the desktop app, which are buffered, patched and sent on: the two flag lists
+// always, and the model list only while there is a per-model flag to write. Nothing here
+// adds credentials or follows redirects; the upstream is fixed when the forwarder is created.
+//
+// The variable lives in the login session, so other programs of the same family read it
+// too: the `agy` command line, for one. Only a request that names the desktop app as its
+// sender is changed. Every other request gets exactly what the server sent.
 
 import http from 'node:http';
 import https from 'node:https';
@@ -39,6 +43,21 @@ const KEEP_ALIVE_RE = /"prompt_cache_keep_alive"\s*:\s*"true"/;
 /** Longer than the whole label, so that one split over two chunks is still seen. */
 const KEEP_ALIVE_TAIL = 64;
 
+const MAX_AGENT_CHARS = 160;
+
+/**
+ * Who sent a request, read from the User-Agent that the Antigravity programs set themselves:
+ *   antigravity/hub/2.35.1 (aidev_client; os_type=darwin; ...)   the desktop app
+ *   antigravity/cli/1.5.17 (aidev_client; os_type=darwin; ...)   the `agy` command line
+ * @returns {'desktop' | 'cli' | 'other'}
+ */
+export function clientOf(headers) {
+  const agent = String(headers?.['user-agent'] || '');
+  if (/^antigravity\/hub\//i.test(agent)) return 'desktop';
+  if (/^antigravity\/cli\//i.test(agent)) return 'cli';
+  return 'other';
+}
+
 function withoutHopByHop(headers) {
   const out = {};
   for (const [name, value] of Object.entries(headers)) {
@@ -63,9 +82,13 @@ function decodeBody(raw, encoding) {
  * @param {() => object} options.getFlags   Current overrides, { name: value }. Empty disables patching.
  * @param {() => object} [options.getModelFlags]  The overrides that also go into every model of the
  *                                                model list. Empty leaves the model list untouched.
- * @param {(report: object) => void} [options.onConfig]   Called for every flag-config response.
- * @param {(report: object) => void} [options.onRequest]  Called once per finished request. `keepAlive`
- *                                                is true for a cache keep-alive request of the client.
+ * @param {(report: object) => void} [options.onConfig]   Called for every flag-config response of the
+ *                                                desktop app. Other senders are never reported here.
+ * @param {(report: object) => void} [options.onRequest]  Called once per finished request. `client` is
+ *                                                the sender ('desktop', 'cli' or 'other'), `agent` its
+ *                                                User-Agent, `kind` the flag-config kind or null.
+ *                                                `keepAlive` is true for a cache keep-alive request of
+ *                                                the desktop app.
  * @param {() => object} [options.identity]  Extra fields for the ping answer.
  * @returns {http.Server} A server that is not listening yet.
  */
@@ -81,7 +104,7 @@ export function createForwarder({
   const target = new URL(upstream);
   const secure = target.protocol === 'https:';
   const transport = secure ? https : http;
-  const agent = new transport.Agent({ keepAlive: true });
+  const pool = new transport.Agent({ keepAlive: true });
   const port = Number(target.port) || (secure ? 443 : 80);
 
   function handle(req, res) {
@@ -95,6 +118,10 @@ export function createForwarder({
 
     const started = Date.now();
     const kind = kindOf(pathname);
+    const client = clientOf(req.headers);
+    // Only the desktop app is changed. Any other sender is streamed through untouched.
+    const ours = client === 'desktop';
+    const agent = String(req.headers['user-agent'] || '').slice(0, MAX_AGENT_CHARS);
     const headers = withoutHopByHop(req.headers);
     headers.host = target.host;
 
@@ -107,7 +134,7 @@ export function createForwarder({
     // A model request is only looked at for one label name. Nothing of it is kept or logged.
     // A compressed body cannot be read this way and is not counted.
     const watchKeepAlive =
-      req.method === 'POST' && pathname.endsWith('GenerateContent') && !req.headers['content-encoding'];
+      ours && req.method === 'POST' && pathname.endsWith('GenerateContent') && !req.headers['content-encoding'];
     let keepAlive = false;
     let tail = Buffer.alloc(0);
     req.on('data', (chunk) => {
@@ -138,7 +165,18 @@ export function createForwarder({
     const done = (status, extra = {}) => {
       if (settled) return;
       settled = true;
-      onRequest({ upstream: name, method: req.method, path: pathname, status, ms: Date.now() - started, keepAlive, ...extra });
+      onRequest({
+        upstream: name,
+        method: req.method,
+        path: pathname,
+        status,
+        ms: Date.now() - started,
+        client,
+        agent,
+        kind,
+        keepAlive,
+        ...extra,
+      });
     };
 
     const fail = (err) => {
@@ -233,7 +271,7 @@ export function createForwarder({
       upRes.on('error', fail);
       // The model list is buffered only while there is something to write into it.
       const wanted = kind !== MODELS_KIND || Object.keys(getModelFlags() || {}).length > 0;
-      if (kind && status === 200 && wanted) {
+      if (ours && kind && status === 200 && wanted) {
         patchAndSend(upRes, status, respHeaders);
         return;
       }
@@ -250,7 +288,7 @@ export function createForwarder({
         method: req.method,
         path: req.url,
         headers,
-        agent: attempt === 1 ? agent : false,
+        agent: attempt === 1 ? pool : false,
       });
       upstreamReq = upReq;
       upReq.on('response', respond);
@@ -289,7 +327,17 @@ export function createForwarder({
     const report = (status, extra = {}) => {
       if (reported) return;
       reported = true;
-      onRequest({ upstream: name, method: req.method, path: pathname, status, ms: Date.now() - started, ...extra });
+      onRequest({
+        upstream: name,
+        method: req.method,
+        path: pathname,
+        status,
+        ms: Date.now() - started,
+        client: clientOf(req.headers),
+        agent: String(req.headers['user-agent'] || '').slice(0, MAX_AGENT_CHARS),
+        kind: null,
+        ...extra,
+      });
     };
     const headText = (res) => {
       const lines = [`HTTP/1.1 ${res.statusCode} ${res.statusMessage || ''}`];
@@ -346,6 +394,6 @@ export function createForwarder({
   server.keepAliveTimeout = 120_000;
   server.headersTimeout = 125_000;
   server.on('clientError', (_err, socket) => socket.destroy());
-  server.on('close', () => agent.destroy());
+  server.on('close', () => pool.destroy());
   return server;
 }

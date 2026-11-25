@@ -36,10 +36,20 @@ export async function freePorts(count) {
   return ports;
 }
 
-/** One HTTP request. Resolves to { status, headers, body: Buffer }. */
-export function request({ port, method = 'GET', path: pathname = '/', headers = {}, body, agent = false }) {
+/** The User-Agent values the real programs send. */
+export const DESKTOP_AGENT = 'antigravity/hub/2.35.1 (aidev_client; os_type=darwin; arch=arm64; cl=1029194470)';
+export const CLI_AGENT = 'antigravity/cli/1.5.17 (aidev_client; os_type=darwin; arch=arm64; cl=1029496841; auth_method=consumer)';
+
+/**
+ * One HTTP request. Resolves to { status, headers, body: Buffer }.
+ * It is sent as the desktop app unless `as` says otherwise ('cli', or any other User-Agent text;
+ * an empty string sends no User-Agent at all).
+ */
+export function request({ port, method = 'GET', path: pathname = '/', headers = {}, body, agent = false, as = 'desktop' }) {
+  const sender = as === 'desktop' ? DESKTOP_AGENT : as === 'cli' ? CLI_AGENT : as;
+  const all = sender ? { 'user-agent': sender, ...headers } : headers;
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, method, path: pathname, headers, agent }, (res) => {
+    const req = http.request({ host: '127.0.0.1', port, method, path: pathname, headers: all, agent }, (res) => {
       const chunks = [];
       res.on('data', (chunk) => chunks.push(chunk));
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));

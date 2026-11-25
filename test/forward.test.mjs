@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
 import zlib from 'node:zlib';
-import { PING_PATH, createForwarder } from '../src/forward.mjs';
-import { close, freePorts, listen, request, sleep } from './helpers.mjs';
+import { PING_PATH, clientOf, createForwarder } from '../src/forward.mjs';
+import { CLI_AGENT, DESKTOP_AGENT, close, freePorts, listen, request, sleep } from './helpers.mjs';
 
 /** Start a fake upstream and a forwarder in front of it. */
 async function setup(t, upstreamHandler, { flags = {}, modelFlags = {} } = {}) {
@@ -174,7 +174,8 @@ test('a keep-alive request of the client is recognised, and conversation text is
   });
   const send = (body, pathname = '/v1internal:streamGenerateContent?alt=sse', headers = {}) =>
     new Promise((resolve, reject) => {
-      const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: pathname, headers, agent: false }, (res) => {
+      const all = { 'user-agent': DESKTOP_AGENT, ...headers };
+      const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: pathname, headers: all, agent: false }, (res) => {
         res.resume();
         res.on('end', resolve);
       });
@@ -332,7 +333,13 @@ test('a connection upgrade is tunnelled in both directions', async (t) => {
     socket.on('error', () => {});
   });
   const upstreamPort = await listen(upstream);
-  const forwarder = createForwarder({ name: 'aicode', upstream: `http://127.0.0.1:${upstreamPort}`, getFlags: () => ({}) });
+  const reports = [];
+  const forwarder = createForwarder({
+    name: 'aicode',
+    upstream: `http://127.0.0.1:${upstreamPort}`,
+    getFlags: () => ({}),
+    onRequest: (report) => reports.push(report),
+  });
   const port = await listen(forwarder);
   t.after(async () => {
     await close(forwarder);
@@ -345,7 +352,7 @@ test('a connection upgrade is tunnelled in both directions', async (t) => {
       host: '127.0.0.1',
       port,
       path: '/v1alpha/live',
-      headers: { connection: 'Upgrade', upgrade: 'test-echo' },
+      headers: { connection: 'Upgrade', upgrade: 'test-echo', 'user-agent': CLI_AGENT },
       agent: false,
     });
     req.on('upgrade', (res, socket) => {
@@ -361,6 +368,11 @@ test('a connection upgrade is tunnelled in both directions', async (t) => {
   });
   assert.deepEqual(answer, { status: 101, upgrade: 'test-echo', data: 'echo:hello' });
   assert.equal(seenHost, `127.0.0.1:${upstreamPort}`);
+  // The sender of an upgrade is reported like the sender of any other request.
+  assert.deepEqual(
+    reports.map((r) => [r.status, r.client, r.agent, r.kind]),
+    [[101, 'cli', CLI_AGENT, null]]
+  );
 });
 
 test('an unreachable upstream gives 502', async (t) => {
@@ -389,4 +401,88 @@ test('the ping path is answered locally', async (t) => {
   const res = await request({ port, path: PING_PATH });
   assert.deepEqual(JSON.parse(res.body.toString('utf8')), { app: 'agy-flags', role: 'aicode', pid: 123 });
   assert.equal(reached, false);
+});
+
+test('the sender is read from the User-Agent', () => {
+  assert.equal(clientOf({ 'user-agent': DESKTOP_AGENT }), 'desktop');
+  assert.equal(clientOf({ 'user-agent': CLI_AGENT }), 'cli');
+  assert.equal(clientOf({ 'user-agent': 'Antigravity/Hub/3.0.0 (x)' }), 'desktop');
+  // A name that only contains the desktop name is not the desktop app.
+  assert.equal(clientOf({ 'user-agent': 'curl/8 antigravity/hub/2.35.1' }), 'other');
+  assert.equal(clientOf({ 'user-agent': 'antigravity/hubcap/1.0' }), 'other');
+  assert.equal(clientOf({ 'user-agent': 'antigravity/2.35.1 (aidev_client)' }), 'other');
+  assert.equal(clientOf({ 'user-agent': 'Go-http-client/1.1' }), 'other');
+  assert.equal(clientOf({}), 'other');
+  assert.equal(clientOf(undefined), 'other');
+});
+
+test('a flag response for the command line goes out byte for byte', async (t) => {
+  const zipped = zlib.gzipSync(JSON.stringify(FETCH_CONFIG));
+  const seen = [];
+  const { port, configs, requests } = await setup(
+    t,
+    (req, res) => {
+      seen.push(req.headers['user-agent']);
+      res.writeHead(200, { 'content-type': 'application/json', 'content-encoding': 'gzip', 'content-length': zipped.length });
+      res.end(zipped);
+    },
+    { flags: { a: true, n: 5 } }
+  );
+  for (const as of ['cli', 'antigravity/ide/1.20.0 (aidev_client)', '']) {
+    const res = await request({ port, path: '/v1alpha:fetchConfig', as });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.equals(zipped), `body changed for "${as}"`);
+    assert.equal(res.headers['content-encoding'], 'gzip');
+    assert.equal(res.headers['content-length'], String(zipped.length));
+  }
+  // Nothing of it reaches the flag status or the server flag list.
+  assert.deepEqual(configs, []);
+  assert.deepEqual(seen, [CLI_AGENT, 'antigravity/ide/1.20.0 (aidev_client)', undefined]);
+  assert.deepEqual(
+    requests.map((r) => [r.client, r.kind, r.agent]),
+    [
+      ['cli', 'fetchConfig', CLI_AGENT],
+      ['other', 'fetchConfig', 'antigravity/ide/1.20.0 (aidev_client)'],
+      ['other', 'fetchConfig', ''],
+    ]
+  );
+
+  // The same response for the desktop app is patched: the test above would pass for a
+  // forwarder that never patches anything.
+  const desktop = await request({ port, path: '/v1alpha:fetchConfig' });
+  assert.equal(JSON.parse(desktop.body.toString('utf8')).experimentConfig.experimentFlags[0].boolValue, true);
+  assert.equal(configs.length, 1);
+  assert.equal(requests.at(-1).client, 'desktop');
+});
+
+test('the model list and the keep-alive count are for the desktop app only', async (t) => {
+  const models = JSON.stringify({ models: { one: {}, two: {} } });
+  const { port, configs, requests } = await setup(
+    t,
+    (req, res) => {
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(models);
+      });
+    },
+    { modelFlags: { 'keep-on': true } }
+  );
+  const cli = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: 'cli' });
+  assert.equal(cli.body.toString('utf8'), models);
+  assert.deepEqual(configs, []);
+  const desktop = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  assert.notEqual(desktop.body.toString('utf8'), models);
+  assert.equal(configs.length, 1);
+
+  const label = '{"request":{"labels":{"prompt_cache_keep_alive":"true"}}}';
+  await request({ port, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body: label, as: 'cli' });
+  await request({ port, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body: label });
+  assert.deepEqual(
+    requests.slice(-2).map((r) => [r.client, r.keepAlive]),
+    [
+      ['cli', false],
+      ['desktop', true],
+    ]
+  );
 });

@@ -7,8 +7,9 @@
     zh: {
       tagline: '选择要开启的 Antigravity 实验性功能',
       langButton: 'English',
-      gateTitle: '需要从命令行打开',
-      gateBody: '这个页面要带着本机的访问令牌打开。请在终端运行下面的命令：',
+      gateTitle: '需要重新打开这个页面',
+      gateBody: '这个页面要带着本机的访问令牌打开，而这个浏览器里没有保存令牌。请打开「终端」，粘贴下面这一行并按回车。它只重新打开本页，别的都不动：',
+      gateAlt: '如果你是下载源码安装的，也可以在源码文件夹里运行：',
       injection: '启用改写',
       injectionOn: '本工具正在改写 Google 下发给 Antigravity 的开关配置。',
       injectionOff: '已关闭：流量原样通过，不改写任何内容。',
@@ -16,6 +17,8 @@
       factRoute: '连接方式',
       factInjected: '上次改写',
       factServer: '服务端开关',
+      factOthers: '其他程序',
+      othersLine: '命令行 agy 的请求 {cli} 个，其他来源 {other} 个：全部原样放行，没有改写',
       running: '运行中',
       notRunning: '未运行',
       notInstalled: '未找到',
@@ -86,6 +89,8 @@
         'not-patched': '上一次没有改写成功，已原样放行（{detail}）。服务端的格式可能变了。',
         skipped: '这些开关的类型和服务端不一致，已跳过：{detail}',
         'upstream-failed': '最近有请求转发失败（{detail}）。',
+        'desktop-not-recognized':
+          'Antigravity 经过了本工具，但它的请求没有被认出来（它自称 {detail}），所以开关没有改写。客户端的版本可能变了，需要更新本工具。',
         'page-unavailable': '找不到客户端自带的界面文件（{detail}），所以没有改界面加载方式，需要改界面的功能不会生效。',
         'page-not-changed': '界面脚本没有改动，已原样提供（{detail}）。客户端的版本可能变了，需要更新本工具。',
       },
@@ -93,8 +98,9 @@
     en: {
       tagline: 'Choose which Antigravity experimental features to turn on',
       langButton: '中文',
-      gateTitle: 'Open this page from the command line',
-      gateBody: 'This page needs the local access token. Run this command in a terminal:',
+      gateTitle: 'Open this page again',
+      gateBody: 'This page needs the local access token, and this browser has none saved. Open Terminal, paste the line below and press Return. It only opens this page again and changes nothing else:',
+      gateAlt: 'If you installed from the source code, you can also run this in the source folder:',
       injection: 'Rewriting enabled',
       injectionOn: 'agy-flags is rewriting the flag configuration that Google sends to Antigravity.',
       injectionOff: 'Off: traffic passes through unchanged.',
@@ -102,6 +108,8 @@
       factRoute: 'Connection',
       factInjected: 'Last rewrite',
       factServer: 'Server flags',
+      factOthers: 'Other programs',
+      othersLine: '{cli} requests from the agy command line, {other} from other senders: all passed through unchanged',
       running: 'running',
       notRunning: 'not running',
       notInstalled: 'not found',
@@ -172,6 +180,8 @@
         'not-patched': 'The last response was not rewritten and was passed through ({detail}). The server format may have changed.',
         skipped: 'These flags have a different type on the server and were skipped: {detail}',
         'upstream-failed': 'A forwarded request failed recently ({detail}).',
+        'desktop-not-recognized':
+          'Antigravity runs through agy-flags, but its requests were not recognised (it calls itself {detail}), so no flag was rewritten. The client version may have changed; update agy-flags.',
         'page-unavailable': 'The page files of the client were not found ({detail}). The page loading was not changed, and features that change the page have no effect.',
         'page-not-changed': 'The page script was not changed and was served as it is ({detail}). The client version may have changed; update agy-flags.',
       },
@@ -213,22 +223,56 @@
 
   // ---- token -------------------------------------------------------------------------
 
+  // The token is kept in this browser's storage for this page, so that a bookmark of the page
+  // keeps working. It is removed again as soon as the daemon refuses it.
+  const TOKEN_KEY = 'agy-flags-token';
   let token = '';
   const fromHash = /[#&]t=([0-9a-f]{48,128})/.exec(location.hash);
   if (fromHash) {
     token = fromHash[1];
     try {
-      sessionStorage.setItem('agy-flags-token', token);
+      localStorage.setItem(TOKEN_KEY, token);
     } catch {
       // the token then lives for this page load only
     }
     history.replaceState(null, '', location.pathname);
   } else {
     try {
-      token = sessionStorage.getItem('agy-flags-token') || '';
+      token = localStorage.getItem(TOKEN_KEY) || '';
     } catch {
       token = '';
     }
+  }
+
+  function storedToken() {
+    try {
+      return localStorage.getItem(TOKEN_KEY) || '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * The daemon refused our token. Another tab of this page may have stored a newer one in the
+   * meantime: then take that one, and leave the storage alone. Only a stored token that is the
+   * refused one is removed. Returns true when there is another token to try.
+   */
+  function tokenRefused() {
+    const refused = token;
+    const stored = storedToken();
+    if (stored && stored !== refused) {
+      token = stored;
+      return true;
+    }
+    token = '';
+    if (stored) {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+      } catch {
+        // nothing more to do
+      }
+    }
+    return false;
   }
 
   // ---- state -------------------------------------------------------------------------
@@ -259,15 +303,19 @@
   }
 
   async function api(method, path, body) {
-    const headers = { 'x-agy-flags-token': token };
-    if (body !== undefined) headers['content-type'] = 'application/json';
     let res;
-    try {
-      res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' });
-    } catch {
-      throw Object.assign(new Error('offline'), { offline: true });
-    }
-    if (res.status === 401) {
+    for (let attempt = 1; ; attempt += 1) {
+      const headers = { 'x-agy-flags-token': token };
+      if (body !== undefined) headers['content-type'] = 'application/json';
+      try {
+        res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' });
+      } catch {
+        throw Object.assign(new Error('offline'), { offline: true });
+      }
+      if (res.status !== 401) break;
+      // One more try with a newer token that another tab stored; otherwise ask for the page to be reopened.
+      if (attempt === 1 && tokenRefused()) continue;
+      if (attempt > 1) tokenRefused();
       showGate();
       throw Object.assign(new Error('unauthorized'), { unauthorized: true });
     }
@@ -386,7 +434,9 @@
   }
 
   function renderStatus() {
-    draw('status', [lang, state.enabled, state.app, state.client, state.lastInjection, state.server, state.warnings], () => {
+    const cli = state.traffic?.byClient?.cli || 0;
+    const other = state.traffic?.byClient?.other || 0;
+    draw('status', [lang, state.enabled, state.app, state.client, state.lastInjection, state.server, state.warnings, cli, other], () => {
       $('enabled').setAttribute('aria-checked', String(state.enabled));
       $('injection-desc').textContent = state.enabled ? t('injectionOn') : t('injectionOff');
 
@@ -417,6 +467,7 @@
       }
       fact(t('factInjected'), lines.length ? lines.join('；') : t('neverSeen'));
       fact(t('factServer'), t('serverLine', { n: state.server.count }));
+      if (cli + other > 0) fact(t('factOthers'), t('othersLine', { cli, other }));
 
       const list = $('warnings');
       list.replaceChildren();
@@ -730,26 +781,33 @@
   // ---- start -------------------------------------------------------------------------
 
   renderStatic();
-  if (!token) {
-    showGate();
-    return;
+
+  let loaded = false;
+  /** Load everything once, then keep the state fresh. Without a token nothing is asked from the daemon. */
+  async function tick() {
+    if (!token) {
+      // Another tab of this page may have been given a token since.
+      token = storedToken();
+      if (!token) {
+        showGate();
+        return;
+      }
+    }
+    if (!loaded) {
+      catalog = await api('GET', '/api/catalog');
+      loaded = true;
+    }
+    await refresh();
   }
 
-  (async () => {
-    try {
-      catalog = await api('GET', '/api/catalog');
-      await refresh();
-    } catch (err) {
-      reportError(err);
-    }
-    setInterval(() => {
-      if (document.hidden || busy) return;
-      refresh().catch((err) => {
-        if (err?.offline) toast(t('errOffline'));
-      });
-    }, 3000);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) refresh().catch(() => {});
+  tick().catch(reportError);
+  setInterval(() => {
+    if (document.hidden || busy) return;
+    tick().catch((err) => {
+      if (err?.offline) toast(t('errOffline'));
     });
-  })();
+  }, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !busy) tick().catch(() => {});
+  });
 })();
