@@ -9,7 +9,7 @@ Many Antigravity features are controlled by "experiment flags" that Google's ser
 - **It runs on your machine only** and has no third-party dependencies. One optional feature downloads a public price list.
 - **It changes requests of the desktop app only.** Requests of the command line `agy` pass through unchanged.
 
-Besides flags, it has four features that a flag alone cannot give: a context usage indicator, costs at public prices, a Chinese interface, and conversation titles in Chinese.
+Besides flags, it has four features that a flag alone cannot give: a context usage indicator, estimated costs, a Chinese interface, and Chinese conversation titles.
 
 macOS only. It ran on Antigravity 2.35.0 to 2.35.2.
 
@@ -69,10 +69,10 @@ agy-flags ui
 ```
 
 1. Turn on the features you want on the page.
-2. Click "Restart Antigravity" at the top of the page. Antigravity reads its flags only when it starts; "Conversation titles in Chinese" needs no restart.
+2. Click "Restart Antigravity" at the top of the page. Antigravity reads its flags only when it starts; "Chinese conversation titles" needs no restart.
 3. To go back, set the flag back and restart again.
 
-The page has the curated features only: features that were turned on, looked at, and found useful. Each is marked "tested" (the effect was seen on the version shown, and the description says how far it was checked) or "untested" (the effect is known from the client code only). Other flags can be written by hand into `flags` in `config.json`, for example `"some-flag": true`, at your own risk.
+The page has the curated features only: features that were turned on, looked at, and found useful, each with a one-sentence description. Each is marked "tested" (the effect was seen on the version shown) or "untested" (the effect is known from the client code only). Other flags can be written by hand into `flags` in `config.json`, for example `"some-flag": true`, at your own risk.
 
 | Command | What it does |
 | --- | --- |
@@ -111,15 +111,15 @@ unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 
 ### The three features that change the page
 
-The context usage indicator, costs at public prices and the Chinese interface change the page script `main.js` of Antigravity. agy-flags does not modify the app. It uses a third environment variable of the language server, `AGY_DEV_UI_URL`: with it set, the language server takes its page files from that address. The daemon serves them on port 47933: read unchanged from the installed language server program, with the code of agy-flags added to `main.js`. If the place to change is not found (after a client update), the files are served unchanged and the page shows a warning.
+The context usage indicator, estimated costs and the Chinese interface change the page script `main.js` of Antigravity. agy-flags does not modify the app. It uses a third environment variable of the language server, `AGY_DEV_UI_URL`: with it set, the language server takes its page files from that address. The daemon serves them on port 47933: read unchanged from the installed language server program, with the code of agy-flags added to `main.js`. If the place to change is not found (after a client update), the files are served unchanged and the page shows a warning.
 
 The price: **while one of these three is on, the Antigravity page loads only while agy-flags runs.** Otherwise a reloaded window shows only a text that starts with "The dev UI server at … is not reachable". That is why this variable is set only while one of them is on.
 
 - **Context usage indicator**: the public build has the flag but not the component; agy-flags adds a component of its own. It shows context usage, not quota. After the restart, also turn on Settings → Appearance → Advanced Settings → Chat Layout → "Context and quota indicator" in the app (off by default).
-- **Costs at public prices**: the costs in "Token usage of each reply" are all $0.0000 in the public build, because the language server has no price list. Once a day at most, agy-flags downloads the public Vertex AI prices from `https://models.dev/api.json` and computes the costs again in the page: each turn at the prices of its model, each subagent at its own model. It fills in only where the client gave no price. This is an estimate at list prices, not a bill; only input, cache read and output are counted, not the cache writes of Claude; a model that is not in the price list still shows $0.0000.
+- **Estimated costs**: the costs in "Token usage per reply" are all $0.0000 in the public build, because the language server has no price list. Once a day at most, agy-flags downloads the public Vertex AI prices from `https://models.dev/api.json` and computes the costs again in the page: each turn at the prices of its model, each subagent at its own model. It fills in only where the client gave no price. This is an estimate at list prices, not a bill; only input, cache read and output are counted, not the cache writes of Claude; a model that is not in the price list still shows $0.0000.
 - **Chinese interface**: a translation program is added at the end of the page script. When a text on the page equals an English entry of `src/l10n/zh-CN.json`, the whole text is replaced with the Chinese one. Conversation text, code, terminals, input boxes, and names of conversations, projects, models and files are not translated. The system menu bar, the Dock menu, system dialogs, pages in frames (for example the Swarm panel) and texts that the table does not have stay English. Part of the table comes from [antigravity-chinese](https://github.com/yiheng8023/antigravity-chinese) (MIT).
 
-### Conversation titles in Chinese
+### Chinese conversation titles
 
 To name a conversation, the app sends your first message to a small model with an instruction that asks for "3 to 5 English words", so the title is always English. The instruction is in the language server, out of reach of the page. agy-flags recognizes this request in the forwarder and replaces only the sentence that asks for English with one that asks for Simplified Chinese; all other bytes stay. If the sentence is not found, or is found more than once, the request goes out unchanged. No restart is needed, and existing titles do not change. The title comes from a model and may not always follow the instruction.
 
@@ -131,15 +131,15 @@ Your Google sign-in token and all conversation content pass through the forwarde
 - The log records events only, never headers or bodies.
 - The API of the settings page needs a random token (after `#` in the address, which the browser never sends to a server) and checks `Host` and `Origin`, so other websites cannot change your settings through your browser. The page keeps the token in local storage so that a bookmark keeps working.
 - The code added to the page makes no network requests, and writes only plain text into the page.
-- While "costs at public prices" is on, the daemon requests `https://models.dev/api.json` only, without sign-in data or any of your data. Of the downloaded price list, only model keys, numbers and model names are kept. While it is on, the forwarder also reads the display names in the model list, without changing it.
-- "Conversation titles in Chinese" is the only place where a model request is changed. While it is on, the forwarder looks at the first 512 bytes of each model request of the desktop app, and reads a request that may be a title request into memory to check it before it goes out. Nothing is stored or logged.
+- While "Estimated costs" is on, the daemon requests `https://models.dev/api.json` only, without sign-in data or any of your data. Of the downloaded price list, only model keys, numbers and model names are kept. While it is on, the forwarder also reads the display names in the model list, without changing it.
+- "Chinese conversation titles" is the only place where a model request is changed. While it is on, the forwarder looks at the first 512 bytes of each model request of the desktop app, and reads a request that may be a title request into memory to check it before it goes out. Nothing is stored or logged.
 - The install script downloads from `github.com` and `nodejs.org` only and does not use `sudo`.
 
 Other programs that run as you on this machine can read your files anyway; agy-flags does not protect against them.
 
 ## What was tested
 
-The test result of each curated feature is in its description on the settings page. Overall:
+The "tested on" version of each feature on the settings page is the version on which its effect was seen. Overall:
 
 - Flag rewriting worked on 2.35.0 to 2.35.2. Also tested on 2.35.0: turning a flag off or removing agy-flags restores the original; conversations work; after the daemon was killed, it was back within a second; removal cleans up the variables, ports and login item.
 - The command line `agy` 1.5.17: all its requests passed unchanged, and it got the same flag values as without agy-flags.

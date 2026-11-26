@@ -60,7 +60,7 @@
       restart: '重启 Antigravity',
       restarting: '正在重启…',
       restartConfirm: '这会退出并重新打开 Antigravity，正在运行的任务会中断。继续吗？',
-      curatedNote: '这里的功能，除标「未实测」的以外，打开后都看到过效果。「已实测」表示在标出的版本上看到过说明里写的效果；「未实测」表示效果只是从客户端的代码里读出来的，没有在客户端里看到。',
+      curatedNote: '「已实测」表示在标出的版本上亲眼看到过效果，「未实测」表示只从客户端代码里读出、还没看到过。',
       tested: '已实测 {v}',
       untested: '未实测',
       risk: '有风险',
@@ -77,7 +77,7 @@
       errServerType: '{name} 在服务端不是布尔开关，不能改。',
       errOffline: '连不上 agy-flags 的常驻进程。',
       footer:
-        '本工具只在本机运行，不向第三方发送你的任何数据。只有打开「按公开价格估算费用」时，它才会从 models.dev 下载一份公开的价格表。只有打开「对话标题用中文」时，它才会改动发给模型的内容，而且只改起标题那个请求里的一句指令。它改写的是 Google 下发的实验开关：这些功能还没有正式发布，可能不稳定，也可能随版本更新而失效。',
+        '本工具只在本机运行，不向第三方发送你的数据（「估算费用」会从 models.dev 下载公开价格表，「中文对话标题」只改起标题请求里的一句指令）。这些功能没有正式发布，可能不稳定，也可能随版本更新失效。',
       warn: {
         'app-missing': '没有找到 Antigravity：{detail}',
         'env-conflict': '环境变量 {detail} 已经被别的程序设置。本工具不会覆盖它，所以现在不起作用。',
@@ -150,7 +150,7 @@
       restart: 'Restart Antigravity',
       restarting: 'Restarting…',
       restartConfirm: 'This quits and reopens Antigravity. Running tasks will be interrupted. Continue?',
-      curatedNote: 'Except for the entries marked "untested", the effect of every feature here was seen. "tested on" means the described effect was seen on that version; "untested" means the effect is known from the client code only and was not seen in the app.',
+      curatedNote: '"tested on" means the effect was seen on that version; "untested" means it is known from the client code only.',
       tested: 'tested on {v}',
       untested: 'untested',
       risk: 'risky',
@@ -167,7 +167,7 @@
       errServerType: '{name} is not a boolean flag on the server and cannot be changed.',
       errOffline: 'Cannot reach the agy-flags daemon.',
       footer:
-        'agy-flags runs on this machine only and sends none of your data to third parties. Only while "Estimate costs at public prices" is on, it downloads a public price list from models.dev. Only while "Conversation titles in Chinese" is on, it changes something that goes to the model: one sentence of the instruction in the request that asks for a title. It rewrites experimental flags sent by Google: these features are unreleased, may be unstable, and may stop working after an update.',
+        'agy-flags runs on this machine only and sends none of your data to third parties ("Estimated costs" downloads a public price list from models.dev; "Chinese conversation titles" changes only one sentence of the title request). These features are unreleased, may be unstable, and may stop working after an update.',
       warn: {
         'app-missing': 'Antigravity was not found: {detail}',
         'env-conflict': 'The environment variable {detail} is already set by another program. agy-flags does not overwrite it, so it has no effect now.',

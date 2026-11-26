@@ -1,5 +1,5 @@
 {
-  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off.",
+  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
   "groups": [
     {
       "id": "developer-mode",
@@ -12,8 +12,8 @@
         "en": "Developer settings page"
       },
       "description": {
-        "zh": "在 Settings 里显示 Developer 页。页面里有功能环境覆盖和 Custom Flags 列表，可以在客户端内逐个覆盖界面用到的开关。",
-        "en": "Shows the Developer page in Settings. The page has a feature environment override and a Custom Flags list, where the flags used by the interface can be overridden one by one inside the app."
+        "zh": "在设置里多出 Developer 页，可以在客户端里自己覆盖界面开关。",
+        "en": "Adds a Developer page to Settings, where you can override interface flags inside the app."
       }
     },
     {
@@ -25,20 +25,20 @@
       "status": "page",
       "tested": "2.35.1",
       "riskLabel": {
-        "zh": "改变界面加载方式",
-        "en": "changes how the page loads"
+        "zh": "依赖本工具运行",
+        "en": "needs agy-flags running"
       },
       "risk": {
-        "zh": "打开这一项后，Antigravity 的界面文件改由本工具提供：文件取自客户端自带的那一份，只在界面脚本里多加一个组件。本工具没有运行时，Antigravity 的窗口重新加载会显示一段报错文字，直到本工具恢复运行或客户端重启。",
-        "en": "While this is on, Antigravity takes its page files from agy-flags. The files are the client's own; one component is added to the page script. While agy-flags is not running, an Antigravity window that is reloaded shows an error text, until agy-flags runs again or the client is restarted."
+        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字，要等本工具恢复或客户端重启。",
+        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text until agy-flags runs again or the app restarts."
       },
       "title": {
         "zh": "上下文用量指示器",
         "en": "Context usage indicator"
       },
       "description": {
-        "zh": "在输入框旁边显示上下文窗口已经用了多少，点开可以看各部分占用的 token。第一次用还要多做一步：重启客户端后，到客户端的 Settings → Appearance → Advanced Settings → Chat Layout，打开「Context and quota indicator」。这个设置默认是关的。对外版本的客户端有这个开关，但没有带这个组件，所以本工具把自己写的一个组件加进界面脚本。它只显示上下文用量，不显示模型配额。",
-        "en": "Shows next to the input box how full the context window is; click it for the tokens used by each part. One more step is needed the first time: after the client restarts, go to Settings → Appearance → Advanced Settings → Chat Layout in the client and turn on \"Context and quota indicator\". That setting is off by default. The public build of the client has the flag but not the component, so agy-flags adds a component of its own to the page script. It shows context usage only, not the model quota."
+        "zh": "在输入框旁显示上下文已经用了多少；重启后还要在 Settings → Appearance → Advanced Settings → Chat Layout 里打开「Context and quota indicator」。",
+        "en": "Shows how full the context window is next to the input box; after the restart, also turn on \"Context and quota indicator\" under Settings → Appearance → Advanced Settings → Chat Layout."
       }
     },
     {
@@ -48,12 +48,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "每条回复的 token 用量",
-        "en": "Token usage of each reply"
+        "zh": "回复用量",
+        "en": "Token usage per reply"
       },
       "description": {
-        "zh": "每条回复下面多一个美元符号按钮。点开后显示这一轮的 token 数和累计数：输入、从提示词缓存读出的部分（Cache）、输出，输出再分成思考和回复，以及模型生成了几次。Cache 一行能看出缓存有没有命中：实测同一个模型的第二轮显示 Cache 14.7K，换了模型的那一轮是 0。每个数字旁边还有一栏按公开 API 价格估算的费用，但在 2.35.1 上，Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 都显示 $0.0000，因为客户端自己没有价格表。要看估算的费用，再打开下面的「按公开价格估算费用」。关掉这一项后，已有回复下面的按钮也不再显示。",
-        "en": "Adds a dollar-sign button under each reply. It opens the token counts of that turn and the running total: input, the part read from the prompt cache (Cache), and output, with output split into thinking and response, and how many times the model generated. The Cache row shows whether the cache was hit: in the test, the second turn on the same model showed Cache 14.7K, and the turn after a model change showed 0. Next to each number there is also a cost estimated from public API prices, but on 2.35.1 it showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5, because the client has no price list of its own. For an estimated cost, also turn on \"Estimate costs at public prices\" below. When this is turned off, the button is gone from earlier replies too."
+        "zh": "每条回复下面多一个 $ 按钮，点开能看到这一轮用了多少 token、多少命中了缓存；费用要打开「估算费用」才有数字。",
+        "en": "Adds a $ button under each reply that shows the tokens of the turn and how many came from the cache; costs show numbers only with \"Estimated costs\" on."
       }
     },
     {
@@ -67,20 +67,20 @@
       "status": "prices",
       "tested": "2.35.1",
       "riskLabel": {
-        "zh": "改变界面加载方式，连接 models.dev",
-        "en": "changes how the page loads, connects to models.dev"
+        "zh": "依赖本工具运行，连接 models.dev",
+        "en": "needs agy-flags running, connects to models.dev"
       },
       "risk": {
-        "zh": "打开这一项后，Antigravity 的界面文件改由本工具提供：文件取自客户端自带的那一份，只在界面脚本里加一处费用计算。本工具没有运行时，Antigravity 的窗口重新加载会显示一段报错文字，直到本工具恢复运行或客户端重启。另外，本工具会从 models.dev 下载公开的价格表，每天最多一次；请求里不带你的任何数据。",
-        "en": "While this is on, Antigravity takes its page files from agy-flags. The files are the client's own; one cost calculation is added to the page script. While agy-flags is not running, an Antigravity window that is reloaded shows an error text, until agy-flags runs again or the client is restarted. In addition, agy-flags downloads the public price list of models.dev, once a day at most; the request carries none of your data."
+        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字；另外它每天最多一次从 models.dev 下载价格表，不带你的任何数据。",
+        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text; also, once a day at most, agy-flags downloads a price list from models.dev, without any of your data."
       },
       "title": {
-        "zh": "按公开价格估算费用",
-        "en": "Estimate costs at public prices"
+        "zh": "估算费用",
+        "en": "Estimated costs"
       },
       "description": {
-        "zh": "「每条回复的 token 用量」里的费用一栏在 2.35.1 上全是 $0.0000，因为客户端自己没有价格表。打开这一项后，本工具从 models.dev 下载 Vertex AI 的公开价格，在 Antigravity 的界面里按它算出每一行的费用：token 数乘以每百万 token 的单价。每一轮按那一轮所用模型的价格算，累计是各轮相加，所以中途换过模型的对话也算得对。子代理按它自己的模型算，单列一栏并计入总计。实测用的是一个先后用过 Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 的对话，其中有一次工具调用和两个子代理：各行的数字和手算一致；关掉这一项后都回到 $0.0000。算出来的是按公开 API 列表价的估算，不是你在 Antigravity 里实际花的钱或用掉的配额。只算输入、缓存读取和输出三项，Claude 的缓存写入没有计入。价格表里没有的模型仍显示 $0.0000，例如名字是「Orchestrator (Neon)」这一类的三个模型。它需要「每条回复的 token 用量」，打开这一项时会一并打开那一项。",
-        "en": "The cost column of \"Token usage of each reply\" shows $0.0000 everywhere on 2.35.1, because the client has no price list of its own. While this is on, agy-flags downloads the public Vertex AI prices from models.dev and computes the cost of every row in the Antigravity page: the token count times the price per million tokens. Each turn is paid at the prices of the model of that turn, and a running total is the sum of the turns, so a conversation that changed its model is computed correctly. Subagents are paid at their own model; they get a row of their own and are part of the grand total. This was tested with one conversation that used Gemini 4 Neon, then Gemini 3.8 Flash, then Claude Sonnet 5.5, with one tool call and two subagents: every row agreed with a calculation by hand, and with this turned off every row was $0.0000 again. The result is an estimate at public API list prices. It is not what you pay in Antigravity, and it is not your quota. Only input, cache read and output are counted; the cache writes of Claude are not. A model that the price list does not have still shows $0.0000, for example the three models with names like \"Orchestrator (Neon)\". This needs \"Token usage of each reply\", and turning this on turns that on too."
+        "zh": "按 models.dev 上的公开价格，把回复用量里一直显示 $0 的费用算出来，只是估算，不是账单。",
+        "en": "Fills in the costs in the token usage, which otherwise always show $0, from public prices on models.dev; an estimate, not a bill."
       }
     },
     {
@@ -92,20 +92,20 @@
       "status": "l10n",
       "tested": "2.35.2",
       "riskLabel": {
-        "zh": "改变界面加载方式",
-        "en": "changes how the page loads"
+        "zh": "依赖本工具运行",
+        "en": "needs agy-flags running"
       },
       "risk": {
-        "zh": "打开这一项后，Antigravity 的界面文件改由本工具提供：文件取自客户端自带的那一份，只在界面脚本末尾加一段翻译程序。本工具没有运行时，Antigravity 的窗口重新加载会显示一段报错文字，直到本工具恢复运行或客户端重启。",
-        "en": "While this is on, Antigravity takes its page files from agy-flags. The files are the client's own; a translator is added to the end of the page script. While agy-flags is not running, an Antigravity window that is reloaded shows an error text, until agy-flags runs again or the client is restarted."
+        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字，要等本工具恢复或客户端重启。",
+        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text until agy-flags runs again or the app restarts."
       },
       "title": {
         "zh": "界面汉化",
         "en": "Chinese interface"
       },
       "description": {
-        "zh": "把 Antigravity 对话窗口的界面文字显示成简体中文：侧边栏、设置页、菜单、按钮和提示文字，也包括费用窗口和本工具加的上下文用量指示器。客户端自己没有多语言，英文是直接写在界面脚本里的。所以本工具在界面脚本的末尾加一段翻译程序：页面上的一段文字和词条表里的英文完全相同时，把它整段换成中文。客户端的代码不改，词条有错时只会显示错，不会影响功能。不翻译的内容：对话正文（你的消息和模型的回复）、代码、终端、输入框，以及对话名、项目名、模型名和文件名。Skills、Agent、MCP、token 这类大家熟悉的名词保留英文。翻不到的地方有三类：系统菜单栏、Dock 菜单和系统弹窗，它们在客户端的外壳里，不改 app 就改不了；嵌在框架里的页面，例如 Swarm 面板；词条表里没有的文字，例如客户端更新后新增的，它们仍显示英文。打开或关掉这一项后要重启客户端。词条表的一部分取自开源项目 antigravity-chinese（MIT 许可证），全部条目重新校对过。",
-        "en": "Shows the text of the Antigravity conversation window in Simplified Chinese: the sidebar, the settings, menus, buttons and hints, and also the cost summary and the context usage indicator that agy-flags adds. The client has no languages of its own; the English text is written directly in its page script. So agy-flags adds a translator to the end of the page script: when a text on the page is equal to an English entry of the word list, the whole text is replaced with its Chinese form. The code of the client is not changed, so a wrong entry can only show a wrong text; it cannot break a function. Not translated: the text of the conversation (your messages and the replies of the model), code, terminals, input fields, and the names of conversations, projects, models and files. Well-known nouns such as Skills, Agent, MCP and token stay in English. Three kinds of text cannot be reached: the system menu bar, the Dock menu and system dialogs, which belong to the shell of the client and cannot be changed without changing the app; pages inside a frame, for example the Swarm panel; and text that the word list does not have, for example text that a client update adds, which stays in English. Restart the client after you turn this on or off. A part of the word list comes from the open-source project antigravity-chinese (MIT license); every entry was checked again."
+        "zh": "把 Antigravity 的按钮、菜单和设置页显示成中文，对话内容不翻译，打开或关掉后要重启。",
+        "en": "Shows the buttons, menus and settings of Antigravity in Chinese; conversations are not translated, and a restart is needed."
       }
     },
     {
@@ -116,20 +116,20 @@
       "status": "titles",
       "tested": "2.35.2",
       "riskLabel": {
-        "zh": "改动发给模型的一句指令",
-        "en": "changes one sentence sent to the model"
+        "zh": "改动起标题的请求",
+        "en": "changes the title request"
       },
       "risk": {
-        "zh": "打开这一项后，本工具会改动桌面端发给模型的一个请求：给新对话起标题的那个请求。只换其中一句指令，你的消息和其余内容原样发出。这是本工具唯一改动模型请求内容的地方。",
-        "en": "While this is on, agy-flags changes one request that the desktop app sends to the model: the request that asks for the title of a new conversation. One sentence of its instruction is replaced; your message and everything else go out as they are. This is the only place where agy-flags changes the content of a model request."
+        "zh": "本工具会换掉起标题请求里的一句指令，你的消息原样发出。",
+        "en": "agy-flags replaces one sentence of the instruction in the title request; your message goes out unchanged."
       },
       "title": {
-        "zh": "对话标题用中文",
-        "en": "Conversation titles in Chinese"
+        "zh": "中文对话标题",
+        "en": "Chinese conversation titles"
       },
       "description": {
-        "zh": "新对话的标题总是英文，不管你用什么语言提问。原因是客户端让一个小模型起标题时，指令里写明了「3 到 5 个单词，每个词首字母大写」。打开这一项后，本工具在转发这个请求时，把这一句换成「用简体中文，4 到 12 个字」，其余内容原样发出。只改桌面端的标题请求；对话本身的请求不改，命令行 agy 的请求不改。不用重启客户端，下一个新对话就生效。已有对话的标题不变。为了认出标题请求，本工具要看每个模型请求开头的 512 个字节。请求编号以 checkpoint/ 开头的请求（标题请求是其中一种）会等全部收到后再检查、发出；其余请求看完开头就照常转发。这些内容都不保存、不写日志。如果客户端以后改了这条指令的写法，本工具找不到那一句，就原样放行，并在这个页面上提示。",
-        "en": "The title of a new conversation is always in English, in whatever language you ask. The reason: when the client asks a small model for the title, its instruction says \"3-5 words, title-cased\". While this is on, agy-flags replaces that sentence with \"in Simplified Chinese, 4 to 12 characters\" when it forwards the request; everything else goes out as it is. Only the title request of the desktop app is changed. The requests of the conversation itself are not changed, and the requests of the agy command line are not changed. No restart of the client is needed: the next new conversation gets a Chinese title. The titles of earlier conversations stay as they are. To recognize a title request, agy-flags looks at the first 512 bytes of every model request. A request whose id starts with checkpoint/ (the title request is one of them) is received completely before it is checked and sent on; every other request is forwarded as usual after its start. Nothing of it is kept or logged. If a later client words this instruction differently, agy-flags does not find the sentence; it then passes the request through unchanged and says so on this page."
+        "zh": "新对话的标题用中文起，不用重启。",
+        "en": "New conversations get Chinese titles instead of English ones, with no restart needed."
       }
     },
     {
@@ -149,8 +149,8 @@
         "en": "Conversation forking"
       },
       "description": {
-        "zh": "在对话菜单和每条回复下面显示 Fork，可以从某一步分出一个新对话。这 7 个开关是一起开启测试的，没有逐个分开测。开和关的对照是在 2.34.0 上做的；在 2.35.0 上打开时同样能看到 Fork，但没有重做关闭对照。",
-        "en": "Shows Fork in the conversation menu and under each reply, so that a new conversation can branch off from a step. The 7 flags were tested together, not one by one. The comparison between on and off was made on 2.34.0; on 2.35.0 Fork shows too while the flags are on, but the comparison with the flags off was not repeated."
+        "zh": "可以从对话的任意一步分出一个新对话。",
+        "en": "Lets you branch a new conversation off any step of a conversation."
       }
     },
     {
@@ -162,11 +162,11 @@
       "tested": "2.35.1",
       "title": {
         "zh": "新版侧边栏",
-        "en": "Redesigned sidebar"
+        "en": "New sidebar"
       },
       "description": {
-        "zh": "侧边栏换成新版：对话按状态分组（Unread、Idle 等），每组只显示最近几条。标题旁多一个「Customize Sidebar」菜单，里面有 Inbox Mode、Group By、Sort By、Archived Only。原来的 Customizations 入口改名为 Plugins。Inbox Mode 这一项来自第二个开关，它要和新版侧边栏一起开才出现。注意：第一次打开时，新版侧边栏把分组方式设成了 Status，关掉这一项后旧侧边栏仍按 Status 分组；想恢复，在侧边栏的 Display Options → Group By 里选回 Project。手动选回 Project 之后再打开这一项，分组方式保持 Project。",
-        "en": "Replaces the sidebar with the new one: conversations are grouped by status (Unread, Idle and so on), and each group shows only the most recent ones. Next to the heading there is a \"Customize Sidebar\" menu with Inbox Mode, Group By, Sort By and Archived Only. The Customizations entry is renamed Plugins. Inbox Mode comes from the second flag; it only appears together with the new sidebar. Note: when it was turned on for the first time, the new sidebar set the grouping to Status, and the old sidebar kept that grouping after this was turned off; to go back, choose Project under Display Options → Group By in the sidebar. After Project was chosen by hand, turning this on again kept the grouping at Project."
+        "zh": "换成按状态分组、带收件箱模式的新侧边栏；关掉后分组如果还是 Status，到 Display Options → Group By 选回 Project。",
+        "en": "Switches to a new sidebar that groups conversations by status and has an inbox mode; if grouping stays on Status after you turn it off, set Display Options → Group By back to Project."
       }
     },
     {
@@ -180,8 +180,8 @@
         "en": "Conversation groups"
       },
       "description": {
-        "zh": "对话的菜单里多出「Move to Group」，可以新建分组，把对话移进分组或移出分组。",
-        "en": "Adds \"Move to Group\" to the menu of a conversation: create a group, move a conversation into a group or out of it."
+        "zh": "可以把对话放进自己建的分组里。",
+        "en": "Lets you put conversations into groups you create."
       }
     },
     {
@@ -192,11 +192,11 @@
       "tested": "2.35.1",
       "title": {
         "zh": "后台任务一览",
-        "en": "Overview of background tasks"
+        "en": "Background tasks"
       },
       "description": {
-        "zh": "Settings 里多出「Running」页，列出所有对话里代理留下的、还在运行的后台任务和终端。客户端把这一页标为「Dev only」。",
-        "en": "Adds a \"Running\" page to Settings. It lists the background tasks and terminals that agents left running, across all conversations. The client labels the page \"Dev only\"."
+        "zh": "在设置里多出 Running 页，列出所有还在运行的后台任务和终端。",
+        "en": "Adds a Running page to Settings that lists all background tasks and terminals that are still running."
       }
     },
     {
@@ -206,12 +206,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "调整 Markdown 工件宽度",
-        "en": "Configurable Markdown artifact width"
+        "zh": "Markdown 工件宽度",
+        "en": "Markdown artifact width"
       },
       "description": {
-        "zh": "Settings → Appearance → Advanced Settings → Chat Layout 里多出「Markdown artifact width」，可以选 Default、Wide 或 Fill。",
-        "en": "Adds \"Markdown artifact width\" to Settings → Appearance → Advanced Settings → Chat Layout, with the choices Default, Wide and Fill."
+        "zh": "可以在 Chat Layout 设置里把 Markdown 工件调宽或铺满。",
+        "en": "Lets you make Markdown artifacts wider or full width in the Chat Layout settings."
       }
     },
     {
@@ -222,11 +222,11 @@
       "tested": "2.35.1",
       "title": {
         "zh": "用其他应用打开文件",
-        "en": "Open a file with another app"
+        "en": "Open with another app"
       },
       "description": {
-        "zh": "在侧面板里查看文件时，「More actions」菜单多出「Open with」子菜单，可以选用其他应用打开这个文件。实测只确认了菜单项出现，没有逐个试里面的应用。",
-        "en": "While a file is shown in the side panel, the \"More actions\" menu gets an \"Open with\" submenu, to open the file with another app. The test only confirmed that the menu item appears; the apps inside were not tried one by one."
+        "zh": "查看文件时可以用别的应用打开它。",
+        "en": "Lets you open the file you are viewing in another app."
       }
     },
     {
@@ -236,12 +236,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "文件面板侧栏：筛选和工件列表",
-        "en": "File pane sidebar: filter and artifact list"
+        "zh": "文件面板侧栏",
+        "en": "File pane sidebar"
       },
       "description": {
-        "zh": "在侧面板里查看文件时，文件面板自带的侧栏（Toggle sidebar）除了原有的文件树，多出「Artifacts」一栏和「Filter files...」筛选框。在 2.35.1 上只开这一个和文件有关的开关时，就看到了这两处。这个开关在界面代码里还有十几处用到，对外版本又缺少它的一部分组件，其他地方的效果没有逐一确认。",
-        "en": "While a file is shown in the side panel, the sidebar of the file pane (Toggle sidebar) gets an \"Artifacts\" section and a \"Filter files...\" box, next to the file tree it already had. On 2.35.1 both additions showed with this one file-related flag on and no other. The page code uses this flag in a dozen more places, and the public build lacks part of its components; the effect in those other places was not checked one by one."
+        "zh": "查看文件时，侧栏多出工件列表和文件筛选框。",
+        "en": "Adds an artifact list and a file filter to the sidebar of the file pane."
       }
     },
     {
@@ -251,12 +251,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "输入框里的连接器入口",
+        "zh": "输入框里的连接器",
         "en": "Connectors in the input box"
       },
       "description": {
-        "zh": "输入框左边的「Add context」菜单里多出「Connectors」，并显示有几个连接器是打开的。实测只确认了入口出现，没有逐个试里面的选项。",
-        "en": "Adds \"Connectors\" to the \"Add context\" menu at the left of the input box, with the number of connectors that are on. The test only confirmed that the entry appears; the options inside were not tried one by one."
+        "zh": "输入框的「Add context」菜单里多出连接器入口。",
+        "en": "Adds connectors to the \"Add context\" menu of the input box."
       }
     },
     {
@@ -266,12 +266,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "按对话开关遥测",
+        "zh": "单个对话的遥测开关",
         "en": "Telemetry switch per conversation"
       },
       "description": {
-        "zh": "对话的菜单里多出「Telemetry」开关，输入区和标题栏显示这个对话的遥测状态。实测只确认了开关出现，没有核对它是否真的改变了上报的数据。",
-        "en": "Adds a \"Telemetry\" switch to the menu of a conversation; the input area and the title bar show the telemetry state of that conversation. The test only confirmed that the switch appears; it did not check whether the reported data really changes."
+        "zh": "可以给单个对话关掉遥测，是否真的少报了数据没有核实。",
+        "en": "Lets you turn telemetry off for a single conversation; whether less data is really sent was not checked."
       }
     },
     {
@@ -282,11 +282,11 @@
       "tested": "2.35.1",
       "title": {
         "zh": "新版听写",
-        "en": "Reworked dictation"
+        "en": "New dictation"
       },
       "description": {
-        "zh": "Settings → General → Voice mode 里多出「Dictation languages」，可以限定听写识别的语言；听写改用新的处理流程。实测只确认了设置项出现，没有试听写本身。",
-        "en": "Adds \"Dictation languages\" to Settings → General → Voice mode, to limit the languages that dictation recognizes; dictation uses the new pipeline. The test only confirmed that the setting appears; dictation itself was not tried."
+        "zh": "听写可以限定识别哪几种语言。",
+        "en": "Lets you choose which languages dictation recognizes."
       }
     },
     {
@@ -296,12 +296,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "子代理可用模型菜单里的任一模型",
-        "en": "Subagents can use any model of the model menu"
+        "zh": "子代理可用任意模型",
+        "en": "Any model for subagents"
       },
       "description": {
-        "zh": "代理开子代理时，模型参数原来只有 inherit、flash_lite、flash、pro 四档。打开后，模型菜单里的每个模型和思考档位都能选，例如 Claude Opus 5.5 (High)、Gemini 3.8 Flash (Low)。工具说明仍要求代理默认用 inherit，也就是和自己相同的模型，不许自己换档。所以平时没有变化；你在消息里点名让子代理用某个模型时，代理才会换。实测让代理列出这个参数的可选值：打开前是 4 个，打开后是整个模型菜单。没有实际让子代理换一个模型跑一次。",
-        "en": "When the agent starts a subagent, the model parameter had four choices: inherit, flash_lite, flash and pro. While this is on, every model and thinking level of the model menu can be chosen, for example Claude Opus 5.5 (High) or Gemini 3.8 Flash (Low). The tool description still tells the agent to use inherit by default, which is its own model, and not to change the tier on its own. So nothing changes in daily use; the agent picks another model only when your message names one for the subagent. Tested by asking the agent for the allowed values of this parameter: 4 before, the whole model menu after. A subagent was not actually run on another model."
+        "zh": "子代理可以用模型菜单里的任意模型，你在消息里点名时代理才会换。",
+        "en": "Subagents can use any model of the model menu; the agent switches only when you name one in your message."
       }
     },
     {
@@ -311,12 +311,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "代码审查子代理（/review-agent）",
-        "en": "Code review agent (/review-agent)"
+        "zh": "代码审查（/review-agent）",
+        "en": "Code review (/review-agent)"
       },
       "description": {
-        "zh": "输入框里多一个斜杠命令 /review-agent，客户端把它标为 Experimental。它启动一个「Code Review Agent」子代理：先确定审查什么（没指定时看未提交的改动），再查调用方和相关代码，按严重程度列出问题，最后给出结论。它默认只读：不改文件、不动版本控制、不发评论。实测用它审查一行有错的 Python 代码：14 秒后主对话收到结论「REQUEST CHANGES」，问题按 P1、P3 分级，并写明只审了这段代码。没有在真实项目的改动上试过。每用一次，多花一个子代理的配额。",
-        "en": "Adds the slash command /review-agent to the input box; the client marks it Experimental. It starts a \"Code Review Agent\" subagent. The subagent first decides what to review (uncommitted changes when nothing is named), then reads the callers and related code, lists the problems by severity and ends with a verdict. By default it only reads: it does not change files or version control and does not post comments. Tested on one line of wrong Python code: after 14 seconds the conversation got the verdict \"REQUEST CHANGES\", with the problems graded P1 and P3 and a note that only this code was reviewed. It was not tried on the changes of a real project. Each use costs the quota of one subagent."
+        "zh": "输入 /review-agent，让一个子代理只读地审查你的改动并列出问题。",
+        "en": "Type /review-agent to have a subagent review your changes without touching them and list the problems."
       }
     },
     {
@@ -326,12 +326,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "深度工作子代理（/deepagent）",
-        "en": "Deep work agent (/deepagent)"
+        "zh": "深度工作（/deepagent）",
+        "en": "Deep work (/deepagent)"
       },
       "description": {
-        "zh": "输入框里多一个斜杠命令 /deepagent，客户端把它标为 Experimental。它启动一个「Deep Agent」子代理，提示词要求它宁可多做一轮验证、调查要追到确定的答案、每个结论都要有直接证据。适合复杂的编码和调查任务，比普通回答花更多配额。实测让它判断 1009 是不是质数：主对话显示「Started Deep Agent」，8 秒后收到带验证过程的答案。没有用复杂任务试过。",
-        "en": "Adds the slash command /deepagent to the input box; the client marks it Experimental. It starts a \"Deep Agent\" subagent whose prompt tells it to prefer one more verification pass, to follow an investigation to a definite answer and to back every conclusion with direct evidence. It suits complex coding and research tasks and costs more quota than a normal reply. Tested by asking whether 1009 is a prime: the conversation showed \"Started Deep Agent\" and got an answer with its checks after 8 seconds. It was not tried on a complex task."
+        "zh": "输入 /deepagent，让一个子代理把复杂问题查到底并反复验证，配额花得更多。",
+        "en": "Type /deepagent to have a subagent dig into a hard task and double-check its answer, at a higher quota cost."
       }
     },
     {
@@ -341,12 +341,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "草稿在重启后保留",
-        "en": "Keep drafts across restarts"
+        "zh": "保留未发送的草稿",
+        "en": "Keep unsent drafts"
       },
       "description": {
-        "zh": "在对话输入框里写了、还没发出去的文字，重启 Antigravity 后仍然在；侧边栏里这个对话旁边有铅笔标记。草稿只存在本机的客户端存储里，最多保留最近 25 个对话的草稿。实测：一个对话里的草稿经过几次重启、隔了一天仍在；删掉草稿后，标记也消失了。",
-        "en": "Text that you typed in the input box of a conversation and did not send is still there after Antigravity restarts; the sidebar shows a pencil mark next to that conversation. Drafts are kept only in the client's storage on this Mac, for the last 25 conversations at most. Tested: a draft in one conversation was still there after several restarts and one day; after the draft was deleted, the mark was gone too."
+        "zh": "输入框里没发出去的文字，重启后还在。",
+        "en": "Text you typed but did not send is still there after a restart."
       }
     },
     {
@@ -356,12 +356,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "项目的 GitHub 权限设置",
-        "en": "GitHub permissions of a project"
+        "zh": "项目的 GitHub 权限",
+        "en": "GitHub permissions per project"
       },
       "description": {
-        "zh": "在 Settings 里打开一个项目的设置，Permission Settings 一栏多出「GitHub」一行，点 Open 进入 GitHub Permissions 页。页里可以填 GitHub 个人访问令牌：按页面上的说明，令牌经 GitHub 验证后存进主目录的 ~/.env 文件，代理的沙箱看不到它，所有项目共用。还有一个「GitHub Policies」开关，用来按组织、仓库和资源细分代理能做的 GitHub 操作。全局的权限设置里没有这一行。实测只确认了这一行和这个页面出现，没有填令牌，也没有试权限策略。",
-        "en": "In Settings, the settings of a project get a \"GitHub\" row under Permission Settings; Open leads to the GitHub Permissions page. There you can enter a GitHub personal access token. As the page says, the token is validated with GitHub and stored in the file ~/.env in your home folder; it is not visible in the agent's sandbox and is shared by all projects. A \"GitHub Policies\" switch defines the organization, repository and resource level access that the agent may use on GitHub. The global permission settings do not have this row. The test only confirmed that the row and the page appear; no token was entered and no policy was tried."
+        "zh": "在项目设置里可以填 GitHub 令牌，并限制代理能做哪些 GitHub 操作。",
+        "en": "In the settings of a project you can add a GitHub token and limit what the agent may do on GitHub."
       }
     },
     {
@@ -371,12 +371,12 @@
       ],
       "tested": "2.35.1",
       "title": {
-        "zh": "提示代理多用可交互的 HTML 小部件",
-        "en": "Prompt the agent to use interactive HTML widgets"
+        "zh": "鼓励代理用交互小部件",
+        "en": "Encourage interactive widgets"
       },
       "description": {
-        "zh": "在代理的系统提示里加一段「Interactive HTML Widgets」。这段告诉代理：可以用内置的 generative_ui 技能，在对话里或侧面板里显示可交互的 HTML 小部件；需要图示时，例如解释架构、比较数字、画图表，应考虑这样做。它还要求服务端的 jetski-generative-ui 开着，目前默认就开着。实测让代理检查自己的系统提示：打开前没有这一段，打开后有。没有比较代理实际做小部件的次数。系统提示会长一点。",
-        "en": "Adds a section \"Interactive HTML Widgets\" to the agent's system prompt. It tells the agent that it can show interactive HTML widgets in the conversation or in the side panel with the built-in generative_ui skill, and that it should consider this when a picture helps, for example to explain an architecture, to compare numbers or to plot data. It also needs the server flag jetski-generative-ui, which is on by default at present. Tested by asking the agent to check its system prompt: the section was missing before and present after. How often the agent really makes widgets was not compared. The system prompt gets a little longer."
+        "zh": "提示代理在需要图示时，在对话里做可交互的 HTML 小部件。",
+        "en": "Tells the agent to show interactive HTML widgets in the conversation when a picture would help."
       }
     },
     {
@@ -386,12 +386,12 @@
       ],
       "tested": "2.35.2",
       "title": {
-        "zh": "插件市场按热门排序和分类筛选",
-        "en": "Plugin marketplace: most popular first and categories"
+        "zh": "插件市场排序和分类",
+        "en": "Plugin ranking and categories"
       },
       "description": {
-        "zh": "左侧 Plugins 打开的插件市场里，搜索框右边多一个「Filter plugins」按钮，可以按类别筛选，共 9 类，例如 Google Workspace、Developer Tools、Science。搜索或选了类别后，结果按热门程度排序，列表上方写着「Most popular first」。实测：打开前没有这个按钮；打开后有，选 Developer Tools 后列表按使用人数排序。各栏里插件的默认顺序也变了，例如 Google Drive 排到了第一。测试时这一项和「插件市场显示使用人数」是一起打开的。",
-        "en": "In the plugin marketplace (Plugins on the left), a \"Filter plugins\" button appears to the right of the search box. It filters by category; there are 9, for example Google Workspace, Developer Tools and Science. After a search or a category choice, the results are sorted by popularity and the list says \"Most popular first\". Tested: the button was missing before; after, it was there, and with Developer Tools chosen the list was sorted by user count. The default order inside the sections changed too, for example Google Drive moved to the first place. In the test this was turned on together with \"Plugin marketplace: user counts\"."
+        "zh": "插件市场可以按类别筛选，结果按热门程度排。",
+        "en": "The plugin marketplace gets category filters and lists the most popular plugins first."
       }
     },
     {
@@ -401,12 +401,12 @@
       ],
       "tested": "2.35.2",
       "title": {
-        "zh": "插件市场显示使用人数",
-        "en": "Plugin marketplace: user counts"
+        "zh": "插件使用人数",
+        "en": "Plugin user counts"
       },
       "description": {
-        "zh": "插件市场的卡片上显示使用人数，例如 Google Drive 旁边显示 149.4K。实测：打开前卡片上没有人数，打开后有。测试时这一项和「插件市场按热门排序和分类筛选」是一起打开的。",
-        "en": "The cards of the plugin marketplace show how many people use each plugin, for example 149.4K next to Google Drive. Tested: the cards had no counts before and had them after. In the test this was turned on together with \"Plugin marketplace: most popular first and categories\"."
+        "zh": "插件市场的卡片上显示有多少人在用。",
+        "en": "Plugin cards in the marketplace show how many people use them."
       }
     },
     {
@@ -420,16 +420,16 @@
         "en": "controls your Mac"
       },
       "risk": {
-        "zh": "打开后，代理可以读取并操作这台 Mac 上的其他应用。它还需要你在系统设置里给 Antigravity「辅助功能」和「屏幕录制」两项权限。这个功能没有公开发布，只在你信任当前任务时让它操作。",
-        "en": "While this is on, the agent can read and operate other apps on this Mac. It also needs the Accessibility and Screen Recording permissions for Antigravity, which you give in System Settings. The feature is not released; let it act only for a task you trust."
+        "zh": "代理可以读取并操作这台 Mac 上的其他应用，只在你信任当前任务时让它做。",
+        "en": "The agent can read and operate other apps on this Mac; let it act only for tasks you trust."
       },
       "title": {
-        "zh": "电脑操作（Computer Use）",
+        "zh": "电脑操作",
         "en": "Computer use"
       },
       "description": {
-        "zh": "代理多出一个 computer 子代理，可以操作这台 Mac 上的应用；侧面板多出 Agents 页，显示它正在操作的窗口。用法是在对话里直接说要做什么，主代理会派这个子代理去做；主对话自己不能直接操作电脑。打开后要重启 Antigravity 两次才生效：客户端启动时只读上一次运行记下的开关值。第一次使用时，对话里会出现权限卡片，按卡片给 Antigravity「辅助功能」和「屏幕录制」两项权限，屏幕录制授权后还要再重启一次。实测：重启两次后子代理能启动并出现权限卡片；两项权限授权后能操作应用。默认只做后台操作（读取界面、按控件、截取窗口），不接管屏幕。脚本模式在 macOS 27.2.1 上不可用（它的沙箱程序启动时被系统终止），不影响逐步操作。只支持 macOS 14 及以上。",
-        "en": "Gives the agent a \"computer\" subagent that can operate apps on this Mac, and adds an \"Agents\" page to the side panel that shows the window it works in. To use it, say in a conversation what you want done; the main agent sends this subagent. The main conversation cannot operate the Mac itself. After you turn this on, restart Antigravity twice: when the app starts, it reads only the flag value that its previous run recorded. At the first use a permission card appears in the conversation. Follow it to give Antigravity the Accessibility and Screen Recording permissions; after Screen Recording, restart once more. In the test, after two restarts the subagent started and the permission card appeared; with both permissions given it operated apps. By default it acts in the background only (reads the interface, presses controls, captures a window) and does not take over the screen. Script mode does not work on macOS 27.2.1 (the system ends its sandbox program at start); step-by-step operation is not affected. macOS 14 or later only."
+        "zh": "让代理派子代理操作这台 Mac 上的应用；打开后要重启两次，第一次用时按提示授予辅助功能和屏幕录制权限。",
+        "en": "Lets the agent send a subagent to operate apps on this Mac; restart twice after turning it on, and give the Accessibility and Screen Recording permissions when asked."
       }
     },
     {
@@ -446,16 +446,16 @@
         "en": "takes over the screen, mouse and keyboard"
       },
       "risk": {
-        "zh": "打开后，computer 子代理可以把应用切到前台，截取整个屏幕，并用你的鼠标和键盘点击、输入。它操作期间你不能用电脑：客户端一发现鼠标或键盘输入，就停止这一轮操作。每次要切到前台之前，对话里都会先问你。",
-        "en": "While this is on, the computer subagent can bring an app to the front, capture the whole screen, and click and type with your mouse and keyboard. You cannot use the Mac while it works: as soon as the app sees mouse or keyboard input, it stops that round of operation. Before each switch to the front, the conversation asks you first."
+        "zh": "子代理可以用你的鼠标、键盘和整个屏幕，每次接管前会先问你。",
+        "en": "The subagent can use your mouse, keyboard and whole screen; it asks you before each takeover."
       },
       "title": {
-        "zh": "电脑操作：前台操作",
-        "en": "Computer use: foreground actions"
+        "zh": "电脑操作：接管屏幕",
+        "en": "Computer use: take over the screen"
       },
       "description": {
-        "zh": "「电脑操作」默认只在后台操作。打开这一项后，computer 子代理还能接管屏幕：截取整个屏幕，用鼠标单击、双击、右键、移动和拖动，打字、按键、滚动，等待，并把应用切到前台。它需要「电脑操作」，打开这一项时会一并打开那一项。改完重启 Antigravity 一次就生效。子代理要切到前台时，对话里会先后出现两张确认卡片：先问是否允许把应用切到前台、查看屏幕并使用鼠标和键盘，再问是否允许在这个对话里控制这个应用；每张都可以选只允许这一次任务、在这个对话里一直允许，或者拒绝。子代理操作期间不要碰鼠标和键盘：客户端一发现输入，就报 USER_TAKEOVER 并停止这一轮。实测（2.35.2，只试了一次）：重启一次后，桌面工具的动作从 8 个变成 19 个；两张确认卡片都出现了；把计算器切到前台成功，随后客户端报 USER_TAKEOVER 并停止，这次输入来自哪里没有查清。整屏截图、点击和输入都没有看到实际效果。",
-        "en": "\"Computer use\" acts in the background only by default. While this is on, the computer subagent can also take over the screen: capture the whole screen; click, double-click, right-click, move and drag with the mouse; type, press keys, scroll, wait; and bring an app to the front. This needs \"Computer use\", and turning this on turns that on too. One restart of Antigravity is enough. When the subagent wants to bring an app to the front, the conversation shows two confirmation cards, one after the other: the first asks whether it may bring the app to the front, look at the screen and use the mouse and keyboard; the second asks whether it may control this app in this conversation. On each card you can allow it for this task only, allow it for the whole conversation, or refuse. Do not touch the mouse or keyboard while the subagent works: as soon as the app sees input, it reports USER_TAKEOVER and stops that round. In the test (2.35.2, tried once): after one restart, the desktop tool had 19 actions instead of 8; both confirmation cards appeared; Calculator was brought to the front; then the app reported USER_TAKEOVER and stopped, and where that input came from was not found out. Whole-screen capture, clicks and typing were not seen to work."
+        "zh": "让电脑操作还能用你的鼠标、键盘和整个屏幕，它工作时别碰电脑，一碰就会停。",
+        "en": "Lets computer use also work with your mouse, keyboard and whole screen; do not touch the Mac while it works, or it stops."
       }
     },
     {
@@ -469,16 +469,16 @@
         "en": "uses quota"
       },
       "risk": {
-        "zh": "Teamwork 一次会开好几个子代理。不再强制用 Flash 后，它们按正常规则选模型，通常和主对话用同一个模型。主对话用 Claude Opus 这类模型时，Teamwork 消耗的配额会成倍增加。",
-        "en": "Teamwork starts several subagents at once. When they are no longer forced to Flash, they choose their model by the normal rules, usually the model of the main conversation. If the main conversation uses a model such as Claude Opus, Teamwork uses several times more quota."
+        "zh": "Teamwork 一次开好几个子代理，主对话用贵的模型时配额会成倍消耗。",
+        "en": "Teamwork starts several subagents at once, so with an expensive main model it uses quota many times faster."
       },
       "title": {
-        "zh": "Teamwork 子代理不再强制用 Flash",
-        "en": "Teamwork subagents are not forced to Flash"
+        "zh": "Teamwork 子代理不强制用 Flash",
+        "en": "Teamwork subagents not forced to Flash"
       },
       "description": {
-        "zh": "Teamwork 是客户端内置的多代理协作方式，由一组分工不同的子代理一起完成任务。在 Antigravity 里，经 Teamwork 启动的子代理默认被强制改用 Flash 模型。打开后不再强制，子代理按正常规则选模型，质量可以和主对话一致。这一项只从语言服务器的代码读出：它在启动 Teamwork 子代理时检查这个开关。没有在客户端里看到效果。",
-        "en": "Teamwork is the client's built-in way of letting several subagents with different roles work on one task. In Antigravity, the subagents that Teamwork starts are forced to the Flash model by default. While this is on, they are not forced, and they choose their model by the normal rules, so they can work at the quality of the main conversation. This is known from the code of the language server only: it checks this flag when it starts a Teamwork subagent. The effect was not seen in the app."
+        "zh": "Teamwork 启动的子代理不再被强制改用 Flash，可以和主对话用一样的模型。",
+        "en": "Subagents started by Teamwork are no longer forced onto Flash and can use the same model as the main conversation."
       }
     }
   ]
