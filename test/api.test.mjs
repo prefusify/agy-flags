@@ -9,7 +9,7 @@ import { close, listen, request } from './helpers.mjs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const TOKEN = 'a'.repeat(64);
 
-async function setup(t, { notesFile = path.join(ROOT, 'src', 'flag-notes.json') } = {}) {
+async function setup(t, { notesFile = path.join(ROOT, 'src', 'flag-notes.json'), failDownload = false } = {}) {
   const calls = [];
   const server = createApi({
     token: TOKEN,
@@ -23,6 +23,14 @@ async function setup(t, { notesFile = path.join(ROOT, 'src', 'flag-notes.json') 
       setFlags: async (changes) => {
         calls.push(['setFlags', changes]);
         return changes && changes.reject ? { ok: false, error: 'server-type', name: 'reject' } : { ok: true };
+      },
+      setFeatures: async (changes, flags) => {
+        calls.push(['setFeatures', changes, flags]);
+        return { ok: true };
+      },
+      refreshPrices: async () => {
+        calls.push(['refreshPrices']);
+        return failDownload ? { ok: false, error: 'download-failed', detail: 'offline' } : { ok: true };
       },
       setEnabled: async (enabled) => {
         calls.push(['setEnabled', enabled]);
@@ -148,4 +156,29 @@ test('the ping needs no token', async (t) => {
   const { port } = await setup(t);
   const res = await request({ port, path: PING_PATH });
   assert.deepEqual(parse(res), { app: 'agy-flags', role: 'ui', pid: 1 });
+});
+
+test('features of agy-flags and the price list have their own paths', async (t) => {
+  const { port, calls, auth, json } = await setup(t);
+  const post = (pathname, body, headers = json) => request({ port, method: 'POST', path: pathname, headers, body: JSON.stringify(body) });
+  assert.equal((await post('/api/features', { changes: { costPrices: true }, flags: { 'enable-cost-accumulator': true } })).status, 200);
+  assert.equal((await post('/api/features', { changes: { costPrices: false } })).status, 200);
+  assert.equal((await post('/api/prices/refresh', {})).status, 200);
+  assert.deepEqual(calls, [
+    ['setFeatures', { costPrices: true }, { 'enable-cost-accumulator': true }],
+    ['setFeatures', { costPrices: false }, undefined],
+    ['refreshPrices'],
+  ]);
+  // The token is needed as for every other change.
+  assert.equal((await post('/api/features', { changes: { costPrices: true } }, { 'content-type': 'application/json' })).status, 401);
+  assert.equal((await post('/api/prices/refresh', {}, { 'content-type': 'application/json' })).status, 401);
+  assert.equal(calls.length, 3);
+  assert.equal((await request({ port, path: '/api/prices/refresh', headers: auth })).status, 404);
+});
+
+test('a download of the price list that fails is told to the page', async (t) => {
+  const { port, json } = await setup(t, { failDownload: true });
+  const res = await request({ port, method: 'POST', path: '/api/prices/refresh', headers: json, body: '{}' });
+  assert.equal(res.status, 502);
+  assert.deepEqual(parse(res), { ok: false, error: 'download-failed', detail: 'offline' });
 });

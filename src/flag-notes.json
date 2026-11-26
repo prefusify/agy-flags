@@ -1254,10 +1254,10 @@
       "group": "multiagent",
       "basis": "code",
       "text": {
-        "zh": "增加一个实验性的「深度代理」子代理，用来规划、实现并严格验证复杂的编码和研究任务。",
-        "en": "Adds an experimental deep agent subagent. It plans, builds and rigorously verifies complex coding and research tasks."
+        "zh": "输入框里多一个斜杠命令 /deepagent，启动「深度代理」子代理：要求多做验证、结论要有证据，适合复杂的编码和研究任务。",
+        "en": "Adds the slash command /deepagent, which starts a deep agent subagent: it must verify more and back its conclusions with evidence, for complex coding and research tasks."
       },
-      "evidence": "language_server: config.deepAgent reads it; descriptions 'Experimental. Deep reasoning agent for complex coding and research projects that need planning and rigorous verification.' and 'Invoke the deep agent to plan, build, verify complex coding tasks.'"
+      "evidence": "language_server: config.deepAgent reads it; descriptions 'Experimental. Deep reasoning agent for complex coding and research projects that need planning and rigorous verification.' and 'Invoke the deep agent to plan, build, verify complex coding tasks.' deepagent-arm empty selects the built-in prompt <deepagent_effort>. Tested on 2.35.1: /deepagent appears in the slash menu and started a \"Deep Agent\" subagent."
     },
     "enable-developer-mode": {
       "group": "diagnostics",
@@ -1347,10 +1347,10 @@
       "group": "files",
       "basis": "code",
       "text": {
-        "zh": "文件查看器支持用键盘导航。按界面代码，还要在开发者设置页的 Feature Environment Override 里把 User type 设成 Google 才会出现，没有实测。",
-        "en": "Adds keyboard navigation to the file viewer. According to the interface code, it also needs User type set to Google under Feature Environment Override on the Developer settings page. Not tested."
+        "zh": "文件查看器的源码视图里出现文字光标：可以用方向键移动，用 Shift+方向键选中文字。要先在开发者设置页的 Feature Environment Override 里把 User type 设成 Google。2.35.1 实测：打开前点击后没有光标，按方向键没有变化；打开后光标随方向键移动，Shift+方向键能跨行选中，选中后弹出 Comment 和 Quote。",
+        "en": "The source view of the file viewer gets a text cursor: the arrow keys move it and Shift+arrow keys select text. It also needs User type set to Google under Feature Environment Override on the Developer settings page. Tested on 2.35.1: before, a click showed no cursor and the arrow keys did nothing; after, the cursor followed the arrow keys, Shift+arrow keys selected across lines, and Comment and Quote appeared for the selection."
       },
-      "evidence": "main.js: fileViewerKeyboardNavigation is enabled only by a rule with customFlag AND userCohort:[\"google\"]; a second rule enables it in dev mode without the flag. The file viewer reads .enabled. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js)."
+      "evidence": "main.js: fileViewerKeyboardNavigation is enabled only by a rule with customFlag AND userCohort:[\"google\"]; a second rule enables it in dev mode without the flag. The file viewer reads .enabled. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js). Tested on 2.35.1 with User type simulated as Google: caret shown in the Raw view, arrow keys move it, Shift+arrows select across lines."
     },
     "enable-fork-artifact-streaming": {
       "group": "conversations",
@@ -1478,10 +1478,10 @@
       "group": "input",
       "basis": "code",
       "text": {
-        "zh": "输入框里多出 /help 命令，让代理帮你排查 Antigravity 的问题。按界面代码，还要在开发者设置页的 Feature Environment Override 里把 User type 设成 Google 才会出现，没有实测。",
-        "en": "Adds a /help command to the input box: the agent helps you troubleshoot Antigravity itself. According to the interface code, it also needs User type set to Google under Feature Environment Override on the Developer settings page. Not tested."
+        "zh": "输入框里多出 /help 命令，在当前对话旁开一个「Help」小窗，让代理帮你排查 Antigravity 的问题或提交反馈。要先在开发者设置页的 Feature Environment Override 里把 User type 设成 Google。2.35.1 实测：命令出现，小窗也打开了，但没有回答；语言服务器报错「unknown model key MODEL_PLACEHOLDER_M381: model not found」，在用别的模型的对话里也一样。看来帮助模式固定使用一个对外账号没有的模型，所以对外账号用不了。",
+        "en": "Adds a /help command to the input box. It opens a \"Help\" panel next to the conversation, where the agent helps you troubleshoot Antigravity or file feedback. It also needs User type set to Google under Feature Environment Override on the Developer settings page. Tested on 2.35.1: the command appeared and the panel opened, but no answer came; the language server logged \"unknown model key MODEL_PLACEHOLDER_M381: model not found\", also in a conversation on another model. The help mode seems to use a fixed model that external accounts do not have, so external accounts cannot use it."
       },
-      "evidence": "main.js: inputComponent.enableHelpCommand needs customFlag AND userCohort:[\"google\"]; the planner experiment of the same name is set only for mode \"help\" (\"Help me self-troubleshoot\"). Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js)."
+      "evidence": "main.js: inputComponent.enableHelpCommand needs customFlag AND userCohort:[\"google\"]; the planner experiment of the same name is set only for mode \"help\" (\"Help me self-troubleshoot\"). Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js). Tested on 2.35.1 with User type simulated as Google: \"help\" in the slash menu; sending it opens a Help side panel, but the language server fails with \"failed to construct executor: unknown model key MODEL_PLACEHOLDER_M381: model not found\" for both a Claude Sonnet 5.5 and a Gemini 4 Carbon conversation."
     },
     "enable-hook-status": {
       "group": "agent",
@@ -1535,7 +1535,7 @@
         "zh": "每个对话输入框里没发出去的草稿会保存下来，重启 Antigravity 后还在。",
         "en": "Saves the unsent draft in the input box of each conversation, so the draft is still there after you restart Antigravity."
       },
-      "evidence": "main.js: with this flag the app dispatches inputDrafts/startPersistence, which loads and stores drafts under the storage key conversation-input-drafts."
+      "evidence": "main.js: with this flag the app dispatches inputDrafts/startPersistence, which loads and stores drafts under the storage key conversation-input-drafts. Keeps the drafts of the last 25 conversations. Tested on 2.35.1: a draft survived several restarts."
     },
     "enable-jetbox-terminal-v2": {
       "group": "terminal",
@@ -1605,12 +1605,12 @@
     },
     "enable-marketplace-user-count": {
       "group": "extensions",
-      "basis": "name",
+      "basis": "code",
       "text": {
         "zh": "在插件市场的插件卡片上显示使用人数。",
         "en": "Shows the number of users on plugin cards in the marketplace."
       },
-      "evidence": "language_server reads the flag. Marketplace metrics carry install_user_count / enabled_user_count; main.orig.js renders userCount on plugin cards (testId plugin-detail-user-count). Link inferred from the name."
+      "evidence": "language_server reads the flag. Marketplace metrics carry install_user_count / enabled_user_count; main.orig.js renders userCount on plugin cards (testId plugin-detail-user-count). Link inferred from the name. Tested on 2.35.1: user counts appear on the cards with the flag and not without it."
     },
     "enable-mcp-apps": {
       "group": "extensions",
@@ -1771,10 +1771,10 @@
       "group": "permissions",
       "basis": "code",
       "text": {
-        "zh": "在权限设置里多出「GitHub Permissions」页，可以细分代理在 GitHub 上能做哪些操作。",
-        "en": "Adds a \"GitHub Permissions\" page to the permission settings, to set fine-grained permissions for what the agent can do on GitHub."
+        "zh": "项目设置的权限区多出「GitHub」一行，进去后可以填 GitHub 个人访问令牌（存在 ~/.env），并按组织、仓库细分代理在 GitHub 上能做的操作。全局权限设置里没有这一行。",
+        "en": "The permission area of a project's settings gets a \"GitHub\" row. Its page takes a GitHub personal access token (stored in ~/.env) and sets fine-grained, organization and repository level permissions for what the agent can do on GitHub. The global permission settings do not have this row."
       },
-      "evidence": "main.js: githubSettings = githubSettingsFeature {githubComponent} with this flag; the permission settings open page \"GitHub Permissions: Manage fine-grained permissions for GitHub.\""
+      "evidence": "main.js: githubSettings = githubSettingsFeature {githubComponent} with this flag; the permission settings open page \"GitHub Permissions: Manage fine-grained permissions for GitHub.\" The row shows only for a project scope (not global, not outside-of-project, not with the Turbo preset). Tested on 2.35.1: row and page seen; no token entered."
     },
     "enable-permissions-selector": {
       "group": "permissions",
@@ -1807,10 +1807,10 @@
       "group": "extensions",
       "basis": "code",
       "text": {
-        "zh": "插件管理里多出插件套装（Bundles）页面。按界面代码，还要在开发者设置页的 Feature Environment Override 里把 User type 设成 Google 才会出现，没有实测。",
-        "en": "Adds the plugin Bundles pages to plugin management. According to the interface code, it also needs User type set to Google under Feature Environment Override on the Developer settings page. Not tested."
+        "zh": "插件市场顶部多一行「Bundles」入口，点进去是插件套装页。要先在开发者设置页的 Feature Environment Override 里把 User type 设成 Google。2.35.1 实测：入口和页面都出现了，但页面写着「No bundles available.」，这个账号拿不到任何套装。",
+        "en": "The plugin marketplace gets a \"Bundles\" row at the top, which opens the page of plugin bundles. It also needs User type set to Google under Feature Environment Override on the Developer settings page. Tested on 2.35.1: the row and the page appeared, but the page said \"No bundles available.\", so this account gets no bundles."
       },
-      "evidence": "main.js: customizations.showBundles needs customFlag AND userCohort:[\"google\"]; it shows the /customizations/bundles pages. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js)."
+      "evidence": "main.js: customizations.showBundles needs customFlag AND userCohort:[\"google\"]; it shows the /customizations/bundles pages. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js). Tested on 2.35.1 with User type simulated as Google: a \"Bundles\" row under the featured card of the marketplace; its page says \"No bundles available.\""
     },
     "enable-plugin-card-auto-resume": {
       "group": "extensions",
@@ -1837,7 +1837,7 @@
         "zh": "插件市场按热门程度排序，还可以按类别筛选。",
         "en": "Sorts the plugin marketplace by popularity and lets you filter by category."
       },
-      "evidence": "main.js: customizations.rankedMarketplace (external users) gives \"Most popular first\" ordering and category selection in the marketplace."
+      "evidence": "main.js: customizations.rankedMarketplace (external users) gives \"Most popular first\" ordering and category selection in the marketplace. Tested on 2.35.1: a \"Filter plugins\" category menu next to the search box, and \"Most popular first\" after choosing a category."
     },
     "enable-plugin-sidebar-section": {
       "group": "extensions",
@@ -1852,10 +1852,10 @@
       "group": "extensions",
       "basis": "code",
       "text": {
-        "zh": "显示插件自带的主题，包括首页壁纸。按界面代码，还要在开发者设置页的 Feature Environment Override 里把 User type 设成 Google 才会出现，没有实测。",
-        "en": "Shows the themes that plugins bring, including the home wallpaper. According to the interface code, it also needs User type set to Google under Feature Environment Override on the Developer settings page. Not tested."
+        "zh": "插件可以自带主题（界面颜色和首页壁纸）：插件详情里多出 Themes 一栏，可以直接应用，主题也会出现在 Settings → Appearance 的 Preset 里。要先在开发者设置页的 Feature Environment Override 里把 User type 设成 Google。2.35.1 实测：用一个自带主题的本地测试插件试过，Themes 一栏、应用后整个界面换色、首页壁纸都正常。在插件市场里搜 theme 没有结果。",
+        "en": "Plugins can bring themes (interface colors and a home wallpaper): the plugin details get a Themes section with an Apply button, and the themes are listed under Preset in Settings → Appearance. It also needs User type set to Google under Feature Environment Override on the Developer settings page. Tested on 2.35.1 with a local test plugin that ships a theme: the Themes section, the new colors after Apply and the home wallpaper all worked. A marketplace search for theme found nothing."
       },
-      "evidence": "Only gating: {customFlag:\"enable-plugin-themes\",userCohort:[\"google\"]} -> customizations.enablePluginThemes (plugin Themes section, home wallpaper). 1 occurrence of the quoted name. Caveat: the Developer page can simulate the Google cohort. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js)."
+      "evidence": "Only gating: {customFlag:\"enable-plugin-themes\",userCohort:[\"google\"]} -> customizations.enablePluginThemes (plugin Themes section, home wallpaper). 1 occurrence of the quoted name. Caveat: the Developer page can simulate the Google cohort. Kept visible by the main session: the Developer page can set User type to Google (Feature Environment Override, zUb in main.orig.js). Tested on 2.35.1 with User type simulated as Google and a local plugin in ~/.gemini/config/plugins/<name>/ (plugin.json plus themes/<id>.json with id, label, mode, seeds{background,foreground,primary,...}, wallpapers.home.src relative to the plugin): Themes section, Apply, preset entry and home wallpaper seen."
     },
     "enable-plugin-trusted-clis": {
       "group": "extensions",
@@ -2080,12 +2080,12 @@
     },
     "enable-review": {
       "group": "multiagent",
-      "basis": "name",
+      "basis": "code",
       "text": {
-        "zh": "启用实验性的深度代码审查代理：审查改动、找出 bug、核对是否正确。",
-        "en": "Turns on an experimental deep code review agent that audits changes, finds bugs and checks correctness."
+        "zh": "输入框里多一个斜杠命令 /review-agent，启动只读的代码审查子代理，按严重程度列出问题并给出结论。",
+        "en": "Adds the slash command /review-agent, which starts a read-only code review subagent that lists problems by severity and gives a verdict."
       },
-      "evidence": "language_server reads the flag; string 'Experimental. Deep code review agent for auditing changes, surfacing bugs, and verifying correctness.'; config.reviewAgent, ReviewAgentControl. Link to this flag inferred from the name."
+      "evidence": "language_server reads the flag; string 'Experimental. Deep code review agent for auditing changes, surfacing bugs, and verifying correctness.'; config.reviewAgent, ReviewAgentControl. Link to this flag inferred from the name. config.reviewAgent builds the candidate agent \"review-agent\" (prompt \"You are a Code Review Subagent invoked via /review-agent\"); review-arm empty selects the built-in prompt. Tested on 2.35.1: /review-agent appears in the slash menu and started a \"Code Review Agent\" subagent."
     },
     "enable-ripgrep-path-search": {
       "group": "agent",
@@ -2263,12 +2263,12 @@
     },
     "enable-subagent-dropdown-models": {
       "group": "multiagent",
-      "basis": "name",
+      "basis": "code",
       "text": {
-        "zh": "开子代理时，让代理可以从你模型菜单里的模型中挑一个给子代理用。",
-        "en": "When the agent starts a subagent, it can choose the subagent's model from the models in your model menu."
+        "zh": "开子代理时，模型参数可以选你模型菜单里的任一模型（原来只有 inherit、flash_lite、flash、pro）。代理默认仍用 inherit，只在你点名时换模型。",
+        "en": "When the agent starts a subagent, the model parameter accepts any model of your model menu (before: only inherit, flash_lite, flash and pro). The agent still uses inherit by default and changes the model only when you name one."
       },
-      "evidence": "language_server: one literal. Related code exists only for native swarm workers (nativeswarm.(*manageSwarmTool).dropdownModels, 'model %q is not in the user's model dropdown'); the subagent meaning comes from the name."
+      "evidence": "language_server: one literal. Related code exists only for native swarm workers (nativeswarm.(*manageSwarmTool).dropdownModels, 'model %q is not in the user's model dropdown'); the subagent meaning comes from the name. Also read in (*CascadeManager).populatePlatformModels, which then calls modelutils.SubagentModelsFromAvailableModels. Tested on 2.35.1: the Model enum of invoke_subagent grew from 4 values to the whole model menu."
     },
     "enable-subagent-fork": {
       "group": "conversations",
@@ -2608,7 +2608,7 @@
         "zh": "在代理的系统提示里加一段，鼓励它需要图示时用 generative_ui 技能做可交互的 HTML 小部件。要同时开着 jetski-generative-ui。",
         "en": "Adds a section to the agent's system prompt that tells it to use the generative_ui skill for interactive HTML widgets when a visual helps. Needs jetski-generative-ui on as well."
       },
-      "evidence": "language_server: template {{if and (.ExperimentEnabled \"jetski-generative-ui\") (.ExperimentEnabled \"jetski-generative-ui-prompt\") (.BuiltinSkillMounted \"generative_ui\")}} '## Interactive HTML Widgets'."
+      "evidence": "language_server: template {{if and (.ExperimentEnabled \"jetski-generative-ui\") (.ExperimentEnabled \"jetski-generative-ui-prompt\") (.BuiltinSkillMounted \"generative_ui\")}} '## Interactive HTML Widgets'. Tested on 2.35.1 by asking the agent: the section is in its system prompt with the flag and not without it."
     },
     "jetski-shared-beyond-session-id": {
       "group": "system",

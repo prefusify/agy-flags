@@ -3,8 +3,11 @@
 // Antigravity's language server is pointed at it with an environment variable. Everything
 // is streamed through unchanged (connection upgrades included), except the flag-config
 // responses of the desktop app, which are buffered, patched and sent on: the two flag lists
-// always, and the model list only while there is a per-model flag to write. Nothing here
-// adds credentials or follows redirects; the upstream is fixed when the forwarder is created.
+// always, and the model list only while there is a per-model flag to write. One request can
+// be changed too: while the Chinese titles are on, the request that asks the model for the
+// title of a conversation is kept back, one sentence of its instruction is replaced, and it
+// is sent on (see rewriteTitleRequest). Nothing here adds credentials or follows redirects;
+// the upstream is fixed when the forwarder is created.
 //
 // The variable lives in the login session, so other programs of the same family read it
 // too: the `agy` command line, for one. Only a request that names the desktop app as its
@@ -13,7 +16,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import zlib from 'node:zlib';
-import { MODELS_KIND, kindOf, patchFlagConfig, patchModelExperiments, summarizeFlags } from './patch.mjs';
+import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, patchModelExperiments, summarizeFlags } from './patch.mjs';
 
 export const PING_PATH = '/__agy_flags_ping';
 
@@ -44,6 +47,50 @@ const KEEP_ALIVE_RE = /"prompt_cache_keep_alive"\s*:\s*"true"/;
 const KEEP_ALIVE_TAIL = 64;
 
 const MAX_AGENT_CHARS = 160;
+
+/**
+ * The client asks a small model for the title of a new conversation. Seen on 2.35.1: the
+ * body starts with {"project":"…","requestId":"checkpoint/…", and the instruction is the
+ * text below. The sentence TITLE_OLD is why every title is in English.
+ */
+const TITLE_HEAD = Buffer.from('"requestId":"checkpoint/');
+/** The request id stands at the start of the body. Only this much is looked at to decide. */
+const TITLE_HEAD_BYTES = 512;
+/** A title request can hold the pictures of the first message. A larger one goes on unchanged. */
+const MAX_TITLE_BYTES = 8 * 1024 * 1024;
+const TITLE_PROMPT_START = 'You are a conversation title generator';
+export const TITLE_OLD = "Respond with ONLY a short conversation title (3-5 words, title-cased, no prefix) describing the USER's intent.";
+export const TITLE_NEW =
+  "Respond with ONLY a short conversation title in Simplified Chinese (4 to 12 Chinese characters, no prefix, no quotation marks, no punctuation at the end) describing the USER's intent. Write the title in Simplified Chinese even when the USER's request is in another language.";
+
+/**
+ * Make the title request ask for a Chinese title. Only the one sentence changes; every other
+ * byte of the body goes out as it came in.
+ * @param {Buffer} raw  The whole request body.
+ * @returns {{ result: 'rewritten' | 'not-title' | 'changed' | 'skipped', body: Buffer }}
+ *   'not-title': another kind of request. 'changed': a title request whose instruction no
+ *   longer has the sentence (the client words it differently now). 'skipped': the sentence
+ *   is there more than once, so it is not clear which one is the instruction.
+ */
+export function rewriteTitleRequest(raw) {
+  const same = (result) => ({ result, body: raw });
+  let data;
+  try {
+    data = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return same('not-title');
+  }
+  const parts = data?.request?.systemInstruction?.parts;
+  const prompt = (Array.isArray(parts) ? parts : []).map((part) => part?.text).find((text) => typeof text === 'string' && text.startsWith(TITLE_PROMPT_START));
+  if (prompt === undefined) return same('not-title');
+  if (!prompt.includes(TITLE_OLD)) return same('changed');
+  // The sentence has no character that JSON writes in another way, so it is in the body as it is.
+  const old = Buffer.from(TITLE_OLD, 'utf8');
+  const at = raw.indexOf(old);
+  if (at === -1) return same('changed');
+  if (raw.indexOf(old, at + 1) !== -1) return same('skipped');
+  return { result: 'rewritten', body: Buffer.concat([raw.subarray(0, at), Buffer.from(TITLE_NEW, 'utf8'), raw.subarray(at + old.length)]) };
+}
 
 /**
  * Who sent a request, read from the User-Agent that the Antigravity programs set themselves:
@@ -82,13 +129,19 @@ function decodeBody(raw, encoding) {
  * @param {() => object} options.getFlags   Current overrides, { name: value }. Empty disables patching.
  * @param {() => object} [options.getModelFlags]  The overrides that also go into every model of the
  *                                                model list. Empty leaves the model list untouched.
+ * @param {() => boolean} [options.wantModelNames]  While true, the model list is read and its
+ *                                                display names are reported as `names`.
+ * @param {() => boolean} [options.wantChineseTitles]  While true, the title request of the desktop
+ *                                                app is changed so that the title is in Chinese.
  * @param {(report: object) => void} [options.onConfig]   Called for every flag-config response of the
  *                                                desktop app. Other senders are never reported here.
  * @param {(report: object) => void} [options.onRequest]  Called once per finished request. `client` is
  *                                                the sender ('desktop', 'cli' or 'other'), `agent` its
  *                                                User-Agent, `kind` the flag-config kind or null.
  *                                                `keepAlive` is true for a cache keep-alive request of
- *                                                the desktop app.
+ *                                                the desktop app. `title` says what was done
+ *                                                with a title request ('rewritten', 'changed' or
+ *                                                'skipped'); it is null for every other request.
  * @param {() => object} [options.identity]  Extra fields for the ping answer.
  * @returns {http.Server} A server that is not listening yet.
  */
@@ -97,6 +150,8 @@ export function createForwarder({
   upstream,
   getFlags,
   getModelFlags = () => ({}),
+  wantModelNames = () => false,
+  wantChineseTitles = () => false,
   onConfig = () => {},
   onRequest = () => {},
   identity = () => ({}),
@@ -133,12 +188,36 @@ export function createForwarder({
     let afterBody = null;
     // A model request is only looked at for one label name. Nothing of it is kept or logged.
     // A compressed body cannot be read this way and is not counted.
-    const watchKeepAlive =
+    const isModelRequest =
       ours && req.method === 'POST' && pathname.endsWith('GenerateContent') && !req.headers['content-encoding'];
     let keepAlive = false;
     let tail = Buffer.alloc(0);
+    // A model request is kept back until its first bytes show whether it asks for a title.
+    // Every other request goes upstream while it still arrives.
+    let held = isModelRequest && wantChineseTitles() === true;
+    let candidate = null;
+    let title = null;
+    let release = () => {};
+    const decide = (ended) => {
+      if (candidate === null) {
+        if (copied < TITLE_HEAD_BYTES && !ended) return;
+        candidate = Buffer.concat(copy).subarray(0, TITLE_HEAD_BYTES).includes(TITLE_HEAD);
+      }
+      if (candidate && !ended && replayable && copied <= MAX_TITLE_BYTES) return;
+      if (candidate && ended && replayable) {
+        const out = rewriteTitleRequest(Buffer.concat(copy));
+        if (out.result !== 'not-title') title = out.result;
+        if (out.result === 'rewritten') {
+          copy.length = 0;
+          copy.push(out.body);
+          copied = out.body.length;
+          headers['content-length'] = String(out.body.length);
+        }
+      }
+      release();
+    };
     req.on('data', (chunk) => {
-      if (watchKeepAlive && !keepAlive) {
+      if (isModelRequest && !keepAlive) {
         const window = tail.length > 0 ? Buffer.concat([tail, chunk]) : chunk;
         if (window.includes(KEEP_ALIVE_NAME) && KEEP_ALIVE_RE.test(window.toString('latin1'))) keepAlive = true;
         else tail = Buffer.from(window.subarray(Math.max(0, window.length - KEEP_ALIVE_TAIL)));
@@ -151,9 +230,11 @@ export function createForwarder({
       } else {
         copy.push(chunk);
       }
+      if (held) decide(false);
     });
     req.on('end', () => {
       bodyEnded = true;
+      if (held) decide(true);
       if (afterBody) afterBody();
     });
 
@@ -175,6 +256,7 @@ export function createForwarder({
         agent,
         kind,
         keepAlive,
+        title,
         ...extra,
       });
     };
@@ -238,6 +320,7 @@ export function createForwarder({
           if (kind === MODELS_KIND) {
             result = patchModelExperiments(data, getModelFlags() || {});
             report.models = result.models;
+            if (wantModelNames()) report.names = modelDisplayNames(data);
           } else {
             report.server = summarizeFlags(kind, data);
             result = patchFlagConfig(kind, data, getFlags() || {});
@@ -269,8 +352,8 @@ export function createForwarder({
       const status = upRes.statusCode || 502;
       const respHeaders = withoutHopByHop(upRes.headers);
       upRes.on('error', fail);
-      // The model list is buffered only while there is something to write into it.
-      const wanted = kind !== MODELS_KIND || Object.keys(getModelFlags() || {}).length > 0;
+      // The model list is buffered only while there is something to write into it or to read from it.
+      const wanted = kind !== MODELS_KIND || Object.keys(getModelFlags() || {}).length > 0 || wantModelNames();
       if (ours && kind && status === 200 && wanted) {
         patchAndSend(upRes, status, respHeaders);
         return;
@@ -311,11 +394,27 @@ export function createForwarder({
         if (bodyEnded) retry();
         else afterBody = retry;
       });
-      if (attempt === 1) req.pipe(upReq);
-      else upReq.end(Buffer.concat(copy));
+      if (attempt !== 1 || bodyEnded) {
+        // A second attempt, or a body that was kept back to its end.
+        upReq.end(Buffer.concat(copy));
+      } else {
+        // The start of the body may have been kept back: it goes first, and the rest follows as it arrives.
+        for (const chunk of late ? copy : []) upReq.write(chunk);
+        req.pipe(upReq);
+      }
     };
 
-    send(1);
+    // True when the upstream request starts after a part of the body has already arrived.
+    let late = false;
+    if (held) {
+      release = () => {
+        held = false;
+        late = true;
+        if (!settled && !clientGone) send(1);
+      };
+    } else {
+      send(1);
+    }
   }
 
   // A connection upgrade (WebSocket) is tunnelled as it is: the request head goes upstream

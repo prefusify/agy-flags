@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { createApi } from './api.mjs';
 import * as realClient from './client.mjs';
 import {
+  FEATURE_NAMES,
   configMtime,
   ensureDataDir,
   ensureToken,
@@ -24,7 +25,10 @@ import {
 import { findUiBundle } from './bundle.mjs';
 import { allOurEnv, applyEnv, clearEnv, launchctlRunner, ourEnv, ourUiEnv, readEnv } from './env.mjs';
 import { PING_PATH, createForwarder } from './forward.mjs';
+import { loadDictionary } from './l10n.mjs';
 import { MODELS_KIND, isValidFlagName } from './patch.mjs';
+import { createPriceStore } from './prices.mjs';
+import { PART_COSTS, PART_INDICATOR, PART_L10N } from './uipatch.mjs';
 import { createUiServer } from './uiserver.mjs';
 import { clientFiles, scanClientInWorker } from './usage.mjs';
 
@@ -35,6 +39,7 @@ const UPSTREAM_NAMES = ['cloudcode', 'aicode'];
 const MAX_OVERRIDES = 2000;
 const CATALOG_FILE = path.join(ROOT, 'src', 'catalog.json');
 const NOTES_FILE = path.join(ROOT, 'src', 'flag-notes.json');
+const L10N_FILE = path.join(ROOT, 'src', 'l10n', 'zh-CN.json');
 
 /**
  * The flags that the client reads per model. The catalog marks their groups with "perModel".
@@ -60,11 +65,19 @@ export function perModelFlagNames(catalogFile = CATALOG_FILE) {
  * added to the client's page script, on top of its flags.
  */
 export function uiPatchGroups(catalogFile = CATALOG_FILE) {
+  const list = (value) => (Array.isArray(value) ? value.filter((name) => typeof name === 'string') : []);
   try {
     const catalog = JSON.parse(fs.readFileSync(catalogFile, 'utf8'));
     return (catalog.groups || [])
-      .filter((group) => typeof group?.uiPatch === 'string' && Array.isArray(group.flags) && group.flags.length > 0)
-      .map((group) => ({ patch: group.uiPatch, flags: group.flags }));
+      .filter((group) => typeof group?.uiPatch === 'string')
+      .map((group) => ({
+        patch: group.uiPatch,
+        flags: list(group.flags),
+        // A feature of agy-flags itself (config.features), and the flags of other groups it needs.
+        feature: FEATURE_NAMES.includes(group.feature) ? group.feature : null,
+        requires: list(group.requires),
+      }))
+      .filter((group) => group.flags.length > 0 || group.feature);
   } catch {
     return [];
   }
@@ -212,8 +225,12 @@ export async function startDaemon({
   envCheckMs = 60_000,
   catalogFile = CATALOG_FILE,
   notesFile = NOTES_FILE,
+  l10nFile = L10N_FILE,
   unrecognizedGraceMs = 150_000,
   usageRetryMs = 5 * 60_000,
+  fetchPriceList,
+  priceCheckMs = 30 * 60_000,
+  priceWaitMs = 5000,
 } = {}) {
   ensureDataDir();
   let config = loadConfig();
@@ -243,9 +260,17 @@ export async function startDaemon({
   const perModel = perModelFlagNames(catalogFile);
   const pageGroups = uiPatchGroups(catalogFile);
   let lastModelPatch = null;
+  // The display names in the model list of the client. They are read only while a feature needs them.
+  let modelNames = Array.isArray(persisted.modelNames) ? persisted.modelNames.filter((name) => typeof name === 'string').slice(0, 200) : [];
   let lastScript = null;
   let pageError = null;
   const keepAlive = { count: 0, lastAt: null };
+  // Title requests of the desktop app: how many were changed, and how many could not be
+  // changed because the client words its instruction differently now.
+  const titles = { rewritten: 0, rewrittenAt: null, changed: 0, changedAt: null, skipped: 0 };
+  // The word list for the Chinese interface. It is a file of agy-flags itself.
+  const dictionary = loadDictionary(l10nFile);
+  if (!dictionary) log('word list for the Chinese interface: cannot be read');
   // byClient counts who sent the requests. Only the desktop app is changed; the rest pass through.
   const traffic = { requests: 0, failures: 0, lastFailure: null, byClient: { desktop: 0, cli: 0, other: 0 }, agents: {} };
   // Flag-config requests of a sender that is neither the desktop app nor the command line, as
@@ -271,6 +296,12 @@ export async function startDaemon({
     const slot = isModels ? `${report.upstream}:models` : report.upstream;
     if (isModels) lastModelPatch = { ...entry, upstream: report.upstream, models: report.models ?? 0 };
     else lastInjection[report.upstream] = entry;
+    if (isModels && report.ok && Array.isArray(report.names) && report.names.length > 0) {
+      if (JSON.stringify(report.names) !== JSON.stringify(modelNames)) {
+        modelNames = report.names;
+        saveState({ serverFlags, serverSeenAt, modelNames });
+      }
+    }
     const signature = JSON.stringify([entry.ok, entry.applied, entry.skipped, entry.error]);
     if (signature !== lastSignature[slot]) {
       lastSignature[slot] = signature;
@@ -286,7 +317,7 @@ export async function startDaemon({
       if (JSON.stringify(compact) !== JSON.stringify(serverFlags[report.upstream])) {
         serverFlags[report.upstream] = compact;
         serverVersion += 1;
-        saveState({ serverFlags, serverSeenAt });
+        saveState({ serverFlags, serverSeenAt, modelNames });
       }
       // New names, or a client that was updated: search the app again. Cheap when nothing changed.
       refreshUsage();
@@ -307,6 +338,11 @@ export async function startDaemon({
     if (report.keepAlive) {
       keepAlive.count += 1;
       keepAlive.lastAt = Date.now();
+    }
+    if (report.title && Object.hasOwn(titles, report.title)) {
+      titles[report.title] += 1;
+      if (report.title !== 'skipped') titles[`${report.title}At`] = Date.now();
+      if (report.title === 'changed' && titles.changed === 1) log('conversation title: the instruction of the client has changed, the title request was NOT changed');
     }
     if (report.status !== 502 || !report.error) return;
     traffic.failures += 1;
@@ -330,9 +366,36 @@ export async function startDaemon({
   };
   // ---- page files ---------------------------------------------------------------------
 
-  const pageFeatureOn = (patch) =>
-    config.enabled && pageGroups.some((group) => group.patch === patch && group.flags.every((flag) => config.flags[flag] === true));
-  const anyPageFeatureOn = () => config.enabled && pageGroups.some((group) => group.flags.every((flag) => config.flags[flag] === true));
+  /** What the client gets for a flag: the override, else what the server sends. */
+  const flagOn = (name) => {
+    if (Object.hasOwn(config.flags, name)) return config.flags[name] === true;
+    return UPSTREAM_NAMES.some((upstream) => {
+      const info = serverFlags[upstream]?.[name];
+      return info?.type === 'boolValue' && info.value === true;
+    });
+  };
+  const groupOn = (group) =>
+    group.flags.every((flag) => config.flags[flag] === true) &&
+    (!group.feature || config.features[group.feature] === true) &&
+    group.requires.every(flagOn);
+  const pageFeatureOn = (patch) => config.enabled && pageGroups.some((group) => group.patch === patch && groupOn(group));
+  const anyPageFeatureOn = () => config.enabled && pageGroups.some(groupOn);
+  const pricesOn = () => pageFeatureOn(PART_COSTS);
+  const titlesOn = () => config.enabled && config.features.chineseTitles === true;
+  // A feature of agy-flags that changes the page. The client loads its page when it starts.
+  const pageFeatures = new Set(pageGroups.map((group) => group.feature).filter(Boolean));
+  /** Does the running client need a restart for the step from `before` to `after`? */
+  const restartNeeded = (before, after) =>
+    JSON.stringify(before.flags) !== JSON.stringify(after.flags) ||
+    FEATURE_NAMES.some((name) => pageFeatures.has(name) && before.features[name] !== after.features[name]);
+
+  // ---- prices -------------------------------------------------------------------------
+
+  const prices = createPriceStore({ file: files.prices(), log, ...(fetchPriceList ? { fetchList: fetchPriceList } : {}) });
+  /** The price list is downloaded only while the feature that uses it is on. */
+  function syncPrices() {
+    if (!stopped && pricesOn()) prices.refreshIfStale();
+  }
 
   let bundle = null;
   /** The page archive of the installed language server. Found again when that program changes. */
@@ -362,10 +425,15 @@ export async function startDaemon({
 
   const uiServer = createUiServer({
     getBundle,
-    wantIndicator: () => pageFeatureOn('contextUsageIndicator'),
+    wantIndicator: () => pageFeatureOn(PART_INDICATOR),
+    getPrices: () => (pricesOn() ? prices.table() : false),
+    getL10n: () => (pageFeatureOn(PART_L10N) ? (dictionary ? { version: dictionary.version, data: dictionary.data } : null) : false),
+    // The client can ask for its script while the first download of the prices still runs.
+    beforeScript: () => (pricesOn() && !prices.table() ? prices.settled(priceWaitMs) : undefined),
     onScript: (report) => {
       lastScript = report;
-      log(`page script: ${report.patched ? 'component added' : `NOT CHANGED, ${report.reason}`}`);
+      const made = Object.entries(report.parts).filter(([, part]) => part.ok).map(([name]) => name);
+      log(`page script: ${made.length > 0 ? `changed (${made.join(', ')})` : 'not changed'}${report.reason ? `, NOT DONE: ${report.reason}` : ''}`);
     },
     identity,
   });
@@ -379,7 +447,17 @@ export async function startDaemon({
   const forwarders = UPSTREAM_NAMES.map((name) => ({
     name,
     port: ports[name],
-    server: createForwarder({ name, upstream: config.upstreams[name], getFlags, getModelFlags, onConfig, onRequest, identity }),
+    server: createForwarder({
+      name,
+      upstream: config.upstreams[name],
+      getFlags,
+      getModelFlags,
+      wantModelNames: pricesOn,
+      wantChineseTitles: titlesOn,
+      onConfig,
+      onRequest,
+      identity,
+    }),
   }));
 
   // One flag can come from both hosts. The page shows one row for it.
@@ -528,15 +606,17 @@ export async function startDaemon({
       return;
     }
     const enabledChanged = next.enabled !== config.enabled;
-    const flagsChanged = !same(next.flags, config.flags);
+    const flagsChanged = !same(next.flags, config.flags) || !same(next.features, config.features);
+    const restart = enabledChanged || restartNeeded(config, next);
     config = next;
     if (enabledChanged || flagsChanged) {
       log(`config.json changed on disk (${Object.keys(config.flags).length} overrides, enabled=${config.enabled})`);
-      writeConfig({ ...config, flagsChangedAt: Date.now() });
+      if (restart) writeConfig({ ...config, flagsChangedAt: Date.now() });
     }
     // A page feature that was turned on or off changes which variables are wanted.
     if (enabledChanged || flagsChanged) await reconcileEnv();
     if (flagsChanged) refreshUsage();
+    syncPrices();
   }
 
   const getApp = cached(() => client.appInfo(config.appPath), 30_000);
@@ -593,8 +673,9 @@ export async function startDaemon({
       warnings.push({ code: 'desktop-not-recognized', detail: unrecognized.agent || '?' });
     }
     if (anyPageFeatureOn() && pageError) warnings.push({ code: 'page-unavailable', detail: pageError });
-    if (pageFeatureOn('contextUsageIndicator') && lastScript && !lastScript.patched) {
-      warnings.push({ code: 'page-not-changed', detail: lastScript.reason || '' });
+    for (const part of [PART_INDICATOR, PART_COSTS, PART_L10N]) {
+      const made = lastScript?.parts?.[part];
+      if (pageFeatureOn(part) && made && !made.ok) warnings.push({ code: 'page-not-changed', detail: made.reason || '' });
     }
     if (lastModelPatch && Object.keys(getModelFlags()).length > 0) {
       if (!lastModelPatch.ok) {
@@ -603,6 +684,10 @@ export async function startDaemon({
       if (lastModelPatch.skipped.length > 0) {
         warnings.push({ code: 'skipped', detail: lastModelPatch.skipped.map((s) => `${s.name} (${s.reason})`).join(', ') });
       }
+    }
+    // The last title request could not be changed: the title of that conversation is in English.
+    if (titlesOn() && titles.changedAt !== null && titles.changedAt > (titles.rewrittenAt ?? 0)) {
+      warnings.push({ code: 'titles-not-changed', detail: '' });
     }
     if (traffic.lastFailure && Date.now() - traffic.lastFailure.at < 5 * 60_000) {
       warnings.push({ code: 'upstream-failed', detail: `${traffic.lastFailure.upstream}: ${traffic.lastFailure.error}` });
@@ -627,6 +712,10 @@ export async function startDaemon({
       pendingReason: pend.reason,
       restarting,
       overrides: config.flags,
+      features: { ...config.features },
+      prices: prices.view(modelNames),
+      l10n: { ready: dictionary !== null, words: dictionary?.count ?? 0 },
+      titles: { ...titles },
       changedAt: config.flagsChangedAt,
       server: { version: serverVersion, count: Object.keys(merged).length, seenAt: serverSeenAt },
       lastInjection,
@@ -639,40 +728,88 @@ export async function startDaemon({
     };
   }
 
+  /** The overrides after `changes`, or the reason why the changes are refused. */
+  function flagsAfter(changes) {
+    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+      return { ok: false, error: 'bad-request' };
+    }
+    const entries = Object.entries(changes);
+    if (entries.length === 0 || entries.length > 500) return { ok: false, error: 'bad-request' };
+    const flags = { ...config.flags };
+    for (const [name, value] of entries) {
+      if (!isValidFlagName(name)) return { ok: false, error: 'bad-name', name };
+      if (value === null) {
+        delete flags[name];
+        continue;
+      }
+      const isInteger = typeof value === 'number' && Number.isSafeInteger(value);
+      if (typeof value !== 'boolean' && !isInteger) return { ok: false, error: 'bad-value', name };
+      // The page changes booleans and integers. A flag keeps the type the server gives it.
+      const type = serverTypeOf(name);
+      if (type && type !== (isInteger ? 'intValue' : 'boolValue')) {
+        return { ok: false, error: 'server-type', name, type };
+      }
+      flags[name] = value;
+    }
+    if (Object.keys(flags).length > MAX_OVERRIDES) return { ok: false, error: 'too-many' };
+    return { ok: true, flags };
+  }
+
+  /** Write new overrides or features, when they differ from what is set. */
+  async function applyChange({ flags = config.flags, features = config.features }) {
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    if (same(flags, config.flags) && same(features, config.features)) return;
+    const flagsChanged = !same(flags, config.flags);
+    // A feature that changes requests only works at once, without a restart of the client.
+    const restart = restartNeeded(config, { flags, features });
+    writeConfig({ ...config, flags, features, ...(restart ? { flagsChangedAt: Date.now() } : {}) });
+    if (flagsChanged) log(`overrides changed: ${Object.keys(config.flags).length} in total`);
+    else log(`features changed: ${FEATURE_NAMES.filter((name) => config.features[name]).join(', ') || 'none'}`);
+    // A page feature that was turned on or off changes which variables are wanted.
+    await reconcileEnv();
+    // A custom name is searched for too.
+    if (flagsChanged) refreshUsage();
+    syncPrices();
+  }
+
   const actions = {
     /** changes: { name: true | false | integer | null }. null removes the override. */
     async setFlags(changes) {
-      if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
-        return { ok: false, error: 'bad-request' };
-      }
-      const entries = Object.entries(changes);
-      if (entries.length === 0 || entries.length > 500) return { ok: false, error: 'bad-request' };
-      const flags = { ...config.flags };
-      for (const [name, value] of entries) {
-        if (!isValidFlagName(name)) return { ok: false, error: 'bad-name', name };
-        if (value === null) {
-          delete flags[name];
-          continue;
-        }
-        const isInteger = typeof value === 'number' && Number.isSafeInteger(value);
-        if (typeof value !== 'boolean' && !isInteger) return { ok: false, error: 'bad-value', name };
-        // The page changes booleans and integers. A flag keeps the type the server gives it.
-        const type = serverTypeOf(name);
-        if (type && type !== (isInteger ? 'intValue' : 'boolValue')) {
-          return { ok: false, error: 'server-type', name, type };
-        }
-        flags[name] = value;
-      }
-      if (Object.keys(flags).length > MAX_OVERRIDES) return { ok: false, error: 'too-many' };
-      if (JSON.stringify(flags) !== JSON.stringify(config.flags)) {
-        writeConfig({ ...config, flags, flagsChangedAt: Date.now() });
-        log(`overrides changed: ${Object.keys(config.flags).length} in total`);
-        // A page feature that was turned on or off changes which variables are wanted.
-        await reconcileEnv();
-        // A custom name is searched for too.
-        refreshUsage();
-      }
+      const next = flagsAfter(changes);
+      if (!next.ok) return next;
+      await applyChange({ flags: next.flags });
       return { ok: true };
+    },
+
+    /**
+     * changes: { featureName: true | false }. `flagChanges` are made in the same step: a
+     * feature can need a flag of another group, and that flag is turned on together with it.
+     */
+    async setFeatures(changes, flagChanges) {
+      if (!changes || typeof changes !== 'object' || Array.isArray(changes)) return { ok: false, error: 'bad-request' };
+      const entries = Object.entries(changes);
+      if (entries.length === 0) return { ok: false, error: 'bad-request' };
+      const features = { ...config.features };
+      for (const [name, value] of entries) {
+        if (!FEATURE_NAMES.includes(name)) return { ok: false, error: 'bad-name', name };
+        if (typeof value !== 'boolean') return { ok: false, error: 'bad-value', name };
+        features[name] = value;
+      }
+      let flags = config.flags;
+      if (flagChanges !== undefined) {
+        const next = flagsAfter(flagChanges);
+        if (!next.ok) return next;
+        flags = next.flags;
+      }
+      await applyChange({ flags, features });
+      return { ok: true };
+    },
+
+    /** Download the price list now. */
+    async refreshPrices() {
+      if (!pricesOn()) return { ok: false, error: 'feature-off' };
+      const result = await prices.refresh();
+      return result.ok ? { ok: true } : { ok: false, error: 'download-failed', detail: result.error };
     },
 
     async setEnabled(enabled) {
@@ -753,6 +890,7 @@ export async function startDaemon({
 
   await reconcileEnv();
   refreshUsage();
+  syncPrices();
 
   const pollTimer = setInterval(() => {
     if (stopped) return;
@@ -765,8 +903,10 @@ export async function startDaemon({
   const envTimer = setInterval(() => {
     reconcileEnv();
   }, envCheckMs);
+  const priceTimer = setInterval(syncPrices, priceCheckMs);
   pollTimer.unref?.();
   envTimer.unref?.();
+  priceTimer.unref?.();
 
   async function stop() {
     if (stopped) return;
@@ -774,6 +914,7 @@ export async function startDaemon({
     stopped = true;
     clearInterval(pollTimer);
     clearInterval(envTimer);
+    clearInterval(priceTimer);
     // A search of the app that is still running is ended.
     usageScan?.cancel();
     await usageRun?.catch(() => {});

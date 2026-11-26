@@ -1,12 +1,12 @@
-// Serves Antigravity's own page files, with one component added to the page script.
+// Serves Antigravity's own page files, with the changes of agy-flags in the page script.
 //
 // The language server has a development switch: with AGY_DEV_UI_URL set, it takes its page
 // files (index.html, main.js, style sheets, icons, sounds) from that address instead of from
 // the archive inside its own program. This server is that address. Every file comes
 // unchanged out of the archive of the installed language server, except main.js while a
-// page feature is on: then the feature's component is added to it (see uipatch.mjs).
+// page feature is on: then the change of that feature is made in it (see uipatch.mjs).
 //
-// When the script cannot be changed safely, the original script is served. A file the
+// A change that cannot be made safely is left out; without any, the original script is served. A file the
 // archive does not have gives 404. Nothing here reads or forwards conversation traffic:
 // the page talks to the language server directly, not to this server.
 
@@ -14,7 +14,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { readBundleFile } from './bundle.mjs';
 import { PING_PATH } from './forward.mjs';
-import { patchMainJs } from './uipatch.mjs';
+import { PART_COSTS, PART_L10N, patchMainJs } from './uipatch.mjs';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -58,26 +58,59 @@ export function bundleNameOf(pathname) {
  * @param {object} options
  * @param {() => object} options.getBundle        The page archive (see bundle.mjs). May throw.
  * @param {() => boolean} [options.wantIndicator] Whether the context usage indicator is on.
- * @param {(report: object) => void} [options.onScript]  Called when main.js was prepared: { at, patched, reason }.
+ * @param {() => ({ version: string, rows: object }|null|false)} [options.getPrices]
+ *        The price table while the costs are to be filled in; null when that is on but there
+ *        is no table yet; false when it is off.
+ * @param {() => ({ version: string, data: object }|null|false)} [options.getL10n]
+ *        The word list while the page is to be shown in Chinese; null when that is on but
+ *        the word list cannot be read; false when it is off.
+ * @param {() => (Promise<void>|void)} [options.beforeScript]  Awaited before main.js is prepared.
+ * @param {(report: object) => void} [options.onScript]  Called when main.js was prepared:
+ *        { at, patched, reason, parts }. `parts` has { ok, reason } for each change that was wanted.
  * @param {() => object} [options.identity]       Extra fields for the ping answer.
  * @returns {http.Server} A server that is not listening yet.
  */
-export function createUiServer({ getBundle, wantIndicator = () => false, onScript = () => {}, identity = () => ({}) }) {
-  // The changed script, kept as long as the program it came from stays the same.
+export function createUiServer({
+  getBundle,
+  wantIndicator = () => false,
+  getPrices = () => false,
+  getL10n = () => false,
+  beforeScript = () => {},
+  onScript = () => {},
+  identity = () => ({}),
+}) {
+  // The changed script, kept as long as the program it came from and the changes stay the same.
   let cache = null;
 
   function mainJs(bundle) {
     const original = readBundleFile(bundle, 'main.js');
-    if (!wantIndicator()) return original;
-    if (cache && cache.file === bundle.file && cache.size === bundle.size && cache.mtimeMs === bundle.mtimeMs) return cache.data;
-    const result = patchMainJs(original.toString('utf8'));
-    const data = result.ok ? Buffer.from(result.source, 'utf8') : original;
-    cache = { file: bundle.file, size: bundle.size, mtimeMs: bundle.mtimeMs, data };
-    onScript({ at: Date.now(), patched: result.ok, reason: result.ok ? null : result.reason });
+    const indicator = wantIndicator() === true;
+    const prices = getPrices();
+    const l10n = getL10n();
+    if (!indicator && prices === false && l10n === false) return original;
+    const version = (part) => (part ? part.version : part === null ? 'none' : 'off');
+    const wanted = `${indicator ? 1 : 0}:${version(prices)}:${version(l10n)}`;
+    if (cache && cache.file === bundle.file && cache.size === bundle.size && cache.mtimeMs === bundle.mtimeMs && cache.wanted === wanted) {
+      return cache.data;
+    }
+    const text = original.toString('utf8');
+    const result = patchMainJs(text, { indicator, prices: prices ? prices.rows : null, l10n: l10n ? l10n.data : null });
+    const parts = { ...result.parts };
+    if (prices === null) parts[PART_COSTS] = { ok: false, reason: 'there is no price list yet' };
+    if (l10n === null) parts[PART_L10N] = { ok: false, reason: 'the word list cannot be read' };
+    const failed = Object.values(parts).filter((part) => !part.ok);
+    const data = result.source === text ? original : Buffer.from(result.source, 'utf8');
+    cache = { file: bundle.file, size: bundle.size, mtimeMs: bundle.mtimeMs, wanted, data };
+    onScript({
+      at: Date.now(),
+      patched: failed.length === 0,
+      reason: failed.length === 0 ? null : failed.map((part) => part.reason).join('; '),
+      parts,
+    });
     return data;
   }
 
-  function handle(req, res) {
+  async function handle(req, res) {
     const pathname = (req.url || '/').split('?')[0];
     const send = (status, type, body) => {
       res.writeHead(status, {
@@ -105,6 +138,8 @@ export function createUiServer({ getBundle, wantIndicator = () => false, onScrip
     }
     let body;
     try {
+      // For example a price list that is still on its way: better a short wait than a script without it.
+      if (name === 'main.js') await beforeScript();
       const bundle = getBundle();
       body = name === 'main.js' ? mainJs(bundle) : readBundleFile(bundle, name);
     } catch (err) {
@@ -118,7 +153,15 @@ export function createUiServer({ getBundle, wantIndicator = () => false, onScrip
     send(200, TYPES[path.extname(name).toLowerCase()] || 'application/octet-stream', body);
   }
 
-  const server = http.createServer(handle);
+  const server = http.createServer((req, res) => {
+    handle(req, res).catch(() => {
+      if (res.headersSent) res.destroy();
+      else {
+        res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end('agy-flags: internal error\n');
+      }
+    });
+  });
   server.keepAliveTimeout = 120_000;
   server.headersTimeout = 125_000;
   server.on('clientError', (_err, socket) => socket.destroy());

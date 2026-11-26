@@ -6,11 +6,11 @@ Many Antigravity features are controlled by "experiment flags" that Google's ser
 
 - **It does not modify the Antigravity app.** The app's files and signature stay as they are, and nothing has to be redone after the app updates itself.
 - **No certificate is installed, and HTTPS is not intercepted.**
-- **It runs on your machine only**, has no third-party dependencies, and sends nothing to third parties.
+- **It runs on your machine only**, has no third-party dependencies, and sends none of your data to third parties. One optional feature downloads a public price list (see "Estimate costs at public prices").
 
-Besides flags, it carries two features that a flag alone cannot turn on: **prompt cache keep-alive** and the **context usage indicator**. "How it works" says how each is done and what it costs.
+Besides flags, it carries some features that a flag alone cannot give: **prompt cache keep-alive**, the **context usage indicator**, **costs at public prices**, a **Chinese interface** and **conversation titles in Chinese**. "How it works" says how each is done and what it costs.
 
-macOS only for now. This tool ran on Antigravity 2.35.0 and 2.35.1; the effect of every curated feature except "Conversation forking" was seen on 2.35.1. The same approach was verified earlier on 2.34.0 with a prototype.
+macOS only for now. This tool ran on Antigravity 2.35.0 and 2.35.1; the effect of every curated feature except "Conversation forking" and "Teamwork subagents are not forced to Flash" was seen on 2.35.1. The same approach was verified earlier on 2.34.0 with a prototype.
 
 agy-flags changes requests of the desktop app only. Requests of the Antigravity command line `agy` pass through unchanged; see "Effect on the agy command line".
 
@@ -78,7 +78,7 @@ cd agy-flags && node bin/agy-flags.mjs install
 
 1. It copies the program to `~/Library/Application Support/agy-flags/app`.
 2. It registers a login item (`~/Library/LaunchAgents/dev.agy-flags.daemon.plist`) and starts the daemon now.
-3. When the daemon is listening, the daemon sets two login-session environment variables (see "How it works"). It sets a third one while the "Context usage indicator" is on.
+3. When the daemon is listening, the daemon sets two login-session environment variables (see "How it works"). It sets a third one while the "Context usage indicator", "Estimate costs at public prices" or "Chinese interface" is on.
 
 Run `npm link` in the repository to get the `agy-flags` command. Without it, use `node bin/agy-flags.mjs <command>`.
 
@@ -91,7 +91,7 @@ agy-flags ui
 This opens the settings page in your browser. After a one-step install there is no `agy-flags` command: the page was already opened for you, and later you open it from your bookmark or with the line under "To open the settings page again" above.
 
 1. Turn on a feature under "Features", or find the flag you want to change in its group under "All flags".
-2. The page says that a restart is needed. Click "Restart Antigravity". Antigravity reads its flags only when it starts.
+2. The page says that a restart is needed. Click "Restart Antigravity". Antigravity reads its flags only when it starts. "Conversation titles in Chinese" is the exception: it needs no restart and works at once.
 3. To go back, set the flag back and restart again.
 
 "All flags" lists only the flags that the client can use, grouped by function, each with a short description. On 2.35.1 (2026-11-25) the server sends 661 flags; the list shows 253 of them. A boolean flag has three states: "Default" (what the server sends), "On" and "Off". An integer flag has an input field: a number is an override, and an empty field means the default. Flags of other types (string, ...) are read-only on the page.
@@ -105,10 +105,10 @@ The flags that are left out are folded away at the bottom of the list, with the 
 
 A name that is found only shows that the client knows the flag, not that turning it on has an effect. The descriptions come from reading the client code and were not tested one by one in the app. A description marked "inferred" rests only on the flag name and the value the server sends; no code that uses the flag was found.
 
-The entries under "Features" were chosen after the candidate flags were turned on and looked at one by one ("Token usage of each reply" on 2.35.1, the others on 2.35.0). Only features with an effect that was seen, and that is useful in daily work, are listed. Each entry is marked "tested" or "untested":
+The entries under "Features" were chosen after the candidate flags were turned on and looked at one by one. Only features with an effect that was seen, and that is useful in daily work, are listed; the exception is under "untested" below. The entries that were added on 2.35.1 are listed under "Added to "Features" on 2.35.1" in "Verified and not verified"; the others were added on 2.35.0. Each entry is marked "tested" or "untested":
 
 - **tested**: the effect was seen in the app on the version shown. The description says what was seen. Where only the entry point was confirmed and the feature itself was not tried, the description says so.
-- **untested**: the effect is known from the app's page code only and was not seen in the app. At present no entry is like this.
+- **untested**: the effect is known from the client code only and was not seen in the app. At present only "Teamwork subagents are not forced to Flash" is like this; its effect was read from the code of the language server.
 
 Flags that showed no effect are not under "Features"; "Verified and not verified" lists them. Where the client code also shows that a flag has no effect, "All flags" folds it away under "left out" at the bottom, where it can still be changed; the others are in the list of "All flags" as before.
 
@@ -194,6 +194,66 @@ The cost: **while this feature is on, the Antigravity page depends on agy-flags 
 
 After you turn the flag on and restart the app, one setting in the app must be turned on before the indicator shows: Settings → Appearance → Advanced Settings → Chat Layout → "Context and quota indicator". That setting is off by default.
 
+### Estimate costs at public prices
+
+With `enable-cost-accumulator` on, a dollar-sign button shows under each reply, and a click on it lists token counts and costs. On 2.35.1 every cost is $0.0000. The cause is in the language server of the app: it computes a cost as "tokens × price ÷ 1,000,000", but the program has no price list, and the three prices of every model are 0. The configuration that the server sends has no dollar prices either. This was found by reading the program of the language server, and it agrees with what was measured: every cost and every price that the page receives is 0.
+
+agy-flags fills in the prices on the side of the page:
+
+- The daemon downloads the public price list from `https://models.dev/api.json`, keeps only the prices of Vertex AI (`google-vertex`), and stores them in `prices.json`. It downloads once a day at most. When a download fails, the last list is used, and the download is tried again after one hour. It downloads only while this feature is on.
+- The page script is changed in the same way as for the "Context usage indicator", in one more place: the one place where the cost data enters the page. There agy-flags computes the cost of every row from the price list, and then hands the data to the page. Nothing else in the page changes.
+- A row is filled in only when the app gave no price: a row whose cost is not 0, or that has a price that is not 0, stays as it is. When the app brings prices of its own one day, they win.
+- Models are matched by name. The names in the page carry the thinking level, for example "Gemini 4 Neon (XHigh)". A model counts as matched when its name without the level in brackets is a name of the price list. A model that is not matched stays as it is and still shows $0.0000. The settings page lists which models of the app have a price. In the model list of 2.35.1, "Orchestrator (Neon)", "Orchestrator (Carbon)", "Orchestrator (Argon)" and "Gemini 3 Flash" have no price. "Gemini 4 Hydrogen (Orchestrator)" without its brackets is Gemini 4 Hydrogen, and is paid at that price.
+
+The calculation:
+
+- The cost of a row = input × input price + cache read × cache price + output × output price. "Input" in the page does not include the tokens read from the cache, and "Output" already includes thinking and response, so thinking and response are not added again.
+- A conversation can change its model. Each turn is paid at the prices of the model of that turn, and a running total is the sum of the turns. It is not the token count of the total times the price of the last model.
+- Subagents are paid at their own model. The sum of all subagents has a row of its own (Subagent) and is part of the total of the last turn (Grand Total).
+- When a part of the token count of a running total matches no turn (for example because the app no longer lists older turns), that part is estimated at the model of the turn at that point.
+
+What you should know:
+
+- This is an estimate at public API list prices. It is not what you pay in Antigravity, and it is not your quota.
+- Only input, cache read and output are counted. Cache writes of Claude cost more than plain input, and the app does not give their token count, so they are not counted. The cost for Claude is a little too low.
+- Prices that depend on the size of the context are not used. The base price is used.
+- For a model without a cache price in the list, cache reads are paid at the input price. The settings page says which models these are.
+- Like the "Context usage indicator", this makes the Antigravity page depend on agy-flags running. See the section above.
+
+### Chinese interface
+
+The client has no languages of its own: the English text of the page is written directly in the page script `main.js`. So agy-flags does not change the code of the client. It adds a translator to the end of the page script:
+
+- It is added in the same way as the "Context usage indicator": the third variable `AGY_DEV_UI_URL`, and the fourth port that serves the page files. The difference: this feature changes no place inside the script; it only adds to the end.
+- When the page has loaded, the translator goes through the whole page once, and after that it watches the page for changes. When the whole of a text is equal to an English entry of the word list, the whole text is replaced with its Chinese form. A text with variable parts (for example "3 files changed") is matched with a regular expression of the word list.
+- When the page puts one sentence together from several text parts (for example "No ", "automations", " yet"), the translator looks the parts up as one sentence: with an entry, the whole sentence becomes Chinese; without one, the whole sentence stays in English, and no part is translated alone. A regular expression with only one fixed word (for example "Turn …") is not used for a long run of English words, so that an English description from the server does not get only its first word translated.
+- Besides the text that is shown, only these attributes are translated: `title`, `placeholder`, `aria-label`, `aria-description`, `aria-placeholder`, `alt` and `data-tooltip` (hover hints, the placeholder of an input field, and the text for screen readers). Everything is written as plain text.
+- Not translated: the text of the conversation (your messages, the replies of the model, the transcript), code blocks, terminals, editors, input fields and other areas that you can edit, and the names of conversations, projects and models, file paths, commit messages and logs. These areas are recognized by the marks that the client itself puts on the page. Buttons inside the conversation text (for example Copy and Retry) are translated as usual.
+- The word list is `src/l10n/zh-CN.json`. A part of it comes from the open-source project [antigravity-chinese](https://github.com/yiheng8023/antigravity-chinese) (MIT license; the license notice is in `src/l10n/LICENSE-antigravity-chinese.txt`); only the entries that 2.35.1 still uses were kept. The rest was found in the page script of 2.35.1 and translated new. Every entry was checked again. Well-known nouns such as Agent, Subagent, Skill, MCP, token and Artifact stay in English.
+- Only safe regular expressions are accepted: each must match the whole text, and must have no repeated group that can cause much backtracking and no back-reference. Each one is only tried on a text that contains its fixed part, so the page does not get slow.
+- After 5 errors the translator stops itself. The page stays in English, and the client works as usual.
+
+As with the indicator, the page depends on agy-flags while this is on. Restart the client after you turn it on or off.
+
+What it cannot reach:
+
+- The system menu bar, the Dock menu and system dialogs. They belong to the shell of the client, not to the page script.
+- Pages inside a frame (iframe), for example the Swarm panel. The translator cannot get into them.
+- Text that the word list does not have, for example text that a client update adds, and sentences that are put together from parts that mean nothing alone. They stay in English.
+
+### Conversation titles in Chinese
+
+To give a new conversation a title, the client sends a model request of its own: it gives your first message to a small model (`gemini-3.5-flash-lite` on 2.35.1), with an English instruction. The instruction asks for "3-5 words, title-cased", so the title is in English in whatever language you ask. This instruction is in the program of the language server, so a change of the page script cannot reach it.
+
+agy-flags changes this one request when it forwards it:
+
+- Only model requests of the desktop app that are not compressed (paths that end in `GenerateContent`) are looked at.
+- A title request is recognized in two steps. First the first 512 bytes of the body are looked at: only a body with the request id `"requestId":"checkpoint/` there is a candidate. Any other request is forwarded at once, as usual. A candidate is received completely, and then its instruction is checked: it must start with "You are a conversation title generator".
+- In a title request, the sentence that asks for English is replaced in the original bytes with a sentence that asks for Simplified Chinese (4 to 12 Chinese characters, no prefix, no quotation marks, no punctuation at the end), and the length of the request is updated. All other bytes stay as they are; your message goes out unchanged.
+- When the sentence is not found (the client words it differently now), or is found more than once (for example because your message has the same sentence), the request goes out unchanged. In the first case, the settings page shows a warning.
+- A candidate larger than 8 MB is not changed and is forwarded as usual.
+- No restart of the client is needed: once this is on, the next new conversation gets a Chinese title. The titles of earlier conversations stay as they are.
+
 ## Security and privacy
 
 Your Google sign-in token and all conversation content pass through the local forwarder. Therefore:
@@ -202,11 +262,15 @@ Your Google sign-in token and all conversation content pass through the local fo
 - The upstream addresses come only from `config.json`. The defaults are the two Google hosts above. The connection to the upstream is HTTPS with normal certificate checks.
 - The log records events only (start, how many flags were rewritten, failure reasons). It records no headers and no bodies.
 - To show on the page how many keep-alive requests were sent, the forwarder looks for one fixed label name (`prompt_cache_keep_alive`) in model requests as they pass. It only counts. It does not keep or log the request content.
-- The port that serves the page files (47933) answers read requests only, and serves only the app's own page files. Conversation traffic does not pass through it: the page talks to the language server directly. The indicator component that is added to the page script sends no network requests and writes everything into the page as plain text.
+- The port that serves the page files (47933) answers read requests only, and serves only the app's own page files. Conversation traffic does not pass through it: the page talks to the language server directly. The indicator component, the cost calculation and the translator that are added to the page script send no network requests. The indicator and the translator write everything into the page as plain text; the cost calculation writes only numbers into data that the app already has. The word list ships with agy-flags; it is not downloaded.
 - The forwarder reads the `User-Agent` of every request to tell whether it comes from the desktop app or from another program. It keeps the last `User-Agent` of each kind of sender in memory, for the status API and for a warning on the page. It does not write it to the log. The Antigravity programs put their program name, version and system type there.
 - The page's API needs a random token. `agy-flags ui` passes it to the page in the part of the address after `#`, which browsers send to no server. The API also checks `Host` and `Origin`, so another website cannot change your settings through your browser.
 - The page keeps the token in the browser's local storage for this page, so that a bookmark keeps working. Only the scripts of this page can read it, and the page deletes it when the daemon refuses it. If you do not want the token kept, clear the site data of `127.0.0.1:47930` in the browser.
 - The one-step install script downloads from `github.com` and `nodejs.org` only. The Node.js it downloads must match the SHA-256 written in the script before it is run. The script does not use `sudo` and writes only to the folder of agy-flags and to the login item.
+- While "Estimate costs at public prices" is on, the daemon connects to one third-party host: `models.dev`. It asks for the one address `https://models.dev/api.json` and follows no redirect. The request carries no login data and none of your data; its `User-Agent` is `agy-flags`. While that feature is off, there is no connection.
+- The downloaded price list is data from another party, and a part of it is written into a script that runs in the Antigravity page. So only three things are kept from it: model keys made of lowercase letters, digits and hyphens; numbers inside fixed limits; and model names that are shown as plain text in the settings page only. Everything else is dropped. The stored copy is checked again by the same rules when it is read.
+- To list in the settings page which models have a price, the forwarder reads the display names in the model list response while that feature is on. It does not change that response.
+- "Conversation titles in Chinese" is the only place where agy-flags changes the content of a model request: one sentence of the instruction in the title request. To recognize that request while this is on, the forwarder looks at the first 512 bytes of every model request of the desktop app, and reads a request whose id starts with `checkpoint/` completely into memory, checks it, and then forwards it. Nothing of it is kept or logged. Requests of the `agy` command line are neither looked at nor changed. While this is off, nothing is looked at.
 - There are no third-party dependencies, and the code is small enough to read.
 
 Other programs that run as you on this machine can already read your files. agy-flags does not defend against them.
@@ -229,6 +293,48 @@ Looked at again on 2.35.1:
 Added to "Features" on 2.35.1:
 
 - "Token usage of each reply" (`enable-cost-accumulator`): after the flag was turned on and the app restarted, a dollar-sign button showed under each reply, and a click on it listed the tokens of the turn and the running total. The second turn on the same model showed Cache 14.7K (input 2.2K); the turn after a model change showed Cache 0. The cost column showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5. By the fourth turn the total input was 62.1K, so the zero is not a small number rounded down. After the flag was turned off and the app restarted, the button was gone from the earlier replies, and a new reply did not have it either.
+- "Estimate costs at public prices": tested in the same conversation as above. The conversation used Gemini 4 Neon, then Gemini 3.8 Flash, then Claude Sonnet 5.5.
+  - With the feature on, the cost of every row agreed with a calculation by hand. The first turn (Gemini 4 Neon, input 16.7K, output 24) showed $0.0506. The second turn (input 2.2K, Cache 14.7K, output 22) showed $0.0090.
+  - The third turn, on Gemini 3.8 Flash, showed $0.0128, and the running total at that turn was $0.0723: the sum of the first three turns. The token count of the total at the Flash prices would be about $0.028.
+  - A turn with one tool call (Claude Sonnet 5.5, input 2.5K, Cache 104.2K, output 402) showed $0.0195.
+  - After two subagents had run, the last turn had a Subagent row with $0.0678 (input 29.4K, Cache 69.4K, output 212). The Grand Total showed $0.2919: the sum of the turns plus the subagents.
+  - With the feature off and the app restarted, every row of the same conversation was $0.0000 again.
+  - The raw data that the page receives was looked at once: the model name is written with its level, as in "Gemini 4 Neon (XHigh)", and the cost and the three prices are 0.
+  - The daemon reached models.dev directly and downloaded the price list. The switch and the "Update prices now" button of the settings page were tried too.
+- The next 8 entries were turned on in two test rounds together with other candidate flags (18 at once in the first round, 6 in the second); they were not turned on one by one. "Before" means the time when all these candidate flags were off.
+  - "Subagents can use any model of the model menu" (`enable-subagent-dropdown-models`): the agent was asked for the allowed values of the model parameter for a new subagent. Before, they were the four values inherit, flash_lite, flash and pro; after, they were the whole model menu, for example Claude Opus 5.5 (High). A subagent was not actually run on another model.
+  - "Code review agent" (`enable-review`): `/review-agent` appears in the slash menu of the input box. It reviewed one line of wrong Python code: after 14 seconds the conversation got the verdict "REQUEST CHANGES", with the problems graded P1 and P3. It was not tried on the changes of a real project.
+  - "Deep work agent" (`enable-deepagent`): `/deepagent` appears in the slash menu. Asked whether 1009 is a prime, it made the conversation show "Started Deep Agent", and an answer with its checks came after 8 seconds. It was not tried on a complex task.
+  - "Keep drafts across restarts" (`enable-input-draft-persistence`): a draft was left in one conversation, and the sidebar showed a pencil mark next to that conversation. The draft was still there after several restarts and one day; after the draft was deleted, the mark was gone too.
+  - "GitHub permissions of a project" (`enable-permissioned-github`): the settings of a project show a "GitHub" row under Permission Settings, and Open leads to the GitHub Permissions page. The page has a field for a personal access token and a "GitHub Policies" switch. The global permission settings do not have this row. No token was entered and no policy was tried.
+  - "Prompt the agent to use interactive HTML widgets" (`jetski-generative-ui-prompt`): the agent was asked to check its system prompt. Before, it had no section "Interactive HTML Widgets"; after, it had one. How often the agent really makes widgets was not compared.
+  - "Plugin marketplace: most popular first and categories" (`enable-plugin-ranking`): before, the plugin marketplace had no "Filter plugins" button; after, it had one, with 9 categories. With Developer Tools chosen, the list said "Most popular first" and was sorted by user count.
+  - "Plugin marketplace: user counts" (`enable-marketplace-user-count`): after, the plugin cards showed user counts, for example 149.4K for Google Drive; before, they did not.
+- "Teamwork subagents are not forced to Flash" (`disable-teamwork-forced-flash-model`): marked "untested". Only the code of the language server was read: it checks this flag when it starts a Teamwork subagent. The flag was not turned on in the app to see the effect.
+- "Chinese interface": after turning it on and restarting the client, the sidebar, the start page, the input box and the options below it, the General page of the settings, the automations page, the interface text of the plugin marketplace, the "Worked for 8s" and "60 minutes ago" under each reply, the cost summary and the context usage indicator were in Chinese. The conversation text, the names of conversations, projects and models, and the plugin descriptions that come from the server stayed in English. The test found some gaps, which were filled: the placeholder of the input box, the "now" next to a new conversation in the sidebar, the group names "Mcp Tools" and "Chat Messages" of the indicator, and sentences that the page puts together from parts ("No automations yet" was shown as "否 automations yet"). It also found that a regular expression with only one fixed word turned only the first word of a long English sentence from the server into Chinese (the plugin description "Turn Figma designs into …" got the form of "Turn {n}"); such expressions are no longer used for long sentences. The other settings pages, the menus and the dialogs were not looked at one by one.
+- "Conversation titles in Chinese": turned on without a restart of the client; two new conversations, both asked in English. The one that asked "What is the capital of France?" got the title 法国首都查询 ("question about the capital of France"). The message of the other one was an instruction to reply only OK, and its title was 忽略系统指令与回复要求 ("ignore the system instruction and the reply requirement"): the title was in Chinese, but the title model took the message as a request to not follow its own instruction. The settings page counted 2 changed title requests and showed no warning.
+
+Flags that were looked at on 2.35.1 and are not under "Features" (turned on together with the 8 entries above, in the same tests):
+
+| Flag | What was seen |
+| --- | --- |
+| `enable-skill-search-tool`, `enable-ask-custom-permission-tool` | The agent was asked to list its tools: the same 21 tools before and after, without `skill_search` and `ask_custom_permission` |
+| `enable-file-explorer-tab` | The top of the side panel still has Overview as its only fixed tab; "Files" in Overview opens the file viewer that was already there, not a workspace file explorer. The same as on 2.35.0 |
+| `enable-bottom-terminal-panel` | Settings → Appearance → Advanced Settings has only Chat Layout and Accessibility, with no setting for the terminal placement. The same as on 2.35.0 |
+| `enable-url-artifacts` | The system prompt of the agent gets a section "URL Artifacts", which tells it to save related links as link artifacts; no link card was seen |
+| `enable-marketplace-new-badge` | No "New" mark was seen in the plugin marketplace. According to the page code, only plugins that were first seen less than 48 hours ago get this mark |
+| `enable-mcp-oauth-redirect`, `markdown-virtualize-long-documents`, `enable-text-transitions`, `convenient-multi-agent-coordination` | They were turned on, but their effect was not checked specifically |
+
+Flags that were looked at on 2.35.1 after User type was set to Google on the Developer settings page (the 4 were on together):
+
+| Flag | What was seen |
+| --- | --- |
+| `enable-plugin-bundles` | The plugin marketplace gets a "Bundles" row at the top; its page says "No bundles available." |
+| `enable-plugin-themes` | Tried with a local test plugin that ships a theme: the plugin details get a Themes section, Apply changes the colors of the whole interface, and the home page shows the wallpaper of the plugin. A marketplace search for theme found nothing |
+| `enable-file-viewer-keyboard-navigation` | The source view of the file viewer shows a cursor; the arrow keys move it and Shift+arrow keys select across lines. Before, the same steps showed no cursor |
+| `enable-help-slash-command` | "help" appears in the slash menu; sending it opens a Help panel, but no answer comes. The language server logs "unknown model key MODEL_PLACEHOLDER_M381: model not found", also in a conversation on another model |
+
+Setting the user type to Google also turns on many internal interface parts that need no flag; for example, "Projects" in the sidebar becomes "Workspaces". A conversation created during this time is marked with the source of an internal client (JETBOX), so no conversation was created in the test. After the test, User type was set back to Auto.
 
 Effect on the command line `agy` (1.5.17):
 
@@ -299,8 +405,9 @@ Not verified:
 - Features other than text chat, for example voice mode, remote control and the built-in browser. Only text chat was tried with the real app.
 - The tunnel for connection upgrades (WebSocket). It has a unit test only; no such request was seen in real traffic.
 - String flags. They are read-only on the page. You can write them into `flags` in `config.json` by hand, but this was not tested with the real app.
-- The descriptions and the left-out marks under "All flags". The descriptions come from reading the code and were not tested one by one in the app. Whether a feature that only requires a Google user really appears and works after User type is set to Google on the Developer settings page was not tried either. For the rule "no name found, so left out", the search result was checked on 2.35.1: it is the same as the result of an offline search for each name.
-- Why the cost column of "Token usage of each reply" shows $0.0000; this was not looked into. The other 6 models of the model menu, and turns with tool calls or subagents, were not looked at.
+- The descriptions and the left-out marks under "All flags". The descriptions come from reading the code and were not tested one by one in the app. Of the features that only require a Google user, only the 4 in the table above were tried after User type was set to Google on the Developer settings page; the others were not tried. For the rule "no name found, so left out", the search result was checked on 2.35.1: it is the same as the result of an offline search for each name.
+- Cases of "Estimate costs at public prices" that were not looked at: models other than the three above; a turn whose subagent uses another model than the main conversation; a long conversation that was compacted. The ⓘ hint in the cost popover shows only while the pointer is over it; the prices and the model name it shows were not looked at. After a restart of the app, the usage of subagents comes back into the totals only after the conversation runs one more turn; this is the behaviour of the app itself.
+- A network that needs the system proxy to reach models.dev. The daemon connects directly and does not read proxy settings.
 - An app update while the "Context usage indicator" is on. By design the page files change together with the app's program, and they are served unchanged when they cannot be changed safely; this has unit tests only.
 - Antigravity was started with the `open` command and with the "Restart" button of agy-flags only. Starting it from the Dock or Launchpad was not tested separately.
 - Networks where Google is reachable only through a system proxy. The forwarder connects to Google directly and does not read proxy settings.
@@ -312,7 +419,10 @@ Verified on 2.34.0 with a prototype (not this code): when the forwarder stops fo
 
 - **A change needs a restart of Antigravity.**
 - **An Antigravity that starts before the daemon is not routed.** If the system reopens Antigravity at login, it can start before the daemon. The page then asks you to restart it once.
-- **While the "Context usage indicator" is on, the page depends on agy-flags.** While agy-flags is not running, an Antigravity window that is reloaded shows an error text (see "When something goes wrong"). If you do not want this, leave that feature off; the other features are not affected.
+- **While the "Context usage indicator", "Estimate costs at public prices" or "Chinese interface" is on, the page depends on agy-flags.** While agy-flags is not running, an Antigravity window that is reloaded shows an error text (see "When something goes wrong"). If you do not want this, leave these three features off; the other features are not affected.
+- **The Chinese interface is not complete.** The system menu bar, the Dock menu, system dialogs and pages inside a frame (for example the Swarm panel) cannot be reached; text that the word list does not have stays in English. Text that a client update adds waits for an update of the word list.
+- **A Chinese title is made by the model.** agy-flags changes only the instruction, and the model may not always follow it exactly; for example, a title can be longer. If a later client words this instruction differently, agy-flags passes the request through unchanged, the titles are in English again, and the settings page says so.
+- **An estimated cost is not a bill.** It uses public API list prices and counts only input, cache read and output. The prices come from models.dev, not from Google. See "Estimate costs at public prices".
 - **The indicator component is written by agy-flags; it is not Google's original.** It shows context usage only, not the model quota. If the structure of the page script changes after an app update, the component turns itself off until agy-flags is updated.
 - **Keep-alive does not guarantee a cache hit.** In the test the first keep-alive hit the cache and the second one did not. The one that missed is charged as uncached input for the whole context.
 - **Other programs inherit the variables too.** The variables live in the login session, so every program started afterwards (terminals included) carries them. Almost all programs ignore these names. The Antigravity command line `agy` reads them: its requests go through agy-flags, but they are not rewritten. It therefore needs the agy-flags daemon to be running, and after agy-flags stops or is removed, a terminal that was already open must be quit and opened again. See "Effect on the agy command line". The Antigravity IDE was not tested; by the same rule its requests only pass through.
@@ -332,7 +442,7 @@ After a one-step install there is no `agy-flags` command. Use the line under "To
 
 If the command line `agy` fails in a terminal with `failed to construct executor: plan model not specified; you must specify a valid model`, and you did not change any model setting: that terminal probably still carries the variables of agy-flags, while agy-flags has stopped or was removed. Quit Terminal completely and open it again, or run `unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL` in that terminal.
 
-If an Antigravity window shows only a text that starts with "The dev UI server at … is not reachable", the "Context usage indicator" is on and agy-flags is not running. Get agy-flags running again and reload the window, or clear the variables as shown below.
+If an Antigravity window shows only a text that starts with "The dev UI server at … is not reachable", the "Context usage indicator", "Estimate costs at public prices" or "Chinese interface" is on and agy-flags is not running. Get agy-flags running again and reload the window, or clear the variables as shown below.
 
 To bypass agy-flags at once, clear the three variables and restart Antigravity:
 
@@ -356,7 +466,8 @@ The log is at `~/Library/Application Support/agy-flags/daemon.log`.
 | --- | --- |
 | `~/Library/Application Support/agy-flags/config.json` | Settings: changed flags, ports, upstream addresses. You can edit it by hand; the daemon reads it again |
 | `~/Library/Application Support/agy-flags/token` | The access token of the settings page |
-| `~/Library/Application Support/agy-flags/state.json` | The server flag list as last seen |
+| `~/Library/Application Support/agy-flags/state.json` | The server flag list and the model display names as last seen |
+| `~/Library/Application Support/agy-flags/prices.json` | The price list downloaded from models.dev. This file does not exist until "Estimate costs at public prices" was turned on once |
 | `~/Library/Application Support/agy-flags/daemon.log` | The log |
 | `~/Library/Application Support/agy-flags/app/` | The program copied by `install` |
 | `~/Library/Application Support/agy-flags/runtime/` | The Node.js downloaded by the one-step install script. Absent when the computer had Node.js already |
@@ -373,9 +484,12 @@ npm test
 The tests do not call `launchctl`, do not touch the real settings directory, and do not use the network.
 
 - `src/patch.mjs`: pure functions that rewrite the two flag responses and the model list.
-- `src/forward.mjs`: the HTTP forwarder for one upstream, and the rule that tells from the `User-Agent` who sent a request.
+- `src/forward.mjs`: the HTTP forwarder for one upstream, the rule that tells from the `User-Agent` who sent a request, and the change of the title request.
 - `src/bundle.mjs`: finds and reads the page files inside the language server program.
-- `src/uipatch.mjs`: the indicator component, and the change that puts it into the page script.
+- `src/uipatch.mjs`: the three changes to the page script: the indicator component, the function that computes the costs from the price list, and the translator at the end.
+- `src/l10n.mjs`: the translator of the page, and the rules that a word list must follow.
+- `src/l10n/zh-CN.json`: the Simplified Chinese word list.
+- `src/prices.mjs`: downloads, checks and stores the price list of models.dev.
 - `src/uiserver.mjs`: the server that gives the page files to the language server.
 - `src/env.mjs`: the rules for setting and clearing the variables.
 - `src/daemon.mjs`: puts the forwarders, the page API and the variables together.
@@ -387,7 +501,8 @@ The tests do not call `launchctl`, do not touch the real settings directory, and
 - `src/flag-notes.json`: the groups and descriptions of "All flags", and the flags that are left out by hand.
 - `ui/`: the settings page. No framework, no build step.
 - `install.sh`: the one-step install and uninstall script.
+- `tools/l10n-candidates.mjs`: lists the texts in the page script of the installed client that the word list cannot translate yet. Run it before and after a client update and compare the two outputs to find the new texts. The output also holds many strings that are not interface text; pick by hand.
 
 ## License
 
-MIT
+MIT. A part of the word list for the Chinese interface comes from antigravity-chinese (MIT); its license notice is in `src/l10n/LICENSE-antigravity-chinese.txt`.

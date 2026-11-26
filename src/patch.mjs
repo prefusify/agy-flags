@@ -208,6 +208,24 @@ export function patchModelExperiments(data, flags) {
   return result;
 }
 
+/**
+ * The display names in a parsed model list, as the client shows them. Each is a short text;
+ * the settings page shows them as text.
+ */
+export function modelDisplayNames(data) {
+  const names = new Set();
+  const models = data?.models;
+  if (!models || typeof models !== 'object' || Array.isArray(models)) return [];
+  for (const model of Object.values(models)) {
+    const name = model?.displayName;
+    if (typeof name !== 'string') continue;
+    const text = name.replace(/[^\x20-\x7e]/g, '').trim().slice(0, 80);
+    if (text) names.add(text);
+    if (names.size >= 200) break;
+  }
+  return [...names];
+}
+
 function makeValue(key, value, existing) {
   const out = {};
   if (existing && typeof existing === 'object') {

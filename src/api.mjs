@@ -95,7 +95,7 @@ function readJsonBody(req) {
  * @param {() => object} [options.identity]
  * @param {() => Promise<object>} options.getState
  * @param {() => object} options.getServerFlags
- * @param {{ setFlags: Function, setEnabled: Function, restartClient: Function }} options.actions
+ * @param {{ setFlags: Function, setFeatures: Function, refreshPrices: Function, setEnabled: Function, restartClient: Function }} options.actions
  * @returns {http.Server} A server that is not listening yet.
  */
 export function createApi({ token, uiDir, catalogFile, notesFile, identity = () => ({}), getState, getServerFlags, actions }) {
@@ -157,13 +157,16 @@ export function createApi({ token, uiDir, catalogFile, notesFile, identity = () 
     }
     let result;
     if (pathname === '/api/flags') result = await actions.setFlags(body.changes);
+    else if (pathname === '/api/features') result = await actions.setFeatures(body.changes, body.flags);
+    else if (pathname === '/api/prices/refresh') result = await actions.refreshPrices();
     else if (pathname === '/api/enabled') result = await actions.setEnabled(body.enabled);
     else if (pathname === '/api/restart-client') result = await actions.restartClient();
     else {
       sendJson(res, 404, { error: 'not found' });
       return;
     }
-    sendJson(res, result.ok ? 200 : result.error === 'busy' ? 409 : 400, result);
+    const status = result.ok ? 200 : result.error === 'busy' ? 409 : result.error === 'download-failed' ? 502 : 400;
+    sendJson(res, status, result);
   }
 
   async function handle(req, res) {

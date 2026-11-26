@@ -1,5 +1,5 @@
 {
-  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'params' are integer flags set together with the group. 'perModel' marks flags that are also written into every model of the model list. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component.",
+  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'params' are integer flags set together with the group. 'perModel' marks flags that are also written into every model of the model list. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off.",
   "groups": [
     {
       "id": "developer-mode",
@@ -90,8 +90,84 @@
         "en": "Token usage of each reply"
       },
       "description": {
-        "zh": "每条回复下面多一个美元符号按钮。点开后显示这一轮的 token 数和累计数：输入、从提示词缓存读出的部分（Cache）、输出，输出再分成思考和回复，以及模型生成了几次。Cache 一行能看出缓存有没有命中：实测同一个模型的第二轮显示 Cache 14.7K，换了模型的那一轮是 0。每个数字旁边还有一栏按公开 API 价格估算的费用，但在 2.35.1 上，Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 都显示 $0.0000，不能当作费用。关掉这一项后，已有回复下面的按钮也不再显示。只在纯文字的短对话里看过，没有看带工具调用或子代理的回合。",
-        "en": "Adds a dollar-sign button under each reply. It opens the token counts of that turn and the running total: input, the part read from the prompt cache (Cache), and output, with output split into thinking and response, and how many times the model generated. The Cache row shows whether the cache was hit: in the test, the second turn on the same model showed Cache 14.7K, and the turn after a model change showed 0. Next to each number there is also a cost estimated from public API prices, but on 2.35.1 it showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5, so do not read it as a cost. When this is turned off, the button is gone from earlier replies too. Seen only in short text-only conversations; turns with tool calls or subagents were not looked at."
+        "zh": "每条回复下面多一个美元符号按钮。点开后显示这一轮的 token 数和累计数：输入、从提示词缓存读出的部分（Cache）、输出，输出再分成思考和回复，以及模型生成了几次。Cache 一行能看出缓存有没有命中：实测同一个模型的第二轮显示 Cache 14.7K，换了模型的那一轮是 0。每个数字旁边还有一栏按公开 API 价格估算的费用，但在 2.35.1 上，Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 都显示 $0.0000，因为客户端自己没有价格表。要看估算的费用，再打开下面的「按公开价格估算费用」。关掉这一项后，已有回复下面的按钮也不再显示。",
+        "en": "Adds a dollar-sign button under each reply. It opens the token counts of that turn and the running total: input, the part read from the prompt cache (Cache), and output, with output split into thinking and response, and how many times the model generated. The Cache row shows whether the cache was hit: in the test, the second turn on the same model showed Cache 14.7K, and the turn after a model change showed 0. Next to each number there is also a cost estimated from public API prices, but on 2.35.1 it showed $0.0000 for Gemini 4 Neon, Gemini 3.8 Flash and Claude Sonnet 5.5, because the client has no price list of its own. For an estimated cost, also turn on \"Estimate costs at public prices\" below. When this is turned off, the button is gone from earlier replies too."
+      }
+    },
+    {
+      "id": "turn-cost-prices",
+      "flags": [],
+      "feature": "costPrices",
+      "requires": [
+        "enable-cost-accumulator"
+      ],
+      "uiPatch": "costPrices",
+      "status": "prices",
+      "tested": "2.35.1",
+      "riskLabel": {
+        "zh": "改变界面加载方式，连接 models.dev",
+        "en": "changes how the page loads, connects to models.dev"
+      },
+      "risk": {
+        "zh": "打开这一项后，Antigravity 的界面文件改由本工具提供：文件取自客户端自带的那一份，只在界面脚本里加一处费用计算。本工具没有运行时，Antigravity 的窗口重新加载会显示一段报错文字，直到本工具恢复运行或客户端重启。另外，本工具会从 models.dev 下载公开的价格表，每天最多一次；请求里不带你的任何数据。",
+        "en": "While this is on, Antigravity takes its page files from agy-flags. The files are the client's own; one cost calculation is added to the page script. While agy-flags is not running, an Antigravity window that is reloaded shows an error text, until agy-flags runs again or the client is restarted. In addition, agy-flags downloads the public price list of models.dev, once a day at most; the request carries none of your data."
+      },
+      "title": {
+        "zh": "按公开价格估算费用",
+        "en": "Estimate costs at public prices"
+      },
+      "description": {
+        "zh": "「每条回复的 token 用量」里的费用一栏在 2.35.1 上全是 $0.0000，因为客户端自己没有价格表。打开这一项后，本工具从 models.dev 下载 Vertex AI 的公开价格，在 Antigravity 的界面里按它算出每一行的费用：token 数乘以每百万 token 的单价。每一轮按那一轮所用模型的价格算，累计是各轮相加，所以中途换过模型的对话也算得对。子代理按它自己的模型算，单列一栏并计入总计。实测用的是一个先后用过 Gemini 4 Neon、Gemini 3.8 Flash 和 Claude Sonnet 5.5 的对话，其中有一次工具调用和两个子代理：各行的数字和手算一致；关掉这一项后都回到 $0.0000。算出来的是按公开 API 列表价的估算，不是你在 Antigravity 里实际花的钱或用掉的配额。只算输入、缓存读取和输出三项，Claude 的缓存写入没有计入。价格表里没有的模型仍显示 $0.0000，例如名字是「Orchestrator (Neon)」这一类的三个模型。它需要「每条回复的 token 用量」，打开这一项时会一并打开那一项。",
+        "en": "The cost column of \"Token usage of each reply\" shows $0.0000 everywhere on 2.35.1, because the client has no price list of its own. While this is on, agy-flags downloads the public Vertex AI prices from models.dev and computes the cost of every row in the Antigravity page: the token count times the price per million tokens. Each turn is paid at the prices of the model of that turn, and a running total is the sum of the turns, so a conversation that changed its model is computed correctly. Subagents are paid at their own model; they get a row of their own and are part of the grand total. This was tested with one conversation that used Gemini 4 Neon, then Gemini 3.8 Flash, then Claude Sonnet 5.5, with one tool call and two subagents: every row agreed with a calculation by hand, and with this turned off every row was $0.0000 again. The result is an estimate at public API list prices. It is not what you pay in Antigravity, and it is not your quota. Only input, cache read and output are counted; the cache writes of Claude are not. A model that the price list does not have still shows $0.0000, for example the three models with names like \"Orchestrator (Neon)\". This needs \"Token usage of each reply\", and turning this on turns that on too."
+      }
+    },
+    {
+      "id": "ui-chinese",
+      "flags": [],
+      "feature": "uiChinese",
+      "requires": [],
+      "uiPatch": "l10n",
+      "status": "l10n",
+      "tested": "2.35.1",
+      "riskLabel": {
+        "zh": "改变界面加载方式",
+        "en": "changes how the page loads"
+      },
+      "risk": {
+        "zh": "打开这一项后，Antigravity 的界面文件改由本工具提供：文件取自客户端自带的那一份，只在界面脚本末尾加一段翻译程序。本工具没有运行时，Antigravity 的窗口重新加载会显示一段报错文字，直到本工具恢复运行或客户端重启。",
+        "en": "While this is on, Antigravity takes its page files from agy-flags. The files are the client's own; a translator is added to the end of the page script. While agy-flags is not running, an Antigravity window that is reloaded shows an error text, until agy-flags runs again or the client is restarted."
+      },
+      "title": {
+        "zh": "界面汉化",
+        "en": "Chinese interface"
+      },
+      "description": {
+        "zh": "把 Antigravity 对话窗口的界面文字显示成简体中文：侧边栏、设置页、菜单、按钮和提示文字，也包括费用窗口和本工具加的上下文用量指示器。客户端自己没有多语言，英文是直接写在界面脚本里的。所以本工具在界面脚本的末尾加一段翻译程序：页面上的一段文字和词条表里的英文完全相同时，把它整段换成中文。客户端的代码不改，词条有错时只会显示错，不会影响功能。不翻译的内容：对话正文（你的消息和模型的回复）、代码、终端、输入框，以及对话名、项目名、模型名和文件名。Skills、Agent、MCP、token 这类大家熟悉的名词保留英文。翻不到的地方有三类：系统菜单栏、Dock 菜单和系统弹窗，它们在客户端的外壳里，不改 app 就改不了；嵌在框架里的页面，例如 Swarm 面板；词条表里没有的文字，例如客户端更新后新增的，它们仍显示英文。打开或关掉这一项后要重启客户端。词条表的一部分取自开源项目 antigravity-chinese（MIT 许可证），全部条目重新校对过。",
+        "en": "Shows the text of the Antigravity conversation window in Simplified Chinese: the sidebar, the settings, menus, buttons and hints, and also the cost summary and the context usage indicator that agy-flags adds. The client has no languages of its own; the English text is written directly in its page script. So agy-flags adds a translator to the end of the page script: when a text on the page is equal to an English entry of the word list, the whole text is replaced with its Chinese form. The code of the client is not changed, so a wrong entry can only show a wrong text; it cannot break a function. Not translated: the text of the conversation (your messages and the replies of the model), code, terminals, input fields, and the names of conversations, projects, models and files. Well-known nouns such as Skills, Agent, MCP and token stay in English. Three kinds of text cannot be reached: the system menu bar, the Dock menu and system dialogs, which belong to the shell of the client and cannot be changed without changing the app; pages inside a frame, for example the Swarm panel; and text that the word list does not have, for example text that a client update adds, which stays in English. Restart the client after you turn this on or off. A part of the word list comes from the open-source project antigravity-chinese (MIT license); every entry was checked again."
+      }
+    },
+    {
+      "id": "chinese-titles",
+      "flags": [],
+      "feature": "chineseTitles",
+      "requires": [],
+      "status": "titles",
+      "tested": "2.35.1",
+      "riskLabel": {
+        "zh": "改动发给模型的一句指令",
+        "en": "changes one sentence sent to the model"
+      },
+      "risk": {
+        "zh": "打开这一项后，本工具会改动桌面端发给模型的一个请求：给新对话起标题的那个请求。只换其中一句指令，你的消息和其余内容原样发出。这是本工具唯一改动模型请求内容的地方。",
+        "en": "While this is on, agy-flags changes one request that the desktop app sends to the model: the request that asks for the title of a new conversation. One sentence of its instruction is replaced; your message and everything else go out as they are. This is the only place where agy-flags changes the content of a model request."
+      },
+      "title": {
+        "zh": "对话标题用中文",
+        "en": "Conversation titles in Chinese"
+      },
+      "description": {
+        "zh": "新对话的标题总是英文，不管你用什么语言提问。原因是客户端让一个小模型起标题时，指令里写明了「3 到 5 个单词，每个词首字母大写」。打开这一项后，本工具在转发这个请求时，把这一句换成「用简体中文，4 到 12 个字」，其余内容原样发出。只改桌面端的标题请求；对话本身的请求不改，命令行 agy 的请求不改。不用重启客户端，下一个新对话就生效。已有对话的标题不变。为了认出标题请求，本工具要看每个模型请求开头的 512 个字节。请求编号以 checkpoint/ 开头的请求（标题请求是其中一种）会等全部收到后再检查、发出；其余请求看完开头就照常转发。这些内容都不保存、不写日志。如果客户端以后改了这条指令的写法，本工具找不到那一句，就原样放行，并在这个页面上提示。",
+        "en": "The title of a new conversation is always in English, in whatever language you ask. The reason: when the client asks a small model for the title, its instruction says \"3-5 words, title-cased\". While this is on, agy-flags replaces that sentence with \"in Simplified Chinese, 4 to 12 characters\" when it forwards the request; everything else goes out as it is. Only the title request of the desktop app is changed. The requests of the conversation itself are not changed, and the requests of the agy command line are not changed. No restart of the client is needed: the next new conversation gets a Chinese title. The titles of earlier conversations stay as they are. To recognize a title request, agy-flags looks at the first 512 bytes of every model request. A request whose id starts with checkpoint/ (the title request is one of them) is received completely before it is checked and sent on; every other request is forwarded as usual after its start. Nothing of it is kept or logged. If a later client words this instruction differently, agy-flags does not find the sentence; it then passes the request through unchanged and says so on this page."
       }
     },
     {
@@ -249,6 +325,149 @@
       "description": {
         "zh": "Settings → General → Voice mode 里多出「Dictation languages」，可以限定听写识别的语言；听写改用新的处理流程。实测只确认了设置项出现，没有试听写本身。",
         "en": "Adds \"Dictation languages\" to Settings → General → Voice mode, to limit the languages that dictation recognizes; dictation uses the new pipeline. The test only confirmed that the setting appears; dictation itself was not tried."
+      }
+    },
+    {
+      "id": "subagent-models",
+      "flags": [
+        "enable-subagent-dropdown-models"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "子代理可用模型菜单里的任一模型",
+        "en": "Subagents can use any model of the model menu"
+      },
+      "description": {
+        "zh": "代理开子代理时，模型参数原来只有 inherit、flash_lite、flash、pro 四档。打开后，模型菜单里的每个模型和思考档位都能选，例如 Claude Opus 5.5 (High)、Gemini 3.8 Flash (Low)。工具说明仍要求代理默认用 inherit，也就是和自己相同的模型，不许自己换档。所以平时没有变化；你在消息里点名让子代理用某个模型时，代理才会换。实测让代理列出这个参数的可选值：打开前是 4 个，打开后是整个模型菜单。没有实际让子代理换一个模型跑一次。",
+        "en": "When the agent starts a subagent, the model parameter had four choices: inherit, flash_lite, flash and pro. While this is on, every model and thinking level of the model menu can be chosen, for example Claude Opus 5.5 (High) or Gemini 3.8 Flash (Low). The tool description still tells the agent to use inherit by default, which is its own model, and not to change the tier on its own. So nothing changes in daily use; the agent picks another model only when your message names one for the subagent. Tested by asking the agent for the allowed values of this parameter: 4 before, the whole model menu after. A subagent was not actually run on another model."
+      }
+    },
+    {
+      "id": "review-agent",
+      "flags": [
+        "enable-review"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "代码审查子代理（/review-agent）",
+        "en": "Code review agent (/review-agent)"
+      },
+      "description": {
+        "zh": "输入框里多一个斜杠命令 /review-agent，客户端把它标为 Experimental。它启动一个「Code Review Agent」子代理：先确定审查什么（没指定时看未提交的改动），再查调用方和相关代码，按严重程度列出问题，最后给出结论。它默认只读：不改文件、不动版本控制、不发评论。实测用它审查一行有错的 Python 代码：14 秒后主对话收到结论「REQUEST CHANGES」，问题按 P1、P3 分级，并写明只审了这段代码。没有在真实项目的改动上试过。每用一次，多花一个子代理的配额。",
+        "en": "Adds the slash command /review-agent to the input box; the client marks it Experimental. It starts a \"Code Review Agent\" subagent. The subagent first decides what to review (uncommitted changes when nothing is named), then reads the callers and related code, lists the problems by severity and ends with a verdict. By default it only reads: it does not change files or version control and does not post comments. Tested on one line of wrong Python code: after 14 seconds the conversation got the verdict \"REQUEST CHANGES\", with the problems graded P1 and P3 and a note that only this code was reviewed. It was not tried on the changes of a real project. Each use costs the quota of one subagent."
+      }
+    },
+    {
+      "id": "deep-agent",
+      "flags": [
+        "enable-deepagent"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "深度工作子代理（/deepagent）",
+        "en": "Deep work agent (/deepagent)"
+      },
+      "description": {
+        "zh": "输入框里多一个斜杠命令 /deepagent，客户端把它标为 Experimental。它启动一个「Deep Agent」子代理，提示词要求它宁可多做一轮验证、调查要追到确定的答案、每个结论都要有直接证据。适合复杂的编码和调查任务，比普通回答花更多配额。实测让它判断 1009 是不是质数：主对话显示「Started Deep Agent」，8 秒后收到带验证过程的答案。没有用复杂任务试过。",
+        "en": "Adds the slash command /deepagent to the input box; the client marks it Experimental. It starts a \"Deep Agent\" subagent whose prompt tells it to prefer one more verification pass, to follow an investigation to a definite answer and to back every conclusion with direct evidence. It suits complex coding and research tasks and costs more quota than a normal reply. Tested by asking whether 1009 is a prime: the conversation showed \"Started Deep Agent\" and got an answer with its checks after 8 seconds. It was not tried on a complex task."
+      }
+    },
+    {
+      "id": "input-drafts",
+      "flags": [
+        "enable-input-draft-persistence"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "草稿在重启后保留",
+        "en": "Keep drafts across restarts"
+      },
+      "description": {
+        "zh": "在对话输入框里写了、还没发出去的文字，重启 Antigravity 后仍然在；侧边栏里这个对话旁边有铅笔标记。草稿只存在本机的客户端存储里，最多保留最近 25 个对话的草稿。实测：一个对话里的草稿经过几次重启、隔了一天仍在；删掉草稿后，标记也消失了。",
+        "en": "Text that you typed in the input box of a conversation and did not send is still there after Antigravity restarts; the sidebar shows a pencil mark next to that conversation. Drafts are kept only in the client's storage on this Mac, for the last 25 conversations at most. Tested: a draft in one conversation was still there after several restarts and one day; after the draft was deleted, the mark was gone too."
+      }
+    },
+    {
+      "id": "github-permissions",
+      "flags": [
+        "enable-permissioned-github"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "项目的 GitHub 权限设置",
+        "en": "GitHub permissions of a project"
+      },
+      "description": {
+        "zh": "在 Settings 里打开一个项目的设置，Permission Settings 一栏多出「GitHub」一行，点 Open 进入 GitHub Permissions 页。页里可以填 GitHub 个人访问令牌：按页面上的说明，令牌经 GitHub 验证后存进主目录的 ~/.env 文件，代理的沙箱看不到它，所有项目共用。还有一个「GitHub Policies」开关，用来按组织、仓库和资源细分代理能做的 GitHub 操作。全局的权限设置里没有这一行。实测只确认了这一行和这个页面出现，没有填令牌，也没有试权限策略。",
+        "en": "In Settings, the settings of a project get a \"GitHub\" row under Permission Settings; Open leads to the GitHub Permissions page. There you can enter a GitHub personal access token. As the page says, the token is validated with GitHub and stored in the file ~/.env in your home folder; it is not visible in the agent's sandbox and is shared by all projects. A \"GitHub Policies\" switch defines the organization, repository and resource level access that the agent may use on GitHub. The global permission settings do not have this row. The test only confirmed that the row and the page appear; no token was entered and no policy was tried."
+      }
+    },
+    {
+      "id": "html-widgets-prompt",
+      "flags": [
+        "jetski-generative-ui-prompt"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "提示代理多用可交互的 HTML 小部件",
+        "en": "Prompt the agent to use interactive HTML widgets"
+      },
+      "description": {
+        "zh": "在代理的系统提示里加一段「Interactive HTML Widgets」。这段告诉代理：可以用内置的 generative_ui 技能，在对话里或侧面板里显示可交互的 HTML 小部件；需要图示时，例如解释架构、比较数字、画图表，应考虑这样做。它还要求服务端的 jetski-generative-ui 开着，目前默认就开着。实测让代理检查自己的系统提示：打开前没有这一段，打开后有。没有比较代理实际做小部件的次数。系统提示会长一点。",
+        "en": "Adds a section \"Interactive HTML Widgets\" to the agent's system prompt. It tells the agent that it can show interactive HTML widgets in the conversation or in the side panel with the built-in generative_ui skill, and that it should consider this when a picture helps, for example to explain an architecture, to compare numbers or to plot data. It also needs the server flag jetski-generative-ui, which is on by default at present. Tested by asking the agent to check its system prompt: the section was missing before and present after. How often the agent really makes widgets was not compared. The system prompt gets a little longer."
+      }
+    },
+    {
+      "id": "marketplace-ranking",
+      "flags": [
+        "enable-plugin-ranking"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "插件市场按热门排序和分类筛选",
+        "en": "Plugin marketplace: most popular first and categories"
+      },
+      "description": {
+        "zh": "左侧 Plugins 打开的插件市场里，搜索框右边多一个「Filter plugins」按钮，可以按类别筛选，共 9 类，例如 Google Workspace、Developer Tools、Science。搜索或选了类别后，结果按热门程度排序，列表上方写着「Most popular first」。实测：打开前没有这个按钮；打开后有，选 Developer Tools 后列表按使用人数排序。各栏里插件的默认顺序也变了，例如 Google Drive 排到了第一。测试时这一项和「插件市场显示使用人数」是一起打开的。",
+        "en": "In the plugin marketplace (Plugins on the left), a \"Filter plugins\" button appears to the right of the search box. It filters by category; there are 9, for example Google Workspace, Developer Tools and Science. After a search or a category choice, the results are sorted by popularity and the list says \"Most popular first\". Tested: the button was missing before; after, it was there, and with Developer Tools chosen the list was sorted by user count. The default order inside the sections changed too, for example Google Drive moved to the first place. In the test this was turned on together with \"Plugin marketplace: user counts\"."
+      }
+    },
+    {
+      "id": "marketplace-user-count",
+      "flags": [
+        "enable-marketplace-user-count"
+      ],
+      "tested": "2.35.1",
+      "title": {
+        "zh": "插件市场显示使用人数",
+        "en": "Plugin marketplace: user counts"
+      },
+      "description": {
+        "zh": "插件市场的卡片上显示使用人数，例如 Google Drive 旁边显示 149.4K。实测：打开前卡片上没有人数，打开后有。测试时这一项和「插件市场按热门排序和分类筛选」是一起打开的。",
+        "en": "The cards of the plugin marketplace show how many people use each plugin, for example 149.4K next to Google Drive. Tested: the cards had no counts before and had them after. In the test this was turned on together with \"Plugin marketplace: most popular first and categories\"."
+      }
+    },
+    {
+      "id": "teamwork-model",
+      "flags": [
+        "disable-teamwork-forced-flash-model"
+      ],
+      "tested": null,
+      "riskLabel": {
+        "zh": "消耗配额",
+        "en": "uses quota"
+      },
+      "risk": {
+        "zh": "Teamwork 一次会开好几个子代理。不再强制用 Flash 后，它们按正常规则选模型，通常和主对话用同一个模型。主对话用 Claude Opus 这类模型时，Teamwork 消耗的配额会成倍增加。",
+        "en": "Teamwork starts several subagents at once. When they are no longer forced to Flash, they choose their model by the normal rules, usually the model of the main conversation. If the main conversation uses a model such as Claude Opus, Teamwork uses several times more quota."
+      },
+      "title": {
+        "zh": "Teamwork 子代理不再强制用 Flash",
+        "en": "Teamwork subagents are not forced to Flash"
+      },
+      "description": {
+        "zh": "Teamwork 是客户端内置的多代理协作方式，由一组分工不同的子代理一起完成任务。在 Antigravity 里，经 Teamwork 启动的子代理默认被强制改用 Flash 模型。打开后不再强制，子代理按正常规则选模型，质量可以和主对话一致。这一项只从语言服务器的代码读出：它在启动 Teamwork 子代理时检查这个开关。没有在客户端里看到效果。",
+        "en": "Teamwork is the client's built-in way of letting several subagents with different roles work on one task. In Antigravity, the subagents that Teamwork starts are forced to the Flash model by default. While this is on, they are not forced, and they choose their model by the normal rules, so they can work at the quality of the main conversation. This is known from the code of the language server only: it checks this flag when it starts a Teamwork subagent. The effect was not seen in the app."
       }
     }
   ]

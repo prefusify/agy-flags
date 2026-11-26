@@ -4,17 +4,31 @@ import http from 'node:http';
 import test from 'node:test';
 import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
-import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, waitFor } from './helpers.mjs';
+import { TITLE_NEW } from '../src/forward.mjs';
+import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, titleRequest, waitFor } from './helpers.mjs';
 
-/** A fake Google: answers the two flag paths and one ordinary path. `flags` is its flag list. */
+/**
+ * A fake Google: answers the two flag paths and one ordinary path. `flags` is its flag list.
+ * The bodies of the model requests that reach it are kept in `server.modelBodies`.
+ */
 function fakeUpstream(flags = [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }]) {
-  return http.createServer((req, res) => {
+  const modelBodies = [];
+  const server = http.createServer((req, res) => {
     const pathname = req.url.split('?')[0];
-    req.resume();
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
+      if (pathname.endsWith('GenerateContent')) modelBodies.push(Buffer.concat(chunks).toString('utf8'));
       res.writeHead(200, { 'content-type': 'application/json' });
       if (pathname.endsWith(':fetchAvailableModels')) {
-        res.end(JSON.stringify({ models: { one: {}, two: { modelExperiments: { experiments: { other: { boolValue: true } } } } } }));
+        res.end(
+          JSON.stringify({
+            models: {
+              one: { displayName: 'Gemini 4 Neon (High)' },
+              two: { displayName: 'Orchestrator (Neon)', modelExperiments: { experiments: { other: { boolValue: true } } } },
+            },
+          })
+        );
       } else if (pathname.endsWith(':listExperiments')) {
         res.end(JSON.stringify({ flags }));
       } else if (pathname.endsWith(':fetchConfig')) {
@@ -24,6 +38,8 @@ function fakeUpstream(flags = [{ name: 'x', boolValue: false }, { name: 'n', int
       }
     });
   });
+  server.modelBodies = modelBodies;
+  return server;
 }
 
 function fakeClient(state = {}) {
@@ -87,12 +103,18 @@ async function setup(
         { id: 'plain', flags: ['x'] },
         { id: 'keep', perModel: true, flags: ['keep-on'], params: [{ flag: 'keep_pings', type: 'int', default: 8 }] },
         { id: 'ctx', uiPatch: 'contextUsageIndicator', flags: ['ctx-on'] },
+        { id: 'prices', uiPatch: 'costPrices', feature: 'costPrices', flags: [], requires: ['cost-on'] },
+        { id: 'zh', uiPatch: 'l10n', feature: 'uiChinese', flags: [] },
+        { id: 'titles', feature: 'chineseTitles', flags: [] },
       ],
     })
   );
-  const ctx = { home, runner, client, logs, ports: { cloudcode, aicode, ui, devui }, handles: [] };
+  // A word list of our own too.
+  const l10nFile = `${home}/words.json`;
+  fs.writeFileSync(l10nFile, JSON.stringify({ exact: { 'New Conversation': '新建对话' }, patterns: [] }));
+  const ctx = { home, runner, client, logs, upstream, ports: { cloudcode, aicode, ui, devui }, handles: [] };
   ctx.start = async (extra = {}) => {
-    const handle = await startDaemon({ runner, client, log: (m) => logs.push(m), pollMs: 20, catalogFile, ...extra });
+    const handle = await startDaemon({ runner, client, log: (m) => logs.push(m), pollMs: 20, catalogFile, l10nFile, ...extra });
     if (handle.status === 'running') ctx.handles.push(handle);
     return handle;
   };
@@ -113,6 +135,8 @@ const ours = (ports) => ({
 });
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
+
+const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false };
 
 test('the variables are set only after the forwarders are listening', async (t) => {
   const runner = fakeRunner();
@@ -214,7 +238,7 @@ test('per-model flags go into the model list, with a status of their own', async
 test('with injection off, or without per-model overrides, the model list is not changed', async (t) => {
   const ctx = await setup(t, { flags: { x: true } });
   const plain = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' }));
-  assert.deepEqual(plain.models.one, {});
+  assert.deepEqual(plain.models.one, { displayName: 'Gemini 4 Neon (High)' });
   assert.equal((await ctx.handle.getState()).modelPatch, null);
 });
 
@@ -438,7 +462,7 @@ test('a request of the command line is not changed and leaves no trace in the fl
   const config = await request({ port: ctx.ports.aicode, path: '/v1alpha:fetchConfig', as: 'cli' });
   assert.deepEqual(parse(config).experimentConfig.experimentFlags, [{ name: 'x', boolValue: false }]);
   const models = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: 'cli' });
-  assert.deepEqual(parse(models).models.one, {});
+  assert.deepEqual(parse(models).models.one, { displayName: 'Gemini 4 Neon (High)' });
 
   let state = await ctx.handle.getState();
   assert.deepEqual(state.lastInjection, {});
@@ -583,4 +607,343 @@ test('without app.asar nothing is left out, and the reason is given', async (t) 
   const result = await list();
   assert.deepEqual(result.usage.unused, []);
   assert.match(result.usage.error, /app\.asar|ENOENT/);
+});
+
+// ---- costs at public prices -----------------------------------------------------------
+
+const COST_PLACE = 'q.costSummary!==void 0&&(r.costSummary=q.costSummary);';
+const costPage = () => `${fakePageScript()}function take(q,r){${COST_PLACE}return r}`;
+const PRICE_LIST = {
+  'google-vertex': { models: { 'gemini-4-neon': { name: 'Gemini 4 Neon', cost: { input: 3, output: 15, cache_read: 0.15 } } } },
+};
+
+/** A daemon with a price list that the test gives out, and the count of downloads. */
+async function setupPrices(t, options = {}) {
+  const downloads = { count: 0, fail: false };
+  const ctx = await setup(t, { start: false, pageScript: costPage(), ...options });
+  ctx.downloads = downloads;
+  ctx.handle = await ctx.start({
+    fetchPriceList: async () => {
+      downloads.count += 1;
+      if (downloads.fail) throw new Error('offline');
+      return PRICE_LIST;
+    },
+    priceWaitMs: 500,
+  });
+  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
+  ctx.post = (pathname, body) => request({ port: ctx.ports.ui, method: 'POST', path: pathname, headers, body: JSON.stringify(body) });
+  ctx.state = async () => parse(await request({ port: ctx.ports.ui, path: '/api/state', headers }));
+  ctx.script = async () => (await request({ port: ctx.ports.devui, path: '/main.js' })).body.toString('utf8');
+  return ctx;
+}
+
+test('the price feature is off at first: no download, no third variable, the original script', async (t) => {
+  const ctx = await setupPrices(t);
+  await sleep(60);
+  assert.equal(ctx.downloads.count, 0);
+  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
+  const state = await ctx.state();
+  assert.deepEqual(state.features, NO_FEATURES);
+  assert.equal(state.prices.fetchedAt, null);
+  assert.equal(fs.existsSync(files.prices()), false);
+  // Nobody can download the list from the page while the feature is off.
+  const res = await ctx.post('/api/prices/refresh', {});
+  assert.equal(res.status, 400);
+  assert.equal(ctx.downloads.count, 0);
+});
+
+test('turning the price feature on downloads the list, sets the third variable and fills in the costs', async (t) => {
+  const ctx = await setupPrices(t);
+  const res = await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  assert.equal(res.status, 200);
+  await waitFor(async () => (await ctx.state()).prices.fetchedAt);
+  assert.equal(ctx.downloads.count, 1);
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
+
+  // The feature is in the config file, apart from the flags; the flag it needs is a flag.
+  const saved = loadConfig();
+  assert.deepEqual(saved.features, { ...NO_FEATURES, costPrices: true });
+  assert.equal(saved.flags['cost-on'], true);
+  assert.equal(Object.keys(saved.flags).includes('costPrices'), false);
+
+  const script = await ctx.script();
+  assert.ok(script.includes('__agyFlagsCost'));
+  assert.ok(script.includes('{"gemini-4-neon":[3,15,0.15]}'));
+  // The indicator is another feature, and it is off.
+  assert.ok(script.includes('contextUsageIndicator:void 0,'));
+  const state = await ctx.state();
+  assert.deepEqual(state.page.script.parts, { costPrices: { ok: true, reason: null } });
+  assert.equal(state.prices.count, 1);
+  assert.equal(state.prices.error, null);
+  assert.deepEqual(state.warnings, []);
+
+  // The flag it needs goes to the client; the feature itself is no flag and does not.
+  const flags = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' })).flags;
+  assert.deepEqual(flags.map((flag) => flag.name).sort(), ['cost-on', 'n', 'x']);
+});
+
+test('the price feature needs the flag of the other group', async (t) => {
+  const ctx = await setupPrices(t);
+  // The feature alone, without the flag: nothing happens yet.
+  await ctx.post('/api/features', { changes: { costPrices: true } });
+  await sleep(60);
+  assert.equal(ctx.downloads.count, 0);
+  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+
+  // The flag comes: now it works.
+  await ctx.post('/api/flags', { changes: { 'cost-on': true } });
+  await waitFor(() => ctx.downloads.count === 1);
+  await waitFor(() => ctx.runner.vars.AGY_DEV_UI_URL);
+  assert.ok((await ctx.script()).includes('__agyFlagsCost'));
+
+  // The flag goes: the feature stops, and the flag of the other group is not touched by it.
+  await ctx.post('/api/flags', { changes: { 'cost-on': null } });
+  await waitFor(() => !ctx.runner.vars.AGY_DEV_UI_URL);
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.deepEqual(loadConfig().features, { ...NO_FEATURES, costPrices: true });
+
+  // Turning the feature off leaves the flag as it is.
+  await ctx.post('/api/flags', { changes: { 'cost-on': true } });
+  await ctx.post('/api/features', { changes: { costPrices: false } });
+  assert.equal(loadConfig().flags['cost-on'], true);
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
+});
+
+test('a flag that the server already turns on counts for the price feature', async (t) => {
+  const ctx = await setupPrices(t, { upstreamFlags: [{ name: 'x', boolValue: false }, { name: 'cost-on', boolValue: true }] });
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  await ctx.post('/api/features', { changes: { costPrices: true } });
+  await waitFor(() => ctx.downloads.count === 1);
+  assert.equal(Object.hasOwn(loadConfig().flags, 'cost-on'), false);
+});
+
+test('bad feature changes are refused and change nothing', async (t) => {
+  const ctx = await setupPrices(t);
+  // The daemon knows the types of the server flags after one flag response: "n" is a number.
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  for (const body of [
+    {},
+    { changes: {} },
+    { changes: [] },
+    { changes: { unknown: true } },
+    { changes: { costPrices: 'yes' } },
+    { changes: { costPrices: true }, flags: { 'bad name': true } },
+    { changes: { costPrices: true }, flags: { n: true } },
+  ]) {
+    assert.equal((await ctx.post('/api/features', body)).status, 400, JSON.stringify(body));
+  }
+  assert.deepEqual(loadConfig().features, NO_FEATURES);
+  assert.deepEqual(loadConfig().flags, { x: true });
+  assert.equal(ctx.downloads.count, 0);
+});
+
+test('the models of the client are listed with or without a price', async (t) => {
+  const ctx = await setupPrices(t);
+  // While the feature is off, the model list is not read.
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await waitFor(async () => (await ctx.state()).prices.fetchedAt);
+  assert.deepEqual((await ctx.state()).prices.models, []);
+
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  const expected = [
+    { name: 'Gemini 4 Neon', priced: true, input: 3, output: 15, cacheRead: 0.15, cacheFromInput: false },
+    { name: 'Orchestrator (Neon)', priced: false },
+  ];
+  assert.deepEqual((await ctx.state()).prices.models, expected);
+
+  // The names and the list survive a restart of the daemon, without a new download.
+  await ctx.handle.stop();
+  ctx.handles.length = 0;
+  let again = 0;
+  ctx.handle = await ctx.start({
+    fetchPriceList: async () => {
+      again += 1;
+      return PRICE_LIST;
+    },
+  });
+  // The token is the same after a restart, so the same headers still work.
+  const state = await ctx.state();
+  assert.deepEqual(state.prices.models, expected);
+  assert.equal(state.prices.count, 1);
+  assert.equal(state.prices.error, null);
+  await sleep(60);
+  assert.equal(again, 0);
+});
+
+test('a download that fails leaves the script without the costs, with a warning, and the button tries again', async (t) => {
+  const ctx = await setupPrices(t);
+  ctx.downloads.fail = true;
+  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await waitFor(async () => (await ctx.state()).prices.error);
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  let state = await ctx.state();
+  assert.equal(state.prices.error, 'offline');
+  assert.equal(state.prices.fetchedAt, null);
+  assert.deepEqual(state.warnings, [{ code: 'page-not-changed', detail: 'there is no price list yet' }]);
+
+  const failed = await ctx.post('/api/prices/refresh', {});
+  assert.equal(failed.status, 502);
+  assert.equal(parse(failed).detail, 'offline');
+
+  ctx.downloads.fail = false;
+  assert.equal((await ctx.post('/api/prices/refresh', {})).status, 200);
+  assert.ok((await ctx.script()).includes('__agyFlagsCost'));
+  state = await ctx.state();
+  assert.equal(state.prices.error, null);
+  assert.deepEqual(state.warnings, []);
+});
+
+test('the script waits a short time for the first download of the prices', async (t) => {
+  let release;
+  const ctx = await setup(t, { start: false, pageScript: costPage(), flags: { 'cost-on': true } });
+  fs.writeFileSync(files.config(), JSON.stringify({ ...JSON.parse(fs.readFileSync(files.config(), 'utf8')), features: { costPrices: true } }));
+  ctx.handle = await ctx.start({ fetchPriceList: () => new Promise((resolve) => (release = () => resolve(PRICE_LIST))), priceWaitMs: 2000 });
+  await waitFor(() => release);
+  const pending = request({ port: ctx.ports.devui, path: '/main.js' });
+  await sleep(50);
+  release();
+  assert.ok((await pending).body.toString('utf8').includes('__agyFlagsCost'));
+});
+
+test('the indicator and the costs can be on together, and each has its own status', async (t) => {
+  const ctx = await setupPrices(t, { flags: { 'ctx-on': true } });
+  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await waitFor(async () => (await ctx.state()).prices.fetchedAt);
+  const script = await ctx.script();
+  assert.ok(script.includes('contextUsageIndicator:(()=>'));
+  assert.ok(script.includes('__agyFlagsCost'));
+  assert.deepEqual((await ctx.state()).page.script.parts, {
+    contextUsageIndicator: { ok: true, reason: null },
+    costPrices: { ok: true, reason: null },
+  });
+  // The costs go off: the third variable stays, because the indicator still needs it.
+  await ctx.post('/api/features', { changes: { costPrices: false } });
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+});
+
+// ---- Chinese interface and titles ---------------------------------------------------
+
+/** A daemon with a running client that took its variables, and a way to change features. */
+async function setupRunning(t, options = {}) {
+  const client = fakeClient();
+  const ctx = await setup(t, { client, flags: {}, ...options });
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: ours(ctx.ports) });
+  const headers = () => ({ 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' });
+  ctx.post = (pathname, body) => request({ port: ctx.ports.ui, method: 'POST', path: pathname, headers: headers(), body: JSON.stringify(body) });
+  ctx.state = () => ctx.handle.getState();
+  ctx.script = async () => (await request({ port: ctx.ports.devui, path: '/main.js' })).body.toString('utf8');
+  return ctx;
+}
+
+test('the Chinese interface changes the page script, and the client needs a restart for it', async (t) => {
+  const ctx = await setupRunning(t);
+  let state = await ctx.state();
+  assert.deepEqual(state.l10n, { ready: true, words: 1 });
+  assert.equal(state.pendingRestart, false);
+  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+
+  assert.equal((await ctx.post('/api/features', { changes: { uiChinese: true } })).status, 200);
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
+  const script = await ctx.script();
+  assert.ok(script.includes('__agyFlagsL10n'));
+  assert.ok(script.includes('新建对话'));
+  state = await ctx.state();
+  assert.deepEqual(state.features, { ...NO_FEATURES, uiChinese: true });
+  assert.ok(state.changedAt > 0);
+  assert.equal(state.pendingRestart, true);
+  assert.deepEqual(state.page.script.parts, { l10n: { ok: true, reason: null } });
+  assert.deepEqual(state.warnings, []);
+
+  await ctx.post('/api/features', { changes: { uiChinese: false } });
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
+  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+});
+
+test('a word list that cannot be read leaves the page as it is, with a warning', async (t) => {
+  const ctx = await setupRunning(t, { start: false });
+  ctx.handle = await ctx.start({ l10nFile: `${ctx.home}/missing.json` });
+  assert.ok(ctx.logs.some((line) => line.includes('word list')));
+  assert.deepEqual((await ctx.state()).l10n, { ready: false, words: 0 });
+  await ctx.post('/api/features', { changes: { uiChinese: true } });
+  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+  assert.deepEqual((await ctx.state()).warnings, [{ code: 'page-not-changed', detail: 'the word list cannot be read' }]);
+});
+
+const TITLE_PATH = '/v1internal:streamGenerateContent?alt=sse';
+
+test('Chinese titles work at once, without a restart, and the state counts them', async (t) => {
+  const ctx = await setupRunning(t);
+  const before = (await ctx.state()).changedAt;
+  const send = (body) => request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body });
+  const last = () => ctx.upstream.modelBodies.at(-1);
+
+  // Off: the title request goes out as it is.
+  await send(titleRequest());
+  assert.equal(last().includes(TITLE_NEW), false);
+
+  await ctx.post('/api/features', { changes: { chineseTitles: true } });
+  let state = await ctx.state();
+  assert.deepEqual(state.features, { ...NO_FEATURES, chineseTitles: true });
+  // The feature changes requests, not the page: no restart, no third variable.
+  assert.equal(state.changedAt, before);
+  assert.equal(state.pendingRestart, false);
+  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
+
+  await send(titleRequest());
+  assert.ok(last().includes(TITLE_NEW));
+  state = await ctx.state();
+  assert.equal(state.titles.rewritten, 1);
+  assert.ok(state.titles.rewrittenAt > 0);
+  assert.deepEqual(state.warnings, []);
+
+  // The client words its instruction differently: the title is in English, and the state says so.
+  await sleep(5);
+  await send(titleRequest({ prompt: 'You are a conversation title generator. Respond with a title.' }));
+  state = await ctx.state();
+  assert.equal(state.titles.changed, 1);
+  assert.deepEqual(state.warnings, [{ code: 'titles-not-changed', detail: '' }]);
+  assert.ok(ctx.logs.some((line) => line.startsWith('conversation title:')));
+
+  // A later title that is changed again ends the warning.
+  await sleep(5);
+  await send(titleRequest());
+  assert.deepEqual((await ctx.state()).warnings, []);
+
+  // The command line is never changed.
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body: titleRequest(), as: 'cli' });
+  assert.equal(last().includes(TITLE_NEW), false);
+
+  // Off again: at once.
+  await ctx.post('/api/features', { changes: { chineseTitles: false } });
+  await send(titleRequest());
+  assert.equal(last().includes(TITLE_NEW), false);
+  assert.equal((await ctx.state()).titles.rewritten, 2);
+});
+
+test('Chinese titles turned on in the config file need no restart either', async (t) => {
+  const ctx = await setupRunning(t);
+  const before = (await ctx.state()).changedAt;
+  fs.writeFileSync(files.config(), JSON.stringify({ ...JSON.parse(fs.readFileSync(files.config(), 'utf8')), features: { chineseTitles: true } }));
+  const future = new Date(Date.now() + 5000);
+  fs.utimesSync(files.config(), future, future);
+  const state = await waitFor(async () => {
+    const s = await ctx.state();
+    return s.features.chineseTitles ? s : null;
+  });
+  assert.equal(state.changedAt, before);
+  assert.equal(state.pendingRestart, false);
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body: titleRequest() });
+  assert.ok(ctx.upstream.modelBodies.at(-1).includes(TITLE_NEW));
+});
+
+test('Chinese titles are off while agy-flags is off', async (t) => {
+  const ctx = await setupRunning(t);
+  await ctx.post('/api/features', { changes: { chineseTitles: true } });
+  await ctx.post('/api/enabled', { enabled: false });
+  assert.equal((await ctx.state()).enabled, false);
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body: titleRequest() });
+  assert.equal(ctx.upstream.modelBodies.at(-1).includes(TITLE_NEW), false);
 });

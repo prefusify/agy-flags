@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { parsePsLine, envFromPs } from '../src/client.mjs';
-import { DEFAULT_CONFIG, dataDir, ensureToken, files, loadConfig, normalizeConfig, saveConfig } from '../src/config.mjs';
+import { DEFAULT_CONFIG, FEATURE_NAMES, dataDir, ensureToken, files, loadConfig, normalizeConfig, saveConfig } from '../src/config.mjs';
 import { applyEnv, clearEnv, ourEnv, readEnv } from '../src/env.mjs';
 import { buildPlist } from '../src/launchd.mjs';
 import { fakeRunner, tempHome } from './helpers.mjs';
+
+const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false };
 
 function useTempHome(t) {
   const home = tempHome();
@@ -30,6 +32,7 @@ test('normalizeConfig fills defaults and drops what is not valid', () => {
   });
   assert.equal(config.enabled, false);
   assert.deepEqual(config.flags, { good: true, n: 5 });
+  assert.deepEqual(config.features, NO_FEATURES);
   assert.deepEqual(config.ports, {
     cloudcode: DEFAULT_CONFIG.ports.cloudcode,
     aicode: 50000,
@@ -136,4 +139,19 @@ test('the login item definition is valid and escapes its strings', (t) => {
   if (process.platform !== 'darwin') {
     t.diagnostic('plutil check skipped: not macOS');
   }
+});
+
+test('features of agy-flags are kept apart from the flags, and only known ones are kept', () => {
+  assert.deepEqual(FEATURE_NAMES, ['costPrices', 'uiChinese', 'chineseTitles']);
+  assert.deepEqual(normalizeConfig({ features: { costPrices: true, other: true } }).features, { ...NO_FEATURES, costPrices: true });
+  assert.deepEqual(normalizeConfig({ features: { uiChinese: true, chineseTitles: true } }).features, {
+    ...NO_FEATURES,
+    uiChinese: true,
+    chineseTitles: true,
+  });
+  for (const odd of [{ costPrices: 'yes' }, { costPrices: 1 }, { uiChinese: 'true' }, null, 'x', []]) {
+    assert.deepEqual(normalizeConfig({ features: odd }).features, NO_FEATURES);
+  }
+  // A feature is not a flag: it is never part of what is sent to the client.
+  assert.deepEqual(normalizeConfig({ features: { costPrices: true } }).flags, {});
 });

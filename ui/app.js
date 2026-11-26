@@ -38,12 +38,31 @@
       pageScriptOk: '界面脚本：{time} 已加入组件。',
       pageScriptFail: '界面脚本：没有改动（{reason}）。',
       pageScriptNone: '界面脚本：还没有被请求。',
+      pageScriptCostOk: '界面脚本：{time} 已加入费用计算。',
+      pageScriptL10nOk: '界面脚本：{time} 已加入翻译程序。',
+      l10nWords: '词条表：{n} 条。',
+      l10nMissing: '词条表：读不出来，界面仍是英文。请重新安装本工具。',
+      titlesSeen: '标题请求：已改写 {n} 次，最近一次 {time}。',
+      titlesNone: '标题请求：还没有看到。新建一个对话后，这里会显示改写的次数。',
+      titlesChanged: '有 {n} 个标题请求没有改写，因为客户端的指令写法变了。',
+      pricesNone: '价格表：还没有下载。',
+      pricesRefreshing: '价格表：正在下载……',
+      pricesOk: '价格表：{n} 个模型，{time} 取自 models.dev 上 Vertex AI 的价格。每天最多更新一次。',
+      pricesError: '价格表：{time} 更新失败（{error}），沿用上一份。',
+      pricesErrorNone: '价格表：{time} 下载失败（{error}）。一小时后自动再试。',
+      pricesNoModels: '还没有看到 Antigravity 的模型清单。Antigravity 下次启动后，这里会列出各模型的价格。',
+      pricesPriced: '有价格的模型（美元 / 每百万 token：输入 / 输出 / 缓存读取）：',
+      pricesRow: '{name}：{input} / {output} / {cache}',
+      pricesRowNoCache: '{name}：{input} / {output} / {cache}（没有缓存价，按输入价算）',
+      pricesMissing: '没有价格的模型（费用仍显示 $0.0000）：{names}',
+      pricesRefresh: '立即更新价格',
+      errDownload: '下载价格表失败：{detail}',
       restart: '重启 Antigravity',
       restarting: '正在重启…',
       restartConfirm: '这会退出并重新打开 Antigravity，正在运行的任务会中断。继续吗？',
       tabCurated: '精选功能',
       tabAll: '全部开关（{n}）',
-      curatedNote: '这里只列打开后确实看到效果的功能。「已实测」表示在标出的版本上看到过说明里写的效果；「未实测」表示效果只是从客户端的界面代码里读出来的。',
+      curatedNote: '这里的功能，除标「未实测」的以外，打开后都看到过效果。「已实测」表示在标出的版本上看到过说明里写的效果；「未实测」表示效果只是从客户端的代码里读出来的，没有在客户端里看到。',
       tested: '已实测 {v}',
       untested: '未实测',
       risk: '有风险',
@@ -96,7 +115,7 @@
       errServerType: '{name} 在服务端不是布尔开关，不能改。',
       errOffline: '连不上 agy-flags 的常驻进程。',
       footer:
-        '本工具只在本机运行，不向第三方发送任何数据。它改写的是 Google 下发的实验开关：这些功能还没有正式发布，可能不稳定，也可能随版本更新而失效。',
+        '本工具只在本机运行，不向第三方发送你的任何数据。只有打开「按公开价格估算费用」时，它才会从 models.dev 下载一份公开的价格表。只有打开「对话标题用中文」时，它才会改动发给模型的内容，而且只改起标题那个请求里的一句指令。它改写的是 Google 下发的实验开关：这些功能还没有正式发布，可能不稳定，也可能随版本更新而失效。',
       warn: {
         'app-missing': '没有找到 Antigravity：{detail}',
         'env-conflict': '环境变量 {detail} 已经被别的程序设置。本工具不会覆盖它，所以现在不起作用。',
@@ -109,7 +128,8 @@
         'desktop-not-recognized':
           'Antigravity 经过了本工具，但它的请求没有被认出来（它自称 {detail}），所以开关没有改写。客户端的版本可能变了，需要更新本工具。',
         'page-unavailable': '找不到客户端自带的界面文件（{detail}），所以没有改界面加载方式，需要改界面的功能不会生效。',
-        'page-not-changed': '界面脚本没有改动，已原样提供（{detail}）。客户端的版本可能变了，需要更新本工具。',
+        'page-not-changed': '界面脚本有一处没有改成（{detail}），对应的功能不会生效。客户端的版本可能变了，需要更新本工具。',
+        'titles-not-changed': '最近一个标题请求没有改写：客户端起标题的指令写法变了，所以那个对话的标题仍是英文。需要更新本工具。',
       },
     },
     en: {
@@ -146,12 +166,31 @@
       pageScriptOk: 'Page script: component added at {time}.',
       pageScriptFail: 'Page script: not changed ({reason}).',
       pageScriptNone: 'Page script: not requested yet.',
+      pageScriptCostOk: 'Page script: cost calculation added at {time}.',
+      pageScriptL10nOk: 'Page script: translator added at {time}.',
+      l10nWords: 'Word list: {n} entries.',
+      l10nMissing: 'Word list: it cannot be read, so the page stays in English. Install agy-flags again.',
+      titlesSeen: 'Title requests: {n} changed, the last one at {time}.',
+      titlesNone: 'Title requests: none seen yet. Start a new conversation, and the count shows here.',
+      titlesChanged: '{n} title requests were not changed, because the client words its instruction differently now.',
+      pricesNone: 'Price list: not downloaded yet.',
+      pricesRefreshing: 'Price list: downloading…',
+      pricesOk: 'Price list: {n} models, taken at {time} from the Vertex AI prices on models.dev. Updated once a day at most.',
+      pricesError: 'Price list: the update at {time} failed ({error}). The last list is still used.',
+      pricesErrorNone: 'Price list: the download at {time} failed ({error}). It is tried again after one hour.',
+      pricesNoModels: 'The model list of Antigravity was not seen yet. After the next start of Antigravity, the price of each model is listed here.',
+      pricesPriced: 'Models with a price (US dollars per million tokens: input / output / cache read):',
+      pricesRow: '{name}: {input} / {output} / {cache}',
+      pricesRowNoCache: '{name}: {input} / {output} / {cache} (no cache price; the input price is used)',
+      pricesMissing: 'Models without a price (their cost stays $0.0000): {names}',
+      pricesRefresh: 'Update prices now',
+      errDownload: 'The price list could not be downloaded: {detail}',
       restart: 'Restart Antigravity',
       restarting: 'Restarting…',
       restartConfirm: 'This quits and reopens Antigravity. Running tasks will be interrupted. Continue?',
       tabCurated: 'Features',
       tabAll: 'All flags ({n})',
-      curatedNote: 'Only features with an effect that was seen are listed here. "tested on" means the described effect was seen on that version; "untested" means the effect is known from the page code of the client only.',
+      curatedNote: 'Except for the entries marked "untested", the effect of every feature here was seen. "tested on" means the described effect was seen on that version; "untested" means the effect is known from the client code only and was not seen in the app.',
       tested: 'tested on {v}',
       untested: 'untested',
       risk: 'risky',
@@ -204,7 +243,7 @@
       errServerType: '{name} is not a boolean flag on the server and cannot be changed.',
       errOffline: 'Cannot reach the agy-flags daemon.',
       footer:
-        'agy-flags runs on this machine only and sends nothing to third parties. It rewrites experimental flags sent by Google: these features are unreleased, may be unstable, and may stop working after an update.',
+        'agy-flags runs on this machine only and sends none of your data to third parties. Only while "Estimate costs at public prices" is on, it downloads a public price list from models.dev. Only while "Conversation titles in Chinese" is on, it changes something that goes to the model: one sentence of the instruction in the request that asks for a title. It rewrites experimental flags sent by Google: these features are unreleased, may be unstable, and may stop working after an update.',
       warn: {
         'app-missing': 'Antigravity was not found: {detail}',
         'env-conflict': 'The environment variable {detail} is already set by another program. agy-flags does not overwrite it, so it has no effect now.',
@@ -217,7 +256,8 @@
         'desktop-not-recognized':
           'Antigravity runs through agy-flags, but its requests were not recognised (it calls itself {detail}), so no flag was rewritten. The client version may have changed; update agy-flags.',
         'page-unavailable': 'The page files of the client were not found ({detail}). The page loading was not changed, and features that change the page have no effect.',
-        'page-not-changed': 'The page script was not changed and was served as it is ({detail}). The client version may have changed; update agy-flags.',
+        'page-not-changed': 'One change of the page script could not be made ({detail}), so its feature has no effect. The client version may have changed; update agy-flags.',
+        'titles-not-changed': 'The last title request was not changed: the client words its title instruction differently now, so that conversation has an English title. Update agy-flags.',
       },
     },
   };
@@ -374,6 +414,7 @@
     else if (err?.data?.error === 'server-type') toast(t('errServerType', { name: err.data.name }));
     else if (err?.data?.error === 'bad-name') toast(t('badName'));
     else if (err?.data?.error === 'bad-value') toast(t('errBadValue', { name: err.data.name }));
+    else if (err?.data?.error === 'download-failed') toast(t('errDownload', { detail: err.data.detail || '' }));
     else toast(t('errGeneric', { detail: err?.message || String(err) }));
   }
 
@@ -403,6 +444,8 @@
   // ---- helpers -----------------------------------------------------------------------
 
   const timeOf = (ms) => (ms ? new Date(ms).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB') : '');
+  const dateTimeOf = (ms) =>
+    ms ? new Date(ms).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-GB', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const hasOverride = (name) => Object.hasOwn(state.overrides, name);
   const textOf = (texts) => texts?.[lang] || texts?.en || '';
   const noteOf = (name) => (Object.hasOwn(notes.flags || {}, name) ? notes.flags[name] : null);
@@ -480,13 +523,40 @@
     return parseParam(param, drafts[param.flag]) ?? param.default;
   }
 
+  /** What Antigravity loads from us, and whether the change `ok` names was made in its script. */
+  function pageLines(group, ok) {
+    const page = state.page || {};
+    const lines = [page.carried ? t('pageCarried') : t('pageNotCarried')];
+    const part = page.script?.parts?.[group.uiPatch];
+    if (!page.script || !part) lines.push(t('pageScriptNone'));
+    else if (part.ok) lines.push(t(ok, { time: timeOf(page.script.at) }));
+    else lines.push(t('pageScriptFail', { reason: part.reason || '' }));
+    return lines;
+  }
+
   function groupStatusLines(group) {
-    if (group.status === 'page') {
-      const page = state.page || {};
-      const lines = [page.carried ? t('pageCarried') : t('pageNotCarried')];
-      if (!page.script) lines.push(t('pageScriptNone'));
-      else if (page.script.patched) lines.push(t('pageScriptOk', { time: timeOf(page.script.at) }));
-      else lines.push(t('pageScriptFail', { reason: page.script.reason || '' }));
+    if (group.status === 'page') return pageLines(group, 'pageScriptOk');
+    if (group.status === 'prices') {
+      const lines = pageLines(group, 'pageScriptCostOk');
+      const prices = state.prices || {};
+      if (prices.fetchedAt) lines.push(t('pricesOk', { n: prices.count, time: dateTimeOf(prices.fetchedAt) }));
+      else if (prices.refreshing) lines.push(t('pricesRefreshing'));
+      else if (!prices.error) lines.push(t('pricesNone'));
+      if (prices.error) {
+        lines.push(t(prices.fetchedAt ? 'pricesError' : 'pricesErrorNone', { time: dateTimeOf(prices.errorAt), error: prices.error }));
+      }
+      return lines;
+    }
+    if (group.status === 'l10n') {
+      const lines = pageLines(group, 'pageScriptL10nOk');
+      const l10n = state.l10n || {};
+      lines.push(l10n.ready ? t('l10nWords', { n: l10n.words }) : t('l10nMissing'));
+      return lines;
+    }
+    if (group.status === 'titles') {
+      const seen = state.titles || {};
+      const lines = [seen.rewritten > 0 ? t('titlesSeen', { n: seen.rewritten, time: timeOf(seen.rewrittenAt) }) : t('titlesNone')];
+      if (seen.changed > 0) lines.push(t('titlesChanged', { n: seen.changed }));
       return lines;
     }
     if (group.status !== 'keepAlive') return [];
@@ -497,6 +567,28 @@
     const ka = state.keepAlive || { count: 0, lastAt: null };
     lines.push(ka.count > 0 ? t('keepAliveSeen', { n: ka.count, time: timeOf(ka.lastAt) }) : t('keepAliveNone'));
     return lines;
+  }
+
+  /** The prices of the models of the client, and the button that downloads the list again. */
+  function priceNodes() {
+    const prices = state.prices || {};
+    const nodes = [];
+    const models = prices.models || [];
+    const usd = (n) => `$${Number(n).toFixed(3).replace(/0$/, '')}`;
+    if (prices.fetchedAt && models.length === 0) nodes.push(h('p', { class: 'feature-status' }, t('pricesNoModels')));
+    const priced = models.filter((m) => m.priced);
+    if (priced.length > 0) {
+      const list = h('ul', { class: 'prices' });
+      for (const m of priced) {
+        const key = m.cacheFromInput ? 'pricesRowNoCache' : 'pricesRow';
+        list.append(h('li', null, t(key, { name: m.name, input: usd(m.input), output: usd(m.output), cache: usd(m.cacheRead) })));
+      }
+      nodes.push(h('p', { class: 'feature-status' }, t('pricesPriced')), list);
+    }
+    const missing = models.filter((m) => !m.priced).map((m) => m.name);
+    if (prices.fetchedAt && missing.length > 0) nodes.push(h('p', { class: 'feature-status' }, t('pricesMissing', { names: missing.join(lang === 'zh' ? '、' : ', ') })));
+    nodes.push(h('p', null, h('button', { type: 'button', class: 'small', disabled: prices.refreshing === true, dataset: { pricesRefresh: '1' } }, t('pricesRefresh'))));
+    return nodes;
   }
 
   /** Redraw one part of the page only when what it shows has changed. */
@@ -589,10 +681,19 @@
     }
   }
 
+  /** What the client gets for a boolean flag: the override, else what the server sends. */
+  const flagIsOn = (name) => (hasOverride(name) ? state.overrides[name] === true : serverBool(name) === true);
+
   function groupState(group) {
+    if (group.feature) {
+      // A feature of agy-flags itself. It works only together with the flags it needs.
+      const own = state.features?.[group.feature] === true;
+      const needed = (group.requires || []).every(flagIsOn);
+      return { on: own && needed, partial: own && !needed, serverOnly: false };
+    }
     const flags = group.flags;
     const overriddenOn = flags.filter((f) => state.overrides[f] === true);
-    const effectiveOn = flags.filter((f) => (hasOverride(f) ? state.overrides[f] === true : serverBool(f) === true));
+    const effectiveOn = flags.filter(flagIsOn);
     // A feature with a number setting is on only when the number is set too.
     const paramsSet = (group.params || []).every((p) => typeof state.overrides[p.flag] === 'number' || server.flags[p.flag]);
     const all = effectiveOn.length === flags.length;
@@ -604,7 +705,7 @@
   }
 
   function renderCurated() {
-    draw('curated', [lang, catalog, state.overrides, server.version, state.modelPatch, state.keepAlive, state.page], () => {
+    draw('curated', [lang, catalog, state.overrides, server.version, state.modelPatch, state.keepAlive, state.page, state.features, state.prices, state.l10n, state.titles], () => {
       const box = $('features');
       box.replaceChildren();
       for (const group of catalog.groups) {
@@ -632,7 +733,7 @@
           h('span')
         );
         const flagList = h('ul');
-        for (const name of group.flags) {
+        for (const name of [...group.flags, ...(group.requires || [])]) {
           const parts = [serverLabel(name)];
           if (hasOverride(name)) parts.push(state.overrides[name] ? t('flagOverrideOn') : t('flagOverrideOff'));
           flagList.append(h('li', null, h('code', null, name), ` — ${parts.join(' → ')}`));
@@ -662,6 +763,7 @@
           flagList.append(h('li', null, h('code', null, param.flag), ` — ${parts.join(' → ')}`));
         }
         const status = gs.on ? groupStatusLines(group).map((line) => h('p', { class: 'feature-status' }, line)) : [];
+        if (gs.on && group.status === 'prices') status.push(...priceNodes());
         box.append(
           h(
             'article',
@@ -670,7 +772,7 @@
             h('p', null, description),
             ...params,
             ...status,
-            flagList
+            flagList.childElementCount > 0 ? flagList : null
           )
         );
       }
@@ -892,6 +994,10 @@
   }
 
   $('features').addEventListener('click', (event) => {
+    if (event.target.closest('button[data-prices-refresh]')) {
+      if (state) act('/api/prices/refresh', {});
+      return;
+    }
     const button = event.target.closest('button[data-group]');
     if (!button || !state) return;
     const group = catalog.groups.find((g) => g.id === button.dataset.group);
@@ -900,6 +1006,15 @@
     if (turnOn && group.risk) {
       const text = group.risk[lang] || group.risk.en || '';
       if (!window.confirm(t('riskConfirm', { text }))) return;
+    }
+    if (group.feature) {
+      // The flags it needs belong to another feature: they are turned on with it, and stay on after it.
+      const needed = {};
+      if (turnOn) for (const name of group.requires || []) if (!flagIsOn(name)) needed[name] = true;
+      const body = { changes: { [group.feature]: turnOn } };
+      if (Object.keys(needed).length > 0) body.flags = needed;
+      act('/api/features', body);
+      return;
     }
     const changes = {};
     // Off means "back to what the server sends", not "forced off".

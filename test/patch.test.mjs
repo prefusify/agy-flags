@@ -4,6 +4,7 @@ import {
   isValidFlagName,
   isValidFlagValue,
   kindOf,
+  modelDisplayNames,
   patchFlagConfig,
   patchModelExperiments,
   summarizeFlags,
@@ -167,4 +168,22 @@ test('a model list of an unknown shape is refused', () => {
   assert.throws(() => patchModelExperiments({ models: ['a'] }, { x: true }), /no model list/);
   assert.throws(() => patchModelExperiments({}, { x: true }), /no model list/);
   assert.throws(() => patchModelExperiments([], { x: true }), /unexpected response shape/);
+});
+
+test('the display names of the model list are read as short plain text', () => {
+  assert.deepEqual(
+    modelDisplayNames({
+      models: {
+        a: { displayName: 'Gemini 4 Neon (XHigh)' },
+        b: { displayName: 'Gemini 4 Neon (XHigh)' },
+        c: { displayName: '  Orchestrator (Neon)\u0000\u4e2d ' },
+        d: { displayName: 7 },
+        e: {},
+        f: null,
+        g: { displayName: 'x'.repeat(200) },
+      },
+    }),
+    ['Gemini 4 Neon (XHigh)', 'Orchestrator (Neon)', 'x'.repeat(80)]
+  );
+  for (const odd of [null, {}, { models: [] }, { models: 'x' }]) assert.deepEqual(modelDisplayNames(odd), []);
 });

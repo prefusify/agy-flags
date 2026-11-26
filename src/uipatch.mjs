@@ -3,7 +3,17 @@
 // Some features are gated by a flag, but the public build of the page script (main.js)
 // ships without their component: the place where the component belongs holds `void 0`.
 // The context usage indicator is one of them. This module puts a component of our own
-// into that place. It changes nothing else in the script.
+// into that place.
+//
+// A second, separate change fills in the cost column of the cost summary. The client gets
+// that summary from its language server, and on 2.35.1 the language server has no price
+// list: every price is 0. One call is put around the single place where the summary enters
+// the page state. It computes the costs from a price list that agy-flags provides.
+//
+// A third change adds a translator to the end of the script (see l10n.mjs). It shows the
+// text of the page in Chinese.
+//
+// The changes do not depend on each other. Nothing else in the script changes.
 //
 // The page script is minified, and its internal names change with every release. So the
 // two names the component needs are found by their shape, not by their spelling:
@@ -13,6 +23,7 @@
 // When a name or the place cannot be found, the script is returned as it is.
 
 import vm from 'node:vm';
+import { patchL10n } from './l10n.mjs';
 
 /** The empty place for the indicator in the public build. */
 export const INDICATOR_ANCHOR = 'contextUsageIndicator:void 0,';
@@ -312,6 +323,306 @@ export function indicatorFactory(React, useConversationState) {
   return SafeIndicator;
 }
 
+/**
+ * The function that fills in the costs of a cost summary. It runs inside Antigravity's page,
+ * so it is plain JavaScript without imports.
+ *
+ * `table` is { modelKey: [input, output, cacheRead] } in US dollars per million tokens.
+ *
+ * A section is filled in only when the client left it empty: its cost is 0 and none of its
+ * three prices is set. A section of a model that the table does not have stays as it is, so
+ * the client keeps showing "$0.0000" and "No rate card for this model" for it.
+ *
+ * Only numbers are written, and only into objects that are already there.
+ */
+export function costRepricerFactory(table) {
+  const rows = table && typeof table === 'object' ? table : {};
+  const done = new WeakSet();
+  const PRICE_FIELDS = ['inputPricePerMillionTokens', 'outputPricePerMillionTokens', 'cacheReadPricePerMillionTokens'];
+  // Each category of a section, and which price it is paid at (0 input, 1 output, 2 cache read).
+  // Input does not include the tokens read from the cache. Output includes thinking and response.
+  const CATEGORIES = [
+    ['input', 0],
+    ['cacheRead', 2],
+    ['output', 1],
+    ['thinking', 1],
+    ['response', 1],
+  ];
+
+  /** A token count or a price as a number that is safe to calculate with. Token counts are BigInt. */
+  const count = (value) => {
+    let n = 0;
+    try {
+      n = Number(value ?? 0);
+    } catch {
+      n = 0;
+    }
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  /**
+   * One spelling for a model, whatever the source calls it:
+   * "Gemini 4 Neon (XHigh)", "gemini-4-neon", "MODEL_GOOGLE_GEMINI_4_NEON" and
+   * "claude-opus-5-5@default" style names all lose their decoration here.
+   */
+  const keyOf = (name) => {
+    if (typeof name !== 'string' || name.length > 200) return '';
+    let text = name.trim().toLowerCase();
+    text = text.replace(/^.*\//, '').replace(/@.*$/, '');
+    for (;;) {
+      const shorter = text.replace(/\s*\([^()]*\)\s*$/, '');
+      if (shorter === text) break;
+      text = shorter;
+    }
+    text = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return text.replace(/^model-(?:google-)?/, '').replace(/-maas$/, '');
+  };
+
+  const hasOwnPrices = (pricing) => PRICE_FIELDS.some((field) => count(pricing?.[field]) > 0);
+  /** The client left this section without a cost and without prices. */
+  const isEmpty = (section) =>
+    Boolean(section) && typeof section === 'object' && count(section.estimatedCostUsd) === 0 && !hasOwnPrices(section.pricing);
+
+  /** The three prices for the model of a section, or null when the table does not have the model. */
+  const rateOf = (section) => {
+    const pricing = section?.pricing;
+    if (!pricing || typeof pricing !== 'object' || hasOwnPrices(pricing)) return null;
+    const key = keyOf(pricing.modelName);
+    const row = key && Object.prototype.hasOwnProperty.call(rows, key) ? rows[key] : null;
+    if (!Array.isArray(row) || row.length !== 3) return null;
+    return row.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) ? row : null;
+  };
+
+  const tokensOf = (section) => CATEGORIES.map(([name]) => count(section?.[name]?.tokens));
+  const usd = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
+  const sameMain = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+
+  /** Write the cost of every category, and the total: input + cache read + output. */
+  function writeCosts(section, costs) {
+    CATEGORIES.forEach(([name], i) => {
+      const category = section[name];
+      if (category && typeof category === 'object') category.estimatedCostUsd = usd(costs[i]);
+    });
+    const output = section.output ? costs[2] : costs[3] + costs[4];
+    section.estimatedCostUsd = usd(costs[0] + costs[1] + output);
+  }
+
+  function writePrices(section, rate, estimated) {
+    const pricing = section.pricing;
+    if (!rate || !pricing || typeof pricing !== 'object') return;
+    pricing.inputPricePerMillionTokens = rate[0];
+    pricing.outputPricePerMillionTokens = rate[1];
+    pricing.cacheReadPricePerMillionTokens = rate[2];
+    pricing.isEstimated = Boolean(estimated);
+  }
+
+  const costsAt = (tokens, rate) => CATEGORIES.map(([, price], i) => (tokens[i] * rate[price]) / 1e6);
+
+  /** Fill one section from its own token counts. Returns its costs, or null when it was left alone. */
+  function fill(section) {
+    if (!isEmpty(section)) return null;
+    const rate = rateOf(section);
+    if (!rate) return null;
+    const costs = costsAt(tokensOf(section), rate);
+    writeCosts(section, costs);
+    writePrices(section, rate, false);
+    return costs;
+  }
+
+  function reprice(summary) {
+    if (!summary || typeof summary !== 'object' || done.has(summary)) return summary;
+    done.add(summary);
+
+    // One entry for each execution: the cost of that turn, of its subagents, and the total of
+    // the conversation up to that point.
+    const steps = [];
+    const turnCosts = summary.turnCosts && typeof summary.turnCosts === 'object' ? summary.turnCosts : {};
+    for (const id of Object.keys(turnCosts)) {
+      const entry = turnCosts[id];
+      if (!entry || typeof entry !== 'object') continue;
+      const total = entry.cumulativeTotal;
+      const step = {
+        total,
+        open: isEmpty(total),
+        ownRate: rateOf(total),
+        totalTokens: tokensOf(total),
+        rate: rateOf(entry.turn),
+        turnTokens: tokensOf(entry.turn),
+        subTokens: tokensOf(entry.subagent),
+      };
+      step.turnCosts = fill(entry.turn);
+      step.subCosts = fill(entry.subagent);
+      steps.push(step);
+    }
+
+    // A conversation can change its model, and a running total carries one model only. So a
+    // running total is the sum of the steps before it, each at the prices of its own model.
+    // The map has no order; the totals grow, so their size gives the order.
+    const size = (tokens) => tokens[0] + tokens[1] + tokens[2];
+    steps.sort((a, b) => size(a.totalTokens) - size(b.totalTokens));
+    let before = [0, 0, 0, 0, 0];
+    const sum = [0, 0, 0, 0, 0];
+    let estimated = false;
+    const add = (costs) => costs.forEach((cost, i) => (sum[i] += cost));
+    for (const step of steps) {
+      if (!step.total || typeof step.total !== 'object') continue;
+      const grown = step.totalTokens.map((n, i) => Math.max(0, n - before[i]));
+      const both = step.turnTokens.map((n, i) => n + step.subTokens[i]);
+      if (step.turnCosts && sameMain(grown, step.turnTokens)) {
+        add(step.turnCosts);
+      } else if (step.turnCosts && sameMain(grown, both)) {
+        // The subagents of a model without a price add nothing, as in their own row.
+        add(step.turnCosts);
+        if (step.subCosts) add(step.subCosts);
+      } else if (step.rate) {
+        // The growth is not this turn alone (subagents of another model, or older turns that
+        // are no longer listed). It is paid at the prices of the model of this turn.
+        add(costsAt(grown, step.rate));
+        estimated = true;
+      }
+      before = step.totalTokens;
+      if (step.open) {
+        writeCosts(step.total, sum);
+        writePrices(step.total, step.ownRate, estimated);
+      }
+    }
+
+    // Each subagent has a model of its own. Measured on 2.35.1: the turns above do not hold
+    // the subagents; they come in this list, in a sum without a model, and in the grand total.
+    const subagents = summary.subagentCosts && typeof summary.subagentCosts === 'object' ? summary.subagentCosts : {};
+    const listedTokens = [0, 0, 0, 0, 0];
+    const listedCosts = [0, 0, 0, 0, 0];
+    for (const id of Object.keys(subagents)) {
+      tokensOf(subagents[id]).forEach((n, i) => (listedTokens[i] += n));
+      const costs = fill(subagents[id]);
+      if (costs) costs.forEach((cost, i) => (listedCosts[i] += cost));
+    }
+
+    const total = summary.total;
+    if (total && typeof total === 'object') {
+      // All subagents together: the sum of the list, when the list explains its tokens.
+      const all = total.subagent;
+      const allTokens = tokensOf(all);
+      let allCosts = null;
+      if (isEmpty(all)) {
+        if (rateOf(all)) allCosts = fill(all);
+        else if (size(allTokens) > 0 && sameMain(allTokens, listedTokens)) {
+          writeCosts(all, listedCosts);
+          allCosts = listedCosts;
+        }
+      }
+
+      // All turns of the main agent together.
+      const main = total.turn;
+      if (isEmpty(main)) {
+        if (steps.length > 0 && sameMain(tokensOf(main), before)) {
+          writeCosts(main, sum);
+          writePrices(main, rateOf(main), estimated);
+        } else {
+          fill(main);
+        }
+      }
+
+      // Everything: the turns of the main agent and the subagents.
+      const grand = total.cumulativeTotal;
+      if (isEmpty(grand)) {
+        const rate = rateOf(grand);
+        const tokens = tokensOf(grand);
+        if (steps.length === 0 && size(allTokens) === 0) {
+          fill(grand);
+        } else {
+          const withSubagents = before.map((n, i) => n + allTokens[i]);
+          if (sameMain(tokens, before)) {
+            // The running totals already hold everything.
+          } else if (sameMain(tokens, withSubagents)) {
+            if (allCosts) add(allCosts);
+          } else if (rate) {
+            add(costsAt(tokens.map((n, i) => Math.max(0, n - before[i])), rate));
+            estimated = true;
+          }
+          writeCosts(grand, sum);
+          writePrices(grand, rate, estimated);
+        }
+      }
+    }
+    return summary;
+  }
+
+  // A mistake here must never keep the summary from reaching the page.
+  function safeReprice(summary) {
+    try {
+      return reprice(summary);
+    } catch (error) {
+      try {
+        console.error('[agy-flags] the costs were not filled in:', error);
+      } catch {
+        // nothing else to do
+      }
+      return summary;
+    }
+  }
+  safeReprice.keyOf = keyOf;
+  return safeReprice;
+}
+
+/** One spelling for a model name. The same function runs in the page and in the daemon. */
+export const modelKey = costRepricerFactory({}).keyOf;
+
+/** The fixed words in the middle of the place where the summary enters the page state. */
+const COST_MARKER = '.costSummary!==void 0&&(';
+
+/**
+ * Every place of the form `X.costSummary!==void 0&&(Y.costSummary=X.costSummary)`.
+ * The fixed words are searched for first, and the two names are read next to them: a
+ * pattern that starts with a free name takes seconds over a script of this size.
+ */
+function costPlaces(source) {
+  const places = [];
+  const nameBefore = new RegExp(`(${IDENT})$`);
+  const tail = new RegExp(`^(${IDENT})\\.costSummary=(${IDENT})\\.costSummary\\)`);
+  for (let at = source.indexOf(COST_MARKER); at !== -1; at = source.indexOf(COST_MARKER, at + 1)) {
+    const from = nameBefore.exec(source.slice(Math.max(0, at - 60), at));
+    const rest = tail.exec(source.slice(at + COST_MARKER.length, at + COST_MARKER.length + 200));
+    if (!from || !rest || rest[2] !== from[1]) continue;
+    const start = at - from[1].length;
+    places.push({ start, end: at + COST_MARKER.length + rest[0].length, from: from[1], to: rest[1] });
+  }
+  return places;
+}
+
+
+/** Is `table` { modelKey: [input, output, cacheRead] } and nothing else? It is written into the script. */
+export function isPriceTable(table) {
+  if (!table || typeof table !== 'object' || Array.isArray(table)) return false;
+  const entries = Object.entries(table);
+  if (entries.length === 0 || entries.length > 5000) return false;
+  return entries.every(
+    ([key, row]) =>
+      /^[a-z0-9][a-z0-9-]{0,99}$/.test(key) &&
+      Array.isArray(row) &&
+      row.length === 3 &&
+      row.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1e6)
+  );
+}
+
+/**
+ * Put the call that fills in the costs around the place where the summary enters the page state.
+ * @returns {{ ok: true, source: string } | { ok: false, reason: string }}
+ */
+export function patchCostSummary(source, table) {
+  if (!isPriceTable(table)) return { ok: false, reason: 'there is no price list yet' };
+  const places = costPlaces(source);
+  if (places.length !== 1) return { ok: false, reason: `the place for the costs was found ${places.length} times, not once` };
+  const { start, end, from, to } = places[0];
+  // The function is made once for each page load. A failure while it is made leaves the summary as it is.
+  const call =
+    '(globalThis.__agyFlagsCost||(globalThis.__agyFlagsCost=(()=>{try{return(' +
+    costRepricerFactory.toString() +
+    `)(${JSON.stringify(table)})}catch(e){try{console.error("[agy-flags]",e)}catch(_){}return a=>a}})()))`;
+  const replacement = `${from}.costSummary!==void 0&&(${to}.costSummary=${call}(${from}.costSummary))`;
+  return { ok: true, source: source.slice(0, start) + replacement + source.slice(end) };
+}
+
 /** The text that replaces the anchor. A failure while the page loads leaves the place empty, as before. */
 export function indicatorReplacement(names) {
   return (
@@ -321,27 +632,76 @@ export function indicatorReplacement(names) {
   );
 }
 
-/**
- * Put the indicator into the page script.
- * @returns {{ ok: true, source: string } | { ok: false, source: string, reason: string }}
- *          `source` is the unchanged input when `ok` is false.
- */
-export function patchMainJs(source, { check = true } = {}) {
-  const fail = (reason) => ({ ok: false, source, reason });
-  if (typeof source !== 'string') return { ok: false, source, reason: 'not a script' };
+/** The names of the changes, as the catalog spells them in "uiPatch". */
+export const PART_INDICATOR = 'contextUsageIndicator';
+export const PART_COSTS = 'costPrices';
+export const PART_L10N = 'l10n';
+
+function patchIndicator(source) {
   const first = source.indexOf(INDICATOR_ANCHOR);
-  if (first === -1) return fail('the place for the indicator was not found');
-  if (source.indexOf(INDICATOR_ANCHOR, first + 1) !== -1) return fail('the place for the indicator was found more than once');
+  if (first === -1) return { ok: false, reason: 'the place for the indicator was not found' };
+  if (source.indexOf(INDICATOR_ANCHOR, first + 1) !== -1) return { ok: false, reason: 'the place for the indicator was found more than once' };
   const names = detectNames(source);
-  if (!names.ok) return fail(names.reason);
-  const patched = source.slice(0, first) + indicatorReplacement(names) + source.slice(first + INDICATOR_ANCHOR.length);
-  if (check) {
+  if (!names.ok) return { ok: false, reason: names.reason };
+  return {
+    ok: true,
+    source: source.slice(0, first) + indicatorReplacement(names) + source.slice(first + INDICATOR_ANCHOR.length),
+    names: { react: names.react, stateHook: names.stateHook },
+  };
+}
+
+/**
+ * Change the page script.
+ * @param {string} source
+ * @param {object} [options]
+ * @param {boolean} [options.indicator=true] Add the context usage indicator.
+ * @param {object|null} [options.prices=null] Fill in the costs from this price table.
+ * @param {object|null} [options.l10n=null]   Show the page in Chinese with this word list.
+ * @param {boolean} [options.check=true]     Parse the result before it is returned.
+ * @returns {{ ok: boolean, source: string, reason?: string, names?: object, parts: object }}
+ *          `ok` is true when every change that was asked for was made. `parts` says for each
+ *          of them { ok, reason }. One change that cannot be made does not stop the others.
+ *          `source` holds the changes that were made; it is the unchanged input when there are none.
+ */
+export function patchMainJs(source, { check = true, indicator = true, prices = null, l10n = null } = {}) {
+  if (typeof source !== 'string') return { ok: false, source, reason: 'not a script', parts: {} };
+  const steps = [];
+  if (indicator) steps.push([PART_INDICATOR, (text) => patchIndicator(text)]);
+  if (prices) steps.push([PART_COSTS, (text) => patchCostSummary(text, prices)]);
+  // The translator goes to the end, so it comes last.
+  if (l10n) steps.push([PART_L10N, (text) => patchL10n(text, l10n)]);
+
+  // Parse only. A script that does not parse would leave the window blank.
+  const parseError = (text) => {
     try {
-      // Parse only. A script that does not parse would leave the window blank.
-      new vm.Script(patched, { filename: 'main.js' });
+      new vm.Script(text, { filename: 'main.js' });
+      return null;
     } catch (err) {
-      return fail(`the changed script does not parse: ${err?.message || err}`);
+      return `the changed script does not parse: ${err?.message || err}`;
     }
-  }
-  return { ok: true, source: patched, names: { react: names.react, stateHook: names.stateHook } };
+  };
+  const apply = (checkEach) => {
+    const parts = {};
+    let patched = source;
+    let names;
+    for (const [part, change] of steps) {
+      const result = change(patched);
+      const reason = result.ok ? (checkEach ? parseError(result.source) : null) : result.reason;
+      parts[part] = reason ? { ok: false, reason } : { ok: true, reason: null };
+      if (reason) continue;
+      patched = result.source;
+      if (result.names) names = result.names;
+    }
+    return { parts, patched, names };
+  };
+
+  // The script is large, so it is parsed once with every change in it. Only when that fails
+  // is each change parsed by itself, to keep the ones that are good.
+  let done = apply(false);
+  if (check && done.patched !== source && parseError(done.patched)) done = apply(true);
+  const failed = Object.values(done.parts).filter((part) => !part.ok);
+  const out = { ok: failed.length === 0, source: done.patched, parts: done.parts };
+  if (failed.length > 0) out.reason = failed.map((part) => part.reason).join('; ');
+  if (done.names) out.names = done.names;
+  return out;
 }

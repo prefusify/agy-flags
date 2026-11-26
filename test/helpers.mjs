@@ -5,6 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { TITLE_OLD } from '../src/forward.mjs';
 
 export function listen(server, port = 0) {
   return new Promise((resolve, reject) => {
@@ -162,4 +163,26 @@ export function fakeApp(dir, files, { serverText = '', asar = 'asar', programs =
     fs.writeFileSync(file, text);
   }
   return appPath;
+}
+
+/** A title request as the desktop app 2.35.1 sends it, with made-up words. */
+export function titleRequest({ message = 'make the tests pass', prompt } = {}) {
+  const instruction =
+    prompt ??
+    `You are a conversation title generator. Read the USER's first message. ${TITLE_OLD} Do not answer the request itself.`;
+  return Buffer.from(
+    JSON.stringify({
+      project: 'test-project',
+      requestId: 'checkpoint/00000000-0000-4000-8000-000000000001',
+      request: {
+        contents: [{ role: 'user', parts: [{ text: message }] }],
+        systemInstruction: { role: 'user', parts: [{ text: instruction }] },
+        generationConfig: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'LOW' } },
+        sessionId: 's-1',
+      },
+      model: 'test-model',
+      userAgent: 'antigravity',
+      requestType: 'checkpoint',
+    })
+  );
 }

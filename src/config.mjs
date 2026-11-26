@@ -12,6 +12,7 @@ import { isValidFlagName, isValidFlagValue } from './patch.mjs';
 export const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   flags: {},
+  features: { costPrices: false, uiChinese: false, chineseTitles: false },
   flagsChangedAt: 0,
   ports: { cloudcode: 47931, aicode: 47932, ui: 47930, devui: 47933 },
   upstreams: {
@@ -41,7 +42,14 @@ export function ensureDataDir() {
   return dir;
 }
 
+/**
+ * Features of agy-flags itself that no flag of the client stands for. They are kept apart
+ * from `flags`, because everything in `flags` is sent to the client.
+ */
+export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles']);
+
 export const files = {
+  prices: () => path.join(dataDir(), 'prices.json'),
   config: () => path.join(dataDir(), 'config.json'),
   token: () => path.join(dataDir(), 'token'),
   state: () => path.join(dataDir(), 'state.json'),
@@ -73,9 +81,12 @@ export function normalizeConfig(raw) {
   }
   const ports = input.ports && typeof input.ports === 'object' ? input.ports : {};
   const upstreams = input.upstreams && typeof input.upstreams === 'object' ? input.upstreams : {};
+  const features = {};
+  for (const name of FEATURE_NAMES) features[name] = input.features?.[name] === true;
   return {
     enabled: input.enabled !== false,
     flags,
+    features,
     flagsChangedAt: Number.isFinite(input.flagsChangedAt) ? input.flagsChangedAt : 0,
     ports: {
       cloudcode: validPort(ports.cloudcode, DEFAULT_CONFIG.ports.cloudcode),
