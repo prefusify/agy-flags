@@ -433,6 +433,32 @@
       }
     },
     {
+      "id": "computer-use-foreground",
+      "flags": [
+        "enable-agy-hub-cua-foreground"
+      ],
+      "requires": [
+        "enable-agy-hub-cua-macos"
+      ],
+      "tested": "2.35.2",
+      "riskLabel": {
+        "zh": "接管屏幕、鼠标和键盘",
+        "en": "takes over the screen, mouse and keyboard"
+      },
+      "risk": {
+        "zh": "打开后，computer 子代理可以把应用切到前台，截取整个屏幕，并用你的鼠标和键盘点击、输入。它操作期间你不能用电脑：客户端一发现鼠标或键盘输入，就停止这一轮操作。每次要切到前台之前，对话里都会先问你。",
+        "en": "While this is on, the computer subagent can bring an app to the front, capture the whole screen, and click and type with your mouse and keyboard. You cannot use the Mac while it works: as soon as the app sees mouse or keyboard input, it stops that round of operation. Before each switch to the front, the conversation asks you first."
+      },
+      "title": {
+        "zh": "电脑操作：前台操作",
+        "en": "Computer use: foreground actions"
+      },
+      "description": {
+        "zh": "「电脑操作」默认只在后台操作。打开这一项后，computer 子代理还能接管屏幕：截取整个屏幕，用鼠标单击、双击、右键、移动和拖动，打字、按键、滚动，等待，并把应用切到前台。它需要「电脑操作」，打开这一项时会一并打开那一项。改完重启 Antigravity 一次就生效。子代理要切到前台时，对话里会先后出现两张确认卡片：先问是否允许把应用切到前台、查看屏幕并使用鼠标和键盘，再问是否允许在这个对话里控制这个应用；每张都可以选只允许这一次任务、在这个对话里一直允许，或者拒绝。子代理操作期间不要碰鼠标和键盘：客户端一发现输入，就报 USER_TAKEOVER 并停止这一轮。实测（2.35.2，只试了一次）：重启一次后，桌面工具的动作从 8 个变成 19 个；两张确认卡片都出现了；把计算器切到前台成功，随后客户端报 USER_TAKEOVER 并停止，这次输入来自哪里没有查清。整屏截图、点击和输入都没有看到实际效果。",
+        "en": "\"Computer use\" acts in the background only by default. While this is on, the computer subagent can also take over the screen: capture the whole screen; click, double-click, right-click, move and drag with the mouse; type, press keys, scroll, wait; and bring an app to the front. This needs \"Computer use\", and turning this on turns that on too. One restart of Antigravity is enough. When the subagent wants to bring an app to the front, the conversation shows two confirmation cards, one after the other: the first asks whether it may bring the app to the front, look at the screen and use the mouse and keyboard; the second asks whether it may control this app in this conversation. On each card you can allow it for this task only, allow it for the whole conversation, or refuse. Do not touch the mouse or keyboard while the subagent works: as soon as the app sees input, it reports USER_TAKEOVER and stops that round. In the test (2.35.2, tried once): after one restart, the desktop tool had 19 actions instead of 8; both confirmation cards appeared; Calculator was brought to the front; then the app reported USER_TAKEOVER and stopped, and where that input came from was not found out. Whole-screen capture, clicks and typing were not seen to work."
+      }
+    },
+    {
       "id": "teamwork-model",
       "flags": [
         "disable-teamwork-forced-flash-model"
