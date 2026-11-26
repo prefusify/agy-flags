@@ -2,8 +2,8 @@
 //
 // Antigravity's language server is pointed at it with an environment variable. Everything
 // is streamed through unchanged (connection upgrades included), except the flag-config
-// responses of the desktop app, which are buffered, patched and sent on: the two flag lists
-// always, and the model list only while there is a per-model flag to write. One request can
+// responses of the desktop app, which are buffered, patched and sent on. The model list is
+// never changed; it is only read while its display names are wanted. One request can
 // be changed too: while the Chinese titles are on, the request that asks the model for the
 // title of a conversation is kept back, one sentence of its instruction is replaced, and it
 // is sent on (see rewriteTitleRequest). Nothing here adds credentials or follows redirects;
@@ -16,7 +16,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import zlib from 'node:zlib';
-import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, patchModelExperiments, summarizeFlags } from './patch.mjs';
+import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, summarizeFlags } from './patch.mjs';
 
 export const PING_PATH = '/__agy_flags_ping';
 
@@ -37,15 +37,6 @@ const MAX_CONFIG_BYTES = 32 * 1024 * 1024;
 /** A request body is kept for one retry only up to this size. */
 const MAX_REPLAY_BYTES = 16 * 1024 * 1024;
 const STALE_SOCKET_ERRORS = new Set(['ECONNRESET', 'EPIPE']);
-/**
- * The client marks its own cache keep-alive requests with this label. The quotes matter:
- * inside conversation text the same words arrive escaped (\"...\") and do not match.
- */
-const KEEP_ALIVE_NAME = Buffer.from('"prompt_cache_keep_alive"');
-const KEEP_ALIVE_RE = /"prompt_cache_keep_alive"\s*:\s*"true"/;
-/** Longer than the whole label, so that one split over two chunks is still seen. */
-const KEEP_ALIVE_TAIL = 64;
-
 const MAX_AGENT_CHARS = 160;
 
 /**
@@ -127,8 +118,6 @@ function decodeBody(raw, encoding) {
  * @param {string} options.name      Label used in reports ("cloudcode" or "aicode").
  * @param {string} options.upstream  Origin to forward to, for example https://aicode.googleapis.com.
  * @param {() => object} options.getFlags   Current overrides, { name: value }. Empty disables patching.
- * @param {() => object} [options.getModelFlags]  The overrides that also go into every model of the
- *                                                model list. Empty leaves the model list untouched.
  * @param {() => boolean} [options.wantModelNames]  While true, the model list is read and its
  *                                                display names are reported as `names`.
  * @param {() => boolean} [options.wantChineseTitles]  While true, the title request of the desktop
@@ -138,8 +127,7 @@ function decodeBody(raw, encoding) {
  * @param {(report: object) => void} [options.onRequest]  Called once per finished request. `client` is
  *                                                the sender ('desktop', 'cli' or 'other'), `agent` its
  *                                                User-Agent, `kind` the flag-config kind or null.
- *                                                `keepAlive` is true for a cache keep-alive request of
- *                                                the desktop app. `title` says what was done
+ *                                                `title` says what was done
  *                                                with a title request ('rewritten', 'changed' or
  *                                                'skipped'); it is null for every other request.
  * @param {() => object} [options.identity]  Extra fields for the ping answer.
@@ -149,7 +137,6 @@ export function createForwarder({
   name,
   upstream,
   getFlags,
-  getModelFlags = () => ({}),
   wantModelNames = () => false,
   wantChineseTitles = () => false,
   onConfig = () => {},
@@ -186,12 +173,9 @@ export function createForwarder({
     let replayable = true;
     let bodyEnded = false;
     let afterBody = null;
-    // A model request is only looked at for one label name. Nothing of it is kept or logged.
-    // A compressed body cannot be read this way and is not counted.
+    // A model request is only looked at to find a title request. A compressed body cannot be read this way.
     const isModelRequest =
       ours && req.method === 'POST' && pathname.endsWith('GenerateContent') && !req.headers['content-encoding'];
-    let keepAlive = false;
-    let tail = Buffer.alloc(0);
     // A model request is kept back until its first bytes show whether it asks for a title.
     // Every other request goes upstream while it still arrives.
     let held = isModelRequest && wantChineseTitles() === true;
@@ -217,11 +201,6 @@ export function createForwarder({
       release();
     };
     req.on('data', (chunk) => {
-      if (isModelRequest && !keepAlive) {
-        const window = tail.length > 0 ? Buffer.concat([tail, chunk]) : chunk;
-        if (window.includes(KEEP_ALIVE_NAME) && KEEP_ALIVE_RE.test(window.toString('latin1'))) keepAlive = true;
-        else tail = Buffer.from(window.subarray(Math.max(0, window.length - KEEP_ALIVE_TAIL)));
-      }
       if (!replayable) return;
       copied += chunk.length;
       if (copied > MAX_REPLAY_BYTES) {
@@ -255,7 +234,6 @@ export function createForwarder({
         client,
         agent,
         kind,
-        keepAlive,
         title,
         ...extra,
       });
@@ -318,8 +296,8 @@ export function createForwarder({
           const data = JSON.parse(decodeBody(raw, upRes.headers['content-encoding']).toString('utf8'));
           let result;
           if (kind === MODELS_KIND) {
-            result = patchModelExperiments(data, getModelFlags() || {});
-            report.models = result.models;
+            // The model list is only read: nothing is written into it.
+            result = { applied: [], skipped: [] };
             if (wantModelNames()) report.names = modelDisplayNames(data);
           } else {
             report.server = summarizeFlags(kind, data);
@@ -352,8 +330,8 @@ export function createForwarder({
       const status = upRes.statusCode || 502;
       const respHeaders = withoutHopByHop(upRes.headers);
       upRes.on('error', fail);
-      // The model list is buffered only while there is something to write into it or to read from it.
-      const wanted = kind !== MODELS_KIND || Object.keys(getModelFlags() || {}).length > 0 || wantModelNames();
+      // The model list is buffered only while its display names are wanted.
+      const wanted = kind !== MODELS_KIND || wantModelNames();
       if (ours && kind && status === 200 && wanted) {
         patchAndSend(upRes, status, respHeaders);
         return;

@@ -3,7 +3,7 @@
 // Shapes seen on the wire (Antigravity 2.34.0 and 2.35.0):
 //   POST /v1internal:listExperiments      -> { experimentIds: [...], flags: [entry, ...] }
 //   GET  /v1alpha:fetchConfig             -> { experimentConfig: { experimentFlags: [entry, ...] }, ... }
-//   POST /v1internal:fetchAvailableModels -> { models: { <id>: { modelExperiments: { experiments: { <name>: value } } } } }
+//   POST /v1internal:fetchAvailableModels -> { models: { <id>: { displayName, ... } } }  (read only, never changed)
 //   entry = { name, [flagId], <exactly one value key> }
 //   value = { <exactly one value key> }
 // Integers travel as strings ("intValue": "300").
@@ -151,64 +151,6 @@ export function summarizeFlags(kind, data) {
 }
 
 /**
- * Write `flags` ({ name: value }) into every model of a parsed model list, in place.
- *
- * Some flags are read per model: the client takes them from the model's own
- * `modelExperiments.experiments`, not from the global list. A flag that a model already
- * carries with a different value type is left alone for that model and reported in `skipped`.
- * @returns {{ applied: string[], skipped: object[], models: number }}
- *          `applied` lists the flags written into at least one model; `models` counts the models changed.
- */
-export function patchModelExperiments(data, flags) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error('unexpected response shape');
-  }
-  const result = { applied: [], skipped: [], models: 0 };
-  const valid = [];
-  for (const [name, value] of Object.entries(flags || {})) {
-    if (isValidFlagName(name) && isValidFlagValue(value)) valid.push([name, value]);
-    else result.skipped.push({ name, reason: 'invalid override' });
-  }
-  if (valid.length === 0) return result;
-  if (!data.models || typeof data.models !== 'object' || Array.isArray(data.models)) {
-    throw new Error('no model list in the response');
-  }
-
-  const applied = new Set();
-  const mismatched = new Map();
-  for (const model of Object.values(data.models)) {
-    if (!model || typeof model !== 'object' || Array.isArray(model)) continue;
-    const holder = model.modelExperiments ?? {};
-    if (typeof holder !== 'object' || Array.isArray(holder)) continue;
-    const experiments = holder.experiments ?? {};
-    if (typeof experiments !== 'object' || Array.isArray(experiments)) continue;
-    let touched = false;
-    for (const [name, value] of valid) {
-      const wantKey = valueKeyFor(value);
-      const existing = Object.hasOwn(experiments, name) ? experiments[name] : null;
-      const haveKey = valueKeyOf(existing);
-      if (haveKey && haveKey !== wantKey) {
-        mismatched.set(name, haveKey);
-        continue;
-      }
-      experiments[name] = makeValue(wantKey, value, existing);
-      applied.add(name);
-      touched = true;
-    }
-    if (touched) {
-      holder.experiments = experiments;
-      model.modelExperiments = holder;
-      result.models += 1;
-    }
-  }
-  result.applied = valid.map(([name]) => name).filter((name) => applied.has(name));
-  for (const [name, haveKey] of mismatched) {
-    result.skipped.push({ name, reason: `a model sends ${haveKey}` });
-  }
-  return result;
-}
-
-/**
  * The display names in a parsed model list, as the client shows them. Each is a short text;
  * the settings page shows them as text.
  */
@@ -224,15 +166,4 @@ export function modelDisplayNames(data) {
     if (names.size >= 200) break;
   }
   return [...names];
-}
-
-function makeValue(key, value, existing) {
-  const out = {};
-  if (existing && typeof existing === 'object') {
-    for (const [k, v] of Object.entries(existing)) {
-      if (!VALUE_KEYS.includes(k)) out[k] = v;
-    }
-  }
-  out[key] = key === 'intValue' ? String(value) : value;
-  return out;
 }

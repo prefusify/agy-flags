@@ -6,7 +6,7 @@ import { PING_PATH, TITLE_NEW, TITLE_OLD, clientOf, createForwarder, rewriteTitl
 import { CLI_AGENT, DESKTOP_AGENT, close, freePorts, listen, request, sleep, titleRequest } from './helpers.mjs';
 
 /** Start a fake upstream and a forwarder in front of it. */
-async function setup(t, upstreamHandler, { flags = {}, modelFlags = {} } = {}) {
+async function setup(t, upstreamHandler, { flags = {} } = {}) {
   const upstream = http.createServer(upstreamHandler);
   const upstreamPort = await listen(upstream);
   const configs = [];
@@ -15,7 +15,6 @@ async function setup(t, upstreamHandler, { flags = {}, modelFlags = {} } = {}) {
     name: 'aicode',
     upstream: `http://127.0.0.1:${upstreamPort}`,
     getFlags: () => flags,
-    getModelFlags: () => modelFlags,
     onConfig: (report) => configs.push(report),
     onRequest: (report) => requests.push(report),
     identity: () => ({ pid: 123 }),
@@ -111,33 +110,7 @@ test('an error status on a flag path is not patched', async (t) => {
 
 const MODEL_LIST = { models: { one: { displayName: 'One' }, two: { modelExperiments: { experiments: {} } } }, defaultAgentModelId: 'one' };
 
-test('per-model flags are written into the model list', async (t) => {
-  const { port, configs } = await setup(
-    t,
-    (req, res) => {
-      const body = zlib.gzipSync(JSON.stringify(MODEL_LIST));
-      res.writeHead(200, { 'content-type': 'application/json', 'content-encoding': 'gzip' });
-      res.end(body);
-    },
-    { flags: { a: true }, modelFlags: { keep: true, pings: 3 } }
-  );
-  const res = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
-  assert.equal(res.headers['content-encoding'], undefined);
-  const data = JSON.parse(res.body.toString('utf8'));
-  const want = { keep: { boolValue: true }, pings: { intValue: '3' } };
-  assert.deepEqual(data.models.one.modelExperiments.experiments, want);
-  assert.deepEqual(data.models.two.modelExperiments.experiments, want);
-  assert.equal(data.defaultAgentModelId, 'one');
-  // Only the per-model flags go into models, not every override.
-  assert.equal(JSON.stringify(data).includes('"a"'), false);
-  assert.equal(configs.length, 1);
-  assert.deepEqual(
-    { kind: configs[0].kind, ok: configs[0].ok, applied: configs[0].applied, models: configs[0].models, server: configs[0].server },
-    { kind: 'fetchAvailableModels', ok: true, applied: ['keep', 'pings'], models: 2, server: undefined }
-  );
-});
-
-test('without per-model flags the model list is streamed through and not reported', async (t) => {
+test('the model list is streamed through and not reported while nobody wants its names', async (t) => {
   const original = zlib.gzipSync(JSON.stringify(MODEL_LIST));
   const { port, configs } = await setup(
     t,
@@ -150,53 +123,6 @@ test('without per-model flags the model list is streamed through and not reporte
   const res = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
   assert.ok(res.body.equals(original));
   assert.equal(configs.length, 0);
-});
-
-test('a model list of an unknown shape passes through unchanged', async (t) => {
-  const { port, configs } = await setup(
-    t,
-    (req, res) => {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end('{"models":[]}');
-    },
-    { modelFlags: { keep: true } }
-  );
-  const res = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
-  assert.equal(res.body.toString('utf8'), '{"models":[]}');
-  assert.equal(configs[0].ok, false);
-  assert.match(configs[0].error, /no model list/);
-});
-
-test('a keep-alive request of the client is recognised, and conversation text is not', async (t) => {
-  const { port, requests } = await setup(t, (req, res) => {
-    req.resume();
-    req.on('end', () => res.end('ok'));
-  });
-  const send = (body, pathname = '/v1internal:streamGenerateContent?alt=sse', headers = {}) =>
-    new Promise((resolve, reject) => {
-      const all = { 'user-agent': DESKTOP_AGENT, ...headers };
-      const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: pathname, headers: all, agent: false }, (res) => {
-        res.resume();
-        res.on('end', resolve);
-      });
-      req.on('error', reject);
-      // Sent in pieces, so that the label is split over two chunks.
-      const parts = Array.isArray(body) ? body : [body];
-      const next = () => {
-        if (parts.length === 0) return req.end();
-        req.write(parts.shift(), () => setTimeout(next, 15));
-      };
-      next();
-    });
-  const label = '{"request":{"labels":{"prompt_cache_keep_alive": "true","request_id":"r-keepalive-1"}},"pad":"';
-  await send(label + 'x'.repeat(200) + '"}');
-  await send([label.slice(0, 40), label.slice(40) + '"}']);
-  // The same words inside a message are escaped JSON text.
-  await send(JSON.stringify({ request: { contents: [{ text: 'is "prompt_cache_keep_alive":"true" a label?' }] } }));
-  await send('{"request":{"labels":{"prompt_cache_keep_alive":"false"}}}');
-  await send(label + '"}', '/v1internal:loadCodeAssist');
-  await send(label + '"}', '/v1internal:generateContent', { 'content-encoding': 'gzip' });
-  assert.deepEqual(requests.map((r) => r.keepAlive), [true, true, false, false, false, false]);
 });
 
 test('other responses are streamed, not buffered', async (t) => {
@@ -453,38 +379,6 @@ test('a flag response for the command line goes out byte for byte', async (t) =>
   assert.equal(JSON.parse(desktop.body.toString('utf8')).experimentConfig.experimentFlags[0].boolValue, true);
   assert.equal(configs.length, 1);
   assert.equal(requests.at(-1).client, 'desktop');
-});
-
-test('the model list and the keep-alive count are for the desktop app only', async (t) => {
-  const models = JSON.stringify({ models: { one: {}, two: {} } });
-  const { port, configs, requests } = await setup(
-    t,
-    (req, res) => {
-      req.resume();
-      req.on('end', () => {
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(models);
-      });
-    },
-    { modelFlags: { 'keep-on': true } }
-  );
-  const cli = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: 'cli' });
-  assert.equal(cli.body.toString('utf8'), models);
-  assert.deepEqual(configs, []);
-  const desktop = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
-  assert.notEqual(desktop.body.toString('utf8'), models);
-  assert.equal(configs.length, 1);
-
-  const label = '{"request":{"labels":{"prompt_cache_keep_alive":"true"}}}';
-  await request({ port, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body: label, as: 'cli' });
-  await request({ port, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body: label });
-  assert.deepEqual(
-    requests.slice(-2).map((r) => [r.client, r.keepAlive]),
-    [
-      ['cli', false],
-      ['desktop', true],
-    ]
-  );
 });
 
 test('the names of the model list are reported only while somebody wants them, and the list goes out unchanged', async (t) => {

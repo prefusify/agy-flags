@@ -1,5 +1,5 @@
 {
-  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'params' are integer flags set together with the group. 'perModel' marks flags that are also written into every model of the model list. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off.",
+  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off.",
   "groups": [
     {
       "id": "developer-mode",
@@ -39,44 +39,6 @@
       "description": {
         "zh": "在输入框旁边显示上下文窗口已经用了多少，点开可以看各部分占用的 token。第一次用还要多做一步：重启客户端后，到客户端的 Settings → Appearance → Advanced Settings → Chat Layout，打开「Context and quota indicator」。这个设置默认是关的。对外版本的客户端有这个开关，但没有带这个组件，所以本工具把自己写的一个组件加进界面脚本。它只显示上下文用量，不显示模型配额。",
         "en": "Shows next to the input box how full the context window is; click it for the tokens used by each part. One more step is needed the first time: after the client restarts, go to Settings → Appearance → Advanced Settings → Chat Layout in the client and turn on \"Context and quota indicator\". That setting is off by default. The public build of the client has the flag but not the component, so agy-flags adds a component of its own to the page script. It shows context usage only, not the model quota."
-      }
-    },
-    {
-      "id": "prompt-cache-keep-alive",
-      "flags": [
-        "enable-prompt-cache-keep-alive"
-      ],
-      "params": [
-        {
-          "flag": "prompt_cache_keep_alive_max_pings",
-          "type": "int",
-          "default": 8,
-          "min": 1,
-          "max": 50,
-          "label": {
-            "zh": "每段空闲最多保活几次",
-            "en": "Keep-alive requests per idle stretch"
-          }
-        }
-      ],
-      "perModel": true,
-      "status": "keepAlive",
-      "tested": "2.35.1",
-      "riskLabel": {
-        "zh": "消耗配额",
-        "en": "uses quota"
-      },
-      "risk": {
-        "zh": "每次保活是一次真实的模型请求。命中缓存时，它相当于把整段上下文按缓存价读一遍；没命中时，按整段未缓存输入计。上下文越大，花的配额越多。",
-        "en": "Each keep-alive is a real model request. On a cache hit it costs one cached read of the whole context; on a miss it costs the whole context as uncached input. A larger context costs more quota."
-      },
-      "title": {
-        "zh": "提示词缓存保活",
-        "en": "Prompt cache keep-alive"
-      },
-      "description": {
-        "zh": "对话空闲时，客户端自己每 270 秒发一次很小的请求，让服务端的提示词缓存不过期，下一条消息更容易命中缓存。次数用完，或者某一次保活没有命中缓存，这段空闲的保活就停；8 次全部命中时大约覆盖 36 分钟。客户端退出后不再保活。2.35.0 的实测中保活请求按时发出，第 1 次命中了缓存，第 2 次没有命中，所以它不能保证缓存一直有效。2.35.1 上看到保活请求照常发出，没有再测是否命中。",
-        "en": "While a conversation is idle, the client itself sends a very small request every 270 seconds, so that the prompt cache on the server does not expire and the next message is more likely to hit it. It stops for that idle stretch when the count is used up, or when one keep-alive misses the cache; 8 requests that all hit cover about 36 minutes. Nothing is sent after the client quits. In the test on 2.35.0 the requests went out on time; the first one hit the cache and the second one did not, so this does not guarantee that the cache stays valid. On 2.35.1 the request was seen to go out as before; whether it hit the cache was not tested again."
       }
     },
     {
@@ -445,6 +407,29 @@
       "description": {
         "zh": "插件市场的卡片上显示使用人数，例如 Google Drive 旁边显示 149.4K。实测：打开前卡片上没有人数，打开后有。测试时这一项和「插件市场按热门排序和分类筛选」是一起打开的。",
         "en": "The cards of the plugin marketplace show how many people use each plugin, for example 149.4K next to Google Drive. Tested: the cards had no counts before and had them after. In the test this was turned on together with \"Plugin marketplace: most popular first and categories\"."
+      }
+    },
+    {
+      "id": "computer-use",
+      "flags": [
+        "enable-agy-hub-cua-macos"
+      ],
+      "tested": "2.35.2",
+      "riskLabel": {
+        "zh": "操作你的电脑",
+        "en": "controls your Mac"
+      },
+      "risk": {
+        "zh": "打开后，代理可以读取并操作这台 Mac 上的其他应用。它还需要你在系统设置里给 Antigravity「辅助功能」和「屏幕录制」两项权限。这个功能没有公开发布，只在你信任当前任务时让它操作。",
+        "en": "While this is on, the agent can read and operate other apps on this Mac. It also needs the Accessibility and Screen Recording permissions for Antigravity, which you give in System Settings. The feature is not released; let it act only for a task you trust."
+      },
+      "title": {
+        "zh": "电脑操作（Computer Use）",
+        "en": "Computer use"
+      },
+      "description": {
+        "zh": "代理多出一个 computer 子代理，可以操作这台 Mac 上的应用；侧面板多出 Agents 页，显示它正在操作的窗口。用法是在对话里直接说要做什么，主代理会派这个子代理去做；主对话自己不能直接操作电脑。打开后要重启 Antigravity 两次才生效：客户端启动时只读上一次运行记下的开关值。第一次使用时，对话里会出现权限卡片，按卡片给 Antigravity「辅助功能」和「屏幕录制」两项权限，屏幕录制授权后还要再重启一次。实测：重启两次后子代理能启动并出现权限卡片；两项权限授权后能操作应用。默认只做后台操作（读取界面、按控件、截取窗口），不接管屏幕。脚本模式在 macOS 27.2.1 上不可用（它的沙箱程序启动时被系统终止），不影响逐步操作。只支持 macOS 14 及以上。",
+        "en": "Gives the agent a \"computer\" subagent that can operate apps on this Mac, and adds an \"Agents\" page to the side panel that shows the window it works in. To use it, say in a conversation what you want done; the main agent sends this subagent. The main conversation cannot operate the Mac itself. After you turn this on, restart Antigravity twice: when the app starts, it reads only the flag value that its previous run recorded. At the first use a permission card appears in the conversation. Follow it to give Antigravity the Accessibility and Screen Recording permissions; after Screen Recording, restart once more. In the test, after two restarts the subagent started and the permission card appeared; with both permissions given it operated apps. By default it acts in the background only (reads the interface, presses controls, captures a window) and does not take over the screen. Script mode does not work on macOS 27.2.1 (the system ends its sandbox program at start); step-by-step operation is not affected. macOS 14 or later only."
       }
     },
     {

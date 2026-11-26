@@ -8,7 +8,7 @@ Many Antigravity features are controlled by "experiment flags" that Google's ser
 - **No certificate is installed, and HTTPS is not intercepted.**
 - **It runs on your machine only**, has no third-party dependencies, and sends none of your data to third parties. One optional feature downloads a public price list (see "Estimate costs at public prices").
 
-Besides flags, it carries some features that a flag alone cannot give: **prompt cache keep-alive**, the **context usage indicator**, **costs at public prices**, a **Chinese interface** and **conversation titles in Chinese**. "How it works" says how each is done and what it costs.
+Besides flags, it carries some features that a flag alone cannot give: the **context usage indicator**, **costs at public prices**, a **Chinese interface** and **conversation titles in Chinese**. "How it works" says how each is done and what it costs.
 
 macOS only for now. This tool ran on Antigravity 2.35.0, 2.35.1 and 2.35.2; the effect of every curated feature except "Conversation forking" and "Teamwork subagents are not forced to Flash" was seen on 2.35.1 or 2.35.2. The same approach was verified earlier on 2.34.0 with a prototype.
 
@@ -128,7 +128,6 @@ Antigravity ──HTTP──▶ agy-flags (127.0.0.1:47931 / 47932) ──HTTPS�
 - The daemon opens two local forwarding ports, one for each Google host.
 - It sets the two variables in the login session with `launchctl setenv`. An Antigravity that starts afterwards inherits them and sends its requests to your machine.
 - The two responses above are rewritten: the flag values you chose are written into them.
-- Some flags are read per model (at present only the "Prompt cache keep-alive" group). Only while such a feature is on, agy-flags rewrites one more response: the model list (`v1internal:fetchAvailableModels`). It writes these flags into the flags that each model carries.
 - **Every other request and response is streamed through unchanged**, conversations included. A connection upgrade (WebSocket) is tunnelled unchanged too.
 - **Only requests of the desktop app are rewritten.** A request from any other program passes through unchanged; see "Effect on the agy command line" below.
 - A third port (47930) serves the settings page.
@@ -138,7 +137,7 @@ Guarantees by design:
 - The variables are set only after the forwarding ports are listening. The daemon clears them before it stops.
 - If another program has already set these variables, agy-flags does not overwrite them. The page shows the conflict.
 - If a response cannot be rewritten (for example, the server changed the format), it is passed through unchanged.
-- Only the responses named above, with status 200, are rewritten. For a flag the server sends, only the value is replaced; every other field is kept. In the model list nothing changes except the flags that are written into it.
+- Only the responses named above, with status 200, are rewritten. For a flag the server sends, only the value is replaced; every other field is kept.
 - When the daemon crashes, the system starts it again (in under 1 second in our test). The app retries in the meantime.
 
 ### Effect on the agy command line
@@ -146,7 +145,7 @@ Guarantees by design:
 The variables live in the login session, so every program started afterwards inherits them, Terminal included. The Antigravity command line `agy` reads the same variables, so when you run `agy` in a terminal, its requests come to agy-flags too. agy-flags handles this by rewriting requests of the desktop app only:
 
 - The Antigravity programs say who they are in every request: the desktop app sends `antigravity/hub/<version>`, the command line sends `antigravity/cli/<version>` (the `User-Agent` header).
-- Only a request that names the desktop app is rewritten. A request from the command line, or from any other sender, passes through unchanged: the response is not buffered, not decompressed and not changed, so the flag values are the ones the server sent. The keep-alive count and the "Server flags" list on the page also look at requests of the desktop app only.
+- Only a request that names the desktop app is rewritten. A request from the command line, or from any other sender, passes through unchanged: the response is not buffered, not decompressed and not changed, so the flag values are the ones the server sent. The "Server flags" list on the page also looks at requests of the desktop app only.
 - The status area of the settings page shows how many requests of the command line were passed through. The status command shows it too.
 - If a version of the desktop app changes the name it gives itself, agy-flags no longer recognises it and the flags stop taking effect. After two or three minutes of this, the settings page shows a warning with the name the app now uses.
 
@@ -162,12 +161,6 @@ To keep `agy` in one terminal away from agy-flags completely, run this in that t
 ```bash
 unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 ```
-
-### Prompt cache keep-alive
-
-Keep-alive is a feature of the app itself; agy-flags only turns it on. Three conditions must hold together: the flag `enable-prompt-cache-keep-alive` is on; the integer flag `prompt_cache_keep_alive_max_pings` is a positive number (the server does not send this flag, so agy-flags adds it); and both flags are also among the flags that each model in the model list carries. That is why agy-flags rewrites the model list while this feature is on.
-
-While it is on, the app sends a keep-alive request 270 seconds after the last request of a conversation started, and then every 270 seconds, until the count is used up or you send a new message. When one keep-alive misses the cache, the app also stops the keep-alive for that idle stretch (this is read from the program of the app and was seen with the command line version; it was not verified separately on the desktop app). Each keep-alive is a real model request and uses quota.
 
 ### Context usage indicator
 
@@ -250,7 +243,6 @@ Your Google sign-in token and all conversation content pass through the local fo
 - The forwarders and the page listen on `127.0.0.1` only.
 - The upstream addresses come only from `config.json`. The defaults are the two Google hosts above. The connection to the upstream is HTTPS with normal certificate checks.
 - The log records events only (start, how many flags were rewritten, failure reasons). It records no headers and no bodies.
-- To show on the page how many keep-alive requests were sent, the forwarder looks for one fixed label name (`prompt_cache_keep_alive`) in model requests as they pass. It only counts. It does not keep or log the request content.
 - The port that serves the page files (47933) answers read requests only, and serves only the app's own page files. Conversation traffic does not pass through it: the page talks to the language server directly. The indicator component, the cost calculation and the translator that are added to the page script send no network requests. The indicator and the translator write everything into the page as plain text; the cost calculation writes only numbers into data that the app already has. The word list ships with agy-flags; it is not downloaded.
 - The forwarder reads the `User-Agent` of every request to tell whether it comes from the desktop app or from another program. It keeps the last `User-Agent` of each kind of sender in memory, for the status API and for a warning on the page. It does not write it to the log. The Antigravity programs put their program name, version and system type there.
 - The page's API needs a random token. `agy-flags ui` passes it to the page in the part of the address after `#`, which browsers send to no server. The API also checks `Host` and `Origin`, so another website cannot change your settings through your browser.
@@ -273,7 +265,6 @@ Looked at again on 2.35.1:
 - Both flag responses were rewritten, the indicator component was added to the page script, and there was no warning.
 - "Developer settings page": Settings has a Developer page.
 - "Context usage indicator": a ring and a percentage show next to the input box, and a click lists the usage of each part.
-- "Prompt cache keep-alive": the two keep-alive flags were written into all 41 models. About 4 minutes 50 seconds after a message was sent, agy-flags saw the first keep-alive request. The exact interval was not checked separately this time, and neither was a cache hit; the results for both are in the 2.35.0 part below.
 - "Conversation forking": a Fork button shows below a reply, but as on 2.35.0 this does not prove that agy-flags turned it on (the reason is given below).
 - The other 9 curated features: they were turned on together, and for each one the entry or setting named in the catalog was seen. They are the redesigned sidebar (the Customize Sidebar menu, with Inbox Mode), conversation groups (Move to Group), the list of background tasks (the Running page), the Markdown artifact width, opening a file with another app (Open with), the sidebar of the file pane (the Artifacts section and the filter box), the connectors entry of the input box, the telemetry switch per conversation, and the new dictation (Dictation languages). This time only the state with the flags on was looked at; the comparison with the flags off is in the 2.35.0 part below.
 - The "file pane sidebar" was seen this time with `enable-enhanced-file-viewer` as the only file-related flag that was on. This adds the step that was missing on 2.35.0.
@@ -299,6 +290,14 @@ Added to "Features" on 2.35.1 and 2.35.2:
   - "Prompt the agent to use interactive HTML widgets" (`jetski-generative-ui-prompt`): the agent was asked to check its system prompt. Before, it had no section "Interactive HTML Widgets"; after, it had one. How often the agent really makes widgets was not compared.
   - "Plugin marketplace: most popular first and categories" (`enable-plugin-ranking`): before, the plugin marketplace had no "Filter plugins" button; after, it had one, with 9 categories. With Developer Tools chosen, the list said "Most popular first" and was sorted by user count.
   - "Plugin marketplace: user counts" (`enable-marketplace-user-count`): after, the plugin cards showed user counts, for example 149.4K for Google Drive; before, they did not.
+- "Computer use" (`enable-agy-hub-cua-macos`): tested alone on 2.35.2 with macOS 27.2.1.
+  - After only one restart, the "Agents" page of the side panel showed "Live preview unavailable" and the agent had no tool to operate the desktop. When the app starts, it reads only the flag value that its previous run recorded, so two restarts are necessary.
+  - After two restarts, the log of the app showed that the desktop actuator was registered; the "Agents" page showed "No agent is working right now."; the main agent listed a `computer` subagent. Asked to compute 12×34 with Calculator, the subagent started and stopped at the permission card, with both permissions "Missing".
+  - With the flag off again, a retry gave "no desktop actuator connected" (`NO_DESKTOP_ACTUATOR`), and the old permission card did not work. After the flag was turned on again and the app was restarted twice, a new card worked.
+  - With Accessibility and Screen Recording given in System Settings, the subagent operated apps. This step was done by plain use of the app; no item-by-item record was kept.
+  - Script mode does not work: the system ends `agy-desktop-script selftest` while it applies its sandbox profile, and the log of the app says "script sandbox selftest FAILED".
+  - Not tested: foreground actions (`enable-agy-hub-cua-foreground`, which takes over the screen to click and type), other macOS versions, and a conversation in the mode that approves permissions automatically.
+  - The main conversation cannot call the desktop tool itself: the language server gives it to the `computer` subagent only and refuses a call from any other agent (read from the text in the program).
 - "Teamwork subagents are not forced to Flash" (`disable-teamwork-forced-flash-model`): marked "untested". Only the code of the language server was read: it checks this flag when it starts a Teamwork subagent. The flag was not turned on in the app to see the effect.
 - "Chinese interface": on 2.35.2, after turning it on and restarting the client, the sidebar, the start page, the input box and the options below it, the General page of the settings, the automations page, the interface text of the plugin marketplace, the "Worked for 8s" and "60 minutes ago" under each reply, the cost summary and the context usage indicator were in Chinese. The conversation text, the names of conversations, projects and models, and the plugin descriptions that come from the server stayed in English. The test found some gaps, which were filled: the placeholder of the input box, the "now" next to a new conversation in the sidebar, the group names "Mcp Tools" and "Chat Messages" of the indicator, and sentences that the page puts together from parts ("No automations yet" was shown as "否 automations yet"). It also found that a regular expression with only one fixed word turned only the first word of a long English sentence from the server into Chinese (the plugin description "Turn Figma designs into …" got the form of "Turn {n}"); such expressions are no longer used for long sentences. The other settings pages, the menus and the dialogs were not looked at one by one.
 - "Conversation titles in Chinese": on 2.35.2, turned on without a restart of the client; two new conversations, both asked in English. The one that asked "What is the capital of France?" got the title 法国首都查询 ("question about the capital of France"). The message of the other one was an instruction to reply only OK, and its title was 忽略系统指令与回复要求 ("ignore the system instruction and the reply requirement"): the title was in Chinese, but the title model took the message as a request to not follow its own instruction. The settings page counted 2 changed title requests and showed no warning.
@@ -327,13 +326,7 @@ Basics:
 - Conversations work (streamed replies).
 - After the daemon is killed, the system restarts it in under 1 second and the app keeps working.
 - After uninstall, the variables are cleared, the ports are free, and the login item file is gone.
-- Integer flags: tested through the count parameter of keep-alive. The server does not send this parameter; keep-alive requests started only after agy-flags wrote it.
-
-Prompt cache keep-alive:
-
-- With the feature on, the two keep-alive flags were written into all 41 models of the model list. The app fetches the model list again every 6 minutes, and it was rewritten again.
-- The keep-alive requests of an idle conversation went out on time: the first one about 270 seconds after the main request, the second one 270 seconds later. A separate recording program confirmed the count that the agy-flags page shows.
-- The first keep-alive hit the cache. The second one did not. The third and later ones were not tested.
+- Integer flags: tested with "Prompt cache keep-alive", which is now removed. The server does not send its count parameter; keep-alive requests started only after agy-flags wrote it. The page has no integer flag now; an integer can only be written into `config.json` by hand.
 
 Context usage indicator:
 
@@ -372,7 +365,7 @@ Verified on 2.34.0 with a prototype (not this code): when the forwarder stops fo
 - **A Chinese title is made by the model.** agy-flags changes only the instruction, and the model may not always follow it exactly; for example, a title can be longer. If a later client words this instruction differently, agy-flags passes the request through unchanged, the titles are in English again, and the settings page says so.
 - **An estimated cost is not a bill.** It uses public API list prices and counts only input, cache read and output. The prices come from models.dev, not from Google. See "Estimate costs at public prices".
 - **The indicator component is written by agy-flags; it is not Google's original.** It shows context usage only, not the model quota. If the structure of the page script changes after an app update, the component turns itself off until agy-flags is updated.
-- **Keep-alive does not guarantee a cache hit.** In the test the first keep-alive hit the cache and the second one did not. The one that missed is charged as uncached input for the whole context.
+- **"Prompt cache keep-alive" was removed.** In the tests the keep-alive requests went out on time, but they often stopped after one or two: when one keep-alive misses the cache, the app sends no more, and the one that missed is charged as uncached input for the whole context. If you turned it on with agy-flags before, the two flags `enable-prompt-cache-keep-alive` and `prompt_cache_keep_alive_max_pings` are still in `flags` in `config.json`. The page no longer shows them; remove them by hand.
 - **Other programs inherit the variables too.** The variables live in the login session, so every program started afterwards (terminals included) carries them. Almost all programs ignore these names. The Antigravity command line `agy` reads them: its requests go through agy-flags, but they are not rewritten. It therefore needs the agy-flags daemon to be running, and after agy-flags stops or is removed, a terminal that was already open must be quit and opened again. See "Effect on the agy command line". The Antigravity IDE was not tested; by the same rule its requests only pass through.
 - **The desktop app is recognised by the name it gives itself.** If a version of the desktop app changes that name, the flags stop taking effect and the page shows a warning, until agy-flags is updated.
 - **The cloud addresses are fixed in the configuration.** If a version of Antigravity moves to another host, the page shows an "endpoint mismatch" warning. Update agy-flags, or edit `upstreams` in `config.json`.
@@ -431,7 +424,7 @@ npm test
 
 The tests do not call `launchctl`, do not touch the real settings directory, and do not use the network.
 
-- `src/patch.mjs`: pure functions that rewrite the two flag responses and the model list.
+- `src/patch.mjs`: pure functions that rewrite the two flag responses and read the display names of the models.
 - `src/forward.mjs`: the HTTP forwarder for one upstream, the rule that tells from the `User-Agent` who sent a request, and the change of the title request.
 - `src/bundle.mjs`: finds and reads the page files inside the language server program.
 - `src/uipatch.mjs`: the three changes to the page script: the indicator component, the function that computes the costs from the price list, and the translator at the end.

@@ -101,7 +101,6 @@ async function setup(
     JSON.stringify({
       groups: [
         { id: 'plain', flags: ['x'] },
-        { id: 'keep', perModel: true, flags: ['keep-on'], params: [{ flag: 'keep_pings', type: 'int', default: 8 }] },
         { id: 'ctx', uiPatch: 'contextUsageIndicator', flags: ['ctx-on'] },
         { id: 'prices', uiPatch: 'costPrices', feature: 'costPrices', flags: [], requires: ['cost-on'] },
         { id: 'zh', uiPatch: 'l10n', feature: 'uiChinese', flags: [] },
@@ -205,51 +204,20 @@ test('the web API changes overrides, and refuses a value of the wrong type', asy
   assert.deepEqual(loadConfig().flags, { x: true, n: 7, new_count: 2 });
 });
 
-test('per-model flags go into the model list, with a status of their own', async (t) => {
-  const ctx = await setup(t, { flags: { x: true, 'keep-on': true, keep_pings: 3 } });
-  const listed = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
-  // In the global list every override is written.
-  assert.deepEqual(
-    parse(listed).flags.map((f) => f.name),
-    ['x', 'n', 'keep-on', 'keep_pings']
-  );
-  const before = await ctx.handle.getState();
-  assert.equal(before.modelPatch, null);
-  assert.deepEqual(before.perModelFlags.sort(), ['keep-on', 'keep_pings']);
-
-  const models = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' }));
-  const want = { 'keep-on': { boolValue: true }, keep_pings: { intValue: '3' } };
-  assert.deepEqual(models.models.one.modelExperiments.experiments, want);
-  assert.deepEqual(models.models.two.modelExperiments.experiments, { other: { boolValue: true }, ...want });
-
+test('the model list is never changed, and it does not replace the status of the flag response', async (t) => {
+  const ctx = await setup(t, { flags: { x: true } });
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  const res = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  assert.deepEqual(parse(res).models, {
+    one: { displayName: 'Gemini 4 Neon (High)' },
+    two: { displayName: 'Orchestrator (Neon)', modelExperiments: { experiments: { other: { boolValue: true } } } },
+  });
   const state = await ctx.handle.getState();
-  assert.deepEqual(
-    { ok: state.modelPatch.ok, applied: state.modelPatch.applied, models: state.modelPatch.models },
-    { ok: true, applied: ['keep-on', 'keep_pings'], models: 2 }
-  );
-  // The model list must not replace the status or the flag list of listExperiments.
-  assert.deepEqual(state.lastInjection.cloudcode.applied, ['x', 'keep-on', 'keep_pings']);
+  assert.deepEqual(state.lastInjection.cloudcode.applied, ['x']);
   assert.equal(state.lastInjection.cloudcode.kind, 'listExperiments');
   assert.equal(state.server.count, 2);
   assert.deepEqual(state.warnings, []);
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(files.state(), 'utf8')).serverFlags.cloudcode), ['x', 'n']);
-});
-
-test('with injection off, or without per-model overrides, the model list is not changed', async (t) => {
-  const ctx = await setup(t, { flags: { x: true } });
-  const plain = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' }));
-  assert.deepEqual(plain.models.one, { displayName: 'Gemini 4 Neon (High)' });
-  assert.equal((await ctx.handle.getState()).modelPatch, null);
-});
-
-test('keep-alive requests of the client are counted', async (t) => {
-  const ctx = await setup(t);
-  const body = '{"request":{"labels":{"prompt_cache_keep_alive":"true"}}}';
-  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body });
-  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:streamGenerateContent?alt=sse', body: '{"request":{}}' });
-  const state = await ctx.handle.getState();
-  assert.equal(state.keepAlive.count, 1);
-  assert.ok(state.keepAlive.lastAt > 0);
 });
 
 test('turning rewriting off clears the variables but keeps forwarding', async (t) => {
@@ -455,7 +423,7 @@ test('a page script that cannot be changed is served as it is, with a warning', 
 });
 
 test('a request of the command line is not changed and leaves no trace in the flag status', async (t) => {
-  const ctx = await setup(t, { flags: { x: true, 'keep-on': true } });
+  const ctx = await setup(t, { flags: { x: true, 'other-on': true } });
   const original = [{ name: 'x', boolValue: false }, { name: 'n', intValue: '3' }];
   const res = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}', as: 'cli' });
   assert.deepEqual(parse(res).flags, original);
@@ -466,7 +434,6 @@ test('a request of the command line is not changed and leaves no trace in the fl
 
   let state = await ctx.handle.getState();
   assert.deepEqual(state.lastInjection, {});
-  assert.equal(state.modelPatch, null);
   assert.equal(state.server.count, 0);
   assert.deepEqual(state.traffic.byClient, { desktop: 0, cli: 3, other: 0 });
   assert.match(state.traffic.agents.cli, /^antigravity\/cli\//);
@@ -476,7 +443,7 @@ test('a request of the command line is not changed and leaves no trace in the fl
   const desktop = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
   assert.deepEqual(parse(desktop).flags.slice(0, 2), [{ name: 'x', boolValue: true }, { name: 'n', intValue: '3' }]);
   state = await ctx.handle.getState();
-  assert.deepEqual(state.lastInjection.cloudcode.applied, ['x', 'keep-on']);
+  assert.deepEqual(state.lastInjection.cloudcode.applied, ['x', 'other-on']);
   assert.equal(state.server.count, 2);
   assert.deepEqual(state.traffic.byClient, { desktop: 1, cli: 3, other: 0 });
 });

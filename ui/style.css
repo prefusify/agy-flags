@@ -183,7 +183,5 @@ footer { margin-top: 28px; font-size: 12.5px; }
 }
 
 /* A number setting of a feature, and the status lines under it. */
-.param { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13.5px; flex-wrap: wrap; }
-.param input { width: 88px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
 .feature .feature-status { margin: 4px 0; color: var(--muted); font-size: 12.5px; }
 .feature ul.prices { margin: 0 0 6px 14px; font-variant-numeric: tabular-nums; }

@@ -6,7 +6,6 @@ import {
   kindOf,
   modelDisplayNames,
   patchFlagConfig,
-  patchModelExperiments,
   summarizeFlags,
 } from '../src/patch.mjs';
 
@@ -114,60 +113,6 @@ test('name and value validation', () => {
   assert.ok(!isValidFlagName('x'.repeat(161)));
   assert.ok(isValidFlagValue(true) && isValidFlagValue(5) && isValidFlagValue('s'));
   assert.ok(!isValidFlagValue(1.5) && !isValidFlagValue(null) && !isValidFlagValue([]));
-});
-
-test('per-model flags are written into every model, and nothing else in the model changes', () => {
-  const data = {
-    models: {
-      one: { displayName: 'One', modelExperiments: { experiments: { other: { stringValue: 'keep' } } } },
-      two: { displayName: 'Two' },
-    },
-    defaultAgentModelId: 'one',
-  };
-  const result = patchModelExperiments(data, { 'enable-x': true, max_pings: 8 });
-  assert.deepEqual(result, { applied: ['enable-x', 'max_pings'], skipped: [], models: 2 });
-  assert.deepEqual(data, {
-    models: {
-      one: {
-        displayName: 'One',
-        modelExperiments: {
-          experiments: { other: { stringValue: 'keep' }, 'enable-x': { boolValue: true }, max_pings: { intValue: '8' } },
-        },
-      },
-      two: {
-        displayName: 'Two',
-        modelExperiments: { experiments: { 'enable-x': { boolValue: true }, max_pings: { intValue: '8' } } },
-      },
-    },
-    defaultAgentModelId: 'one',
-  });
-});
-
-test('a model that carries the flag with another type keeps its value', () => {
-  const data = {
-    models: {
-      one: { modelExperiments: { experiments: { n: { stringValue: 'text' } } } },
-      two: { modelExperiments: { experiments: { n: { intValue: '1' } } } },
-    },
-  };
-  const result = patchModelExperiments(data, { n: 5 });
-  assert.deepEqual(result.applied, ['n']);
-  assert.equal(result.models, 1);
-  assert.deepEqual(result.skipped, [{ name: 'n', reason: 'a model sends stringValue' }]);
-  assert.deepEqual(data.models.one.modelExperiments.experiments.n, { stringValue: 'text' });
-  assert.deepEqual(data.models.two.modelExperiments.experiments.n, { intValue: '5' });
-});
-
-test('with no per-model flags the model list is not touched', () => {
-  const data = { models: { one: {} } };
-  assert.deepEqual(patchModelExperiments(data, {}), { applied: [], skipped: [], models: 0 });
-  assert.deepEqual(data, { models: { one: {} } });
-});
-
-test('a model list of an unknown shape is refused', () => {
-  assert.throws(() => patchModelExperiments({ models: ['a'] }, { x: true }), /no model list/);
-  assert.throws(() => patchModelExperiments({}, { x: true }), /no model list/);
-  assert.throws(() => patchModelExperiments([], { x: true }), /unexpected response shape/);
 });
 
 test('the display names of the model list are read as short plain text', () => {

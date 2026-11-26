@@ -40,25 +40,6 @@ const CATALOG_FILE = path.join(ROOT, 'src', 'catalog.json');
 const L10N_FILE = path.join(ROOT, 'src', 'l10n', 'zh-CN.json');
 
 /**
- * The flags that the client reads per model. The catalog marks their groups with "perModel".
- * An override for one of them is also written into every model of the model list.
- */
-export function perModelFlagNames(catalogFile = CATALOG_FILE) {
-  const names = new Set();
-  try {
-    const catalog = JSON.parse(fs.readFileSync(catalogFile, 'utf8'));
-    for (const group of catalog.groups || []) {
-      if (group?.perModel !== true) continue;
-      for (const name of group.flags || []) names.add(name);
-      for (const param of group.params || []) names.add(param.flag);
-    }
-  } catch {
-    // without a catalog nothing is written into models
-  }
-  return names;
-}
-
-/**
  * The page features of the catalog: [{ patch, flags }]. Such a feature needs a component
  * added to the client's page script, on top of its flags.
  */
@@ -253,14 +234,11 @@ export async function startDaemon({
 
   const lastInjection = {};
   const lastSignature = {};
-  const perModel = perModelFlagNames(catalogFile);
   const pageGroups = uiPatchGroups(catalogFile);
-  let lastModelPatch = null;
   // The display names in the model list of the client. They are read only while a feature needs them.
   let modelNames = Array.isArray(persisted.modelNames) ? persisted.modelNames.filter((name) => typeof name === 'string').slice(0, 200) : [];
   let lastScript = null;
   let pageError = null;
-  const keepAlive = { count: 0, lastAt: null };
   // Title requests of the desktop app: how many were changed, and how many could not be
   // changed because the client words its instruction differently now.
   const titles = { rewritten: 0, rewrittenAt: null, changed: 0, changedAt: null, skipped: 0 };
@@ -286,12 +264,11 @@ export async function startDaemon({
       skipped: report.skipped || [],
       error: report.error || null,
     };
-    // The model list has its own status. It must not replace the status or the flag list
-    // of the flag response that comes from the same host.
+    // The model list is only read for its display names. It must not replace the status or
+    // the flag list of the flag response that comes from the same host.
     const isModels = report.kind === MODELS_KIND;
     const slot = isModels ? `${report.upstream}:models` : report.upstream;
-    if (isModels) lastModelPatch = { ...entry, upstream: report.upstream, models: report.models ?? 0 };
-    else lastInjection[report.upstream] = entry;
+    if (!isModels) lastInjection[report.upstream] = entry;
     if (isModels && report.ok && Array.isArray(report.names) && report.names.length > 0) {
       if (JSON.stringify(report.names) !== JSON.stringify(modelNames)) {
         modelNames = report.names;
@@ -329,10 +306,6 @@ export async function startDaemon({
       const now = Date.now();
       unrecognized = { firstAt: unrecognized?.firstAt ?? now, lastAt: now, agent: report.agent || '' };
     }
-    if (report.keepAlive) {
-      keepAlive.count += 1;
-      keepAlive.lastAt = Date.now();
-    }
     if (report.title && Object.hasOwn(titles, report.title)) {
       titles[report.title] += 1;
       if (report.title !== 'skipped') titles[`${report.title}At`] = Date.now();
@@ -350,14 +323,6 @@ export async function startDaemon({
 
   const identity = () => ({ pid: process.pid, version: VERSION });
   const getFlags = () => (config.enabled ? config.flags : {});
-  const getModelFlags = () => {
-    const out = {};
-    if (!config.enabled) return out;
-    for (const [name, value] of Object.entries(config.flags)) {
-      if (perModel.has(name)) out[name] = value;
-    }
-    return out;
-  };
   // ---- page files ---------------------------------------------------------------------
 
   /** What the client gets for a flag: the override, else what the server sends. */
@@ -445,7 +410,6 @@ export async function startDaemon({
       name,
       upstream: config.upstreams[name],
       getFlags,
-      getModelFlags,
       wantModelNames: pricesOn,
       wantChineseTitles: titlesOn,
       onConfig,
@@ -595,14 +559,6 @@ export async function startDaemon({
       const made = lastScript?.parts?.[part];
       if (pageFeatureOn(part) && made && !made.ok) warnings.push({ code: 'page-not-changed', detail: made.reason || '' });
     }
-    if (lastModelPatch && Object.keys(getModelFlags()).length > 0) {
-      if (!lastModelPatch.ok) {
-        warnings.push({ code: 'not-patched', detail: `${lastModelPatch.upstream} models: ${lastModelPatch.error || ''}` });
-      }
-      if (lastModelPatch.skipped.length > 0) {
-        warnings.push({ code: 'skipped', detail: lastModelPatch.skipped.map((s) => `${s.name} (${s.reason})`).join(', ') });
-      }
-    }
     // The last title request could not be changed: the title of that conversation is in English.
     if (titlesOn() && titles.changedAt !== null && titles.changedAt > (titles.rewrittenAt ?? 0)) {
       warnings.push({ code: 'titles-not-changed', detail: '' });
@@ -637,10 +593,7 @@ export async function startDaemon({
       changedAt: config.flagsChangedAt,
       server: { version: serverVersion, count: Object.keys(merged).length, seenAt: serverSeenAt },
       lastInjection,
-      perModelFlags: [...perModel],
-      modelPatch: lastModelPatch,
       page: { wanted: wantPage, carried: Object.entries(pageEnv).some(([name, value]) => cl.env?.[name] === value), script: lastScript },
-      keepAlive: { ...keepAlive },
       traffic: { ...traffic, byClient: { ...traffic.byClient }, agents: { ...traffic.agents } },
       warnings,
     };

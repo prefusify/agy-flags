@@ -72,11 +72,6 @@
       flagServerAbsent: '服务端未下发',
       flagOverrideOn: '本工具：开',
       flagOverrideOff: '本工具：关',
-      paramHint: '范围 {min}–{max}',
-      keepAliveNone: '保活请求：常驻进程本次启动以来还没有看到。',
-      keepAliveSeen: '保活请求：已看到 {n} 次，最近一次 {time}。',
-      modelPatchOk: '模型列表：{time} 写入了 {n} 个模型。',
-      modelPatchNever: '模型列表：还没有看到客户端请求。',
       errBadValue: '{name} 的值无效。',
       errGeneric: '操作失败：{detail}',
       errServerType: '{name} 在服务端不是布尔开关，不能改。',
@@ -167,11 +162,6 @@
       flagServerAbsent: 'not sent by the server',
       flagOverrideOn: 'agy-flags: on',
       flagOverrideOff: 'agy-flags: off',
-      paramHint: 'range {min}–{max}',
-      keepAliveNone: 'Keep-alive requests: none seen since the daemon started.',
-      keepAliveSeen: 'Keep-alive requests: {n} seen, the last one at {time}.',
-      modelPatchOk: 'Model list: written into {n} models at {time}.',
-      modelPatchNever: 'Model list: no request from the client yet.',
       errBadValue: 'The value for {name} is not valid.',
       errGeneric: 'Failed: {detail}',
       errServerType: '{name} is not a boolean flag on the server and cannot be changed.',
@@ -288,8 +278,6 @@
   let server = { version: 0, flags: {} };
   let catalog = { groups: [] };
   const drawn = {};
-  /** What the user typed into a number field of a feature that is still off. */
-  const drafts = {};
   let busy = false;
   let toastTimer = null;
 
@@ -387,23 +375,6 @@
     return `${info.type || '?'} = ${String(info.value)}`;
   }
 
-  /** A whole number inside the limits of a parameter, or null. */
-  function parseParam(param, text) {
-    const trimmed = String(text ?? '').trim();
-    if (!/^-?\d{1,15}$/.test(trimmed)) return null;
-    const n = Number(trimmed);
-    if (param.min !== undefined && n < param.min) return null;
-    if (param.max !== undefined && n > param.max) return null;
-    return n;
-  }
-
-  /** The value a parameter has now: the override, else what the user typed, else its default. */
-  function paramValue(param) {
-    const override = state.overrides[param.flag];
-    if (typeof override === 'number') return override;
-    return parseParam(param, drafts[param.flag]) ?? param.default;
-  }
-
   /** What Antigravity loads from us, and whether the change `ok` names was made in its script. */
   function pageLines(group, ok) {
     const page = state.page || {};
@@ -440,14 +411,7 @@
       if (seen.changed > 0) lines.push(t('titlesChanged', { n: seen.changed }));
       return lines;
     }
-    if (group.status !== 'keepAlive') return [];
-    const lines = [];
-    const patch = state.modelPatch;
-    if (patch && patch.ok) lines.push(t('modelPatchOk', { time: timeOf(patch.at), n: patch.models }));
-    else if (!patch) lines.push(t('modelPatchNever'));
-    const ka = state.keepAlive || { count: 0, lastAt: null };
-    lines.push(ka.count > 0 ? t('keepAliveSeen', { n: ka.count, time: timeOf(ka.lastAt) }) : t('keepAliveNone'));
-    return lines;
+    return [];
   }
 
   /** The prices of the models of the client, and the button that downloads the list again. */
@@ -564,18 +528,16 @@
     const flags = group.flags;
     const overriddenOn = flags.filter((f) => state.overrides[f] === true);
     const effectiveOn = flags.filter(flagIsOn);
-    // A feature with a number setting is on only when the number is set too.
-    const paramsSet = (group.params || []).every((p) => typeof state.overrides[p.flag] === 'number' || server.flags[p.flag]);
     const all = effectiveOn.length === flags.length;
     return {
-      on: all && paramsSet,
-      partial: (effectiveOn.length > 0 && effectiveOn.length < flags.length) || (all && !paramsSet),
-      serverOnly: all && paramsSet && overriddenOn.length === 0,
+      on: all,
+      partial: effectiveOn.length > 0 && effectiveOn.length < flags.length,
+      serverOnly: all && overriddenOn.length === 0,
     };
   }
 
   function renderCurated() {
-    draw('curated', [lang, catalog, state.overrides, server.version, state.modelPatch, state.keepAlive, state.page, state.features, state.prices, state.l10n, state.titles], () => {
+    draw('curated', [lang, catalog, state.overrides, server.version, state.page, state.features, state.prices, state.l10n, state.titles], () => {
       const box = $('features');
       box.replaceChildren();
       for (const group of catalog.groups) {
@@ -608,30 +570,6 @@
           if (hasOverride(name)) parts.push(state.overrides[name] ? t('flagOverrideOn') : t('flagOverrideOff'));
           flagList.append(h('li', null, h('code', null, name), ` — ${parts.join(' → ')}`));
         }
-        const params = [];
-        for (const param of group.params || []) {
-          const label = param.label?.[lang] || param.label?.en || param.flag;
-          params.push(
-            h(
-              'label',
-              { class: 'param' },
-              h('span', null, label),
-              h('input', {
-                type: 'number',
-                inputmode: 'numeric',
-                step: 1,
-                min: param.min,
-                max: param.max,
-                value: paramValue(param),
-                dataset: { group: group.id, param: param.flag },
-              }),
-              h('span', { class: 'muted' }, t('paramHint', { min: param.min, max: param.max }))
-            )
-          );
-          const parts = [serverLabel(param.flag)];
-          if (hasOverride(param.flag)) parts.push(`agy-flags: ${String(state.overrides[param.flag])}`);
-          flagList.append(h('li', null, h('code', null, param.flag), ` — ${parts.join(' → ')}`));
-        }
         const status = gs.on ? groupStatusLines(group).map((line) => h('p', { class: 'feature-status' }, line)) : [];
         if (gs.on && group.status === 'prices') status.push(...priceNodes());
         box.append(
@@ -640,7 +578,6 @@
             { class: 'feature' },
             h('div', { class: 'feature-head' }, h('h3', null, title), ...badges, h('span', { class: 'spacer' }), toggle),
             h('p', null, description),
-            ...params,
             ...status,
             flagList.childElementCount > 0 ? flagList : null
           )
@@ -708,25 +645,7 @@
     const changes = {};
     // Off means "back to what the server sends", not "forced off".
     for (const name of group.flags) changes[name] = turnOn ? true : null;
-    for (const param of group.params || []) changes[param.flag] = turnOn ? paramValue(param) : null;
     act('/api/flags', { changes });
-  });
-
-  // A number field of a feature. It is sent at once when the feature is on, and kept for later when it is off.
-  $('features').addEventListener('change', (event) => {
-    const input = event.target.closest('input[data-param]');
-    if (!input || !state) return;
-    const group = catalog.groups.find((g) => g.id === input.dataset.group);
-    const param = group?.params?.find((p) => p.flag === input.dataset.param);
-    if (!param) return;
-    const value = parseParam(param, input.value);
-    if (value === null) {
-      toast(t('errBadValue', { name: param.flag }));
-      input.value = String(paramValue(param));
-      return;
-    }
-    drafts[param.flag] = String(value);
-    if (groupState(group).on && hasOverride(group.flags[0])) act('/api/flags', { changes: { [param.flag]: value } });
   });
 
   // ---- start -------------------------------------------------------------------------
