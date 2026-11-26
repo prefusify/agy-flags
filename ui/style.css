@@ -143,16 +143,7 @@ button:disabled { cursor: default; opacity: 0.55; }
   margin: 12px 0;
 }
 
-.tabs { display: flex; gap: 4px; margin: 20px 0 4px; border-bottom: 1px solid var(--line); }
-.tabs button {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 8px 12px;
-  color: var(--muted);
-  margin-bottom: -1px;
-}
-.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+#curated { margin-top: 20px; }
 
 .feature { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 10px 0; }
 .feature-head { display: flex; align-items: center; gap: 10px; }
@@ -169,46 +160,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
 pre { background: var(--chip); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
 
-.toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
-.toolbar input[type="search"], .toolbar input[type="text"] {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  color: inherit;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 7px 10px;
-}
-.toolbar button[type="submit"] { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; white-space: nowrap; }
-.check { white-space: nowrap; color: var(--muted); }
-
-/* The flag list: one section per group, then the folded list of flags that are left out. */
-.notes p { margin: 4px 0; }
-#list { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
-#list:empty { display: none; }
-.flag-group h3 { margin: 0 0 6px; font-size: 14.5px; }
-.flag-group .count { margin-left: 8px; color: var(--muted); font-weight: normal; font-size: 12.5px; }
-.flag-rows { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
-.flag { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--line); }
-.flag:first-child { border-top: none; }
-.flag-main { flex: 1; min-width: 0; }
-.flag-name { overflow-wrap: anywhere; }
-.flag-desc { margin: 2px 0; font-size: 13.5px; }
-.flag-meta { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
-.removed { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
-.removed summary { cursor: pointer; color: var(--muted); }
-.removed h4 { margin: 12px 0 4px; font-size: 13px; }
-.removed ul { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-.removed li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
-.removed li:first-child { border-top: none; }
-.removed-control { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
 button.small { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; font-size: 12px; }
-
-.seg { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.seg button { background: none; border: none; padding: 4px 10px; color: var(--muted); }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); font-weight: 600; }
 
 footer { margin-top: 28px; font-size: 12.5px; }
 
@@ -226,13 +178,12 @@ footer { margin-top: 28px; font-size: 12.5px; }
 }
 
 @media (max-width: 560px) {
-  .flag, .banner { flex-direction: column; align-items: flex-start; }
+  .banner { flex-direction: column; align-items: flex-start; }
   .tagline { display: none; }
 }
 
 /* A number setting of a feature, and the status lines under it. */
 .param { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13.5px; flex-wrap: wrap; }
-.param input, input.int { width: 88px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
-input.int { flex: none; }
+.param input { width: 88px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
 .feature .feature-status { margin: 4px 0; color: var(--muted); font-size: 12.5px; }
 .feature ul.prices { margin: 0 0 6px 14px; font-variant-numeric: tabular-nums; }

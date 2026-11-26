@@ -42,27 +42,9 @@
       <button id="restart" class="primary" type="button"></button>
     </section>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" role="tab" data-tab="curated" id="tab-curated"></button>
-      <button type="button" role="tab" data-tab="all" id="tab-all"></button>
-    </nav>
-
-    <section id="panel-curated" role="tabpanel">
+    <section id="curated">
       <p class="muted" data-i18n="curatedNote"></p>
       <div id="features"></div>
-    </section>
-
-    <section id="panel-all" role="tabpanel" hidden>
-      <div class="toolbar">
-        <input id="search" type="search" autocomplete="off" spellcheck="false">
-        <label class="check"><input id="only-changed" type="checkbox"> <span data-i18n="onlyChanged"></span></label>
-      </div>
-      <form id="add" class="toolbar">
-        <input id="add-name" type="text" autocomplete="off" spellcheck="false" maxlength="160">
-        <button type="submit" data-i18n="addButton"></button>
-      </form>
-      <div id="all-note" class="notes muted"></div>
-      <div id="list"></div>
     </section>
 
     <footer class="muted" data-i18n="footer"></footer>

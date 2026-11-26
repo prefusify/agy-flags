@@ -9,13 +9,12 @@ import { close, listen, request } from './helpers.mjs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const TOKEN = 'a'.repeat(64);
 
-async function setup(t, { notesFile = path.join(ROOT, 'src', 'flag-notes.json'), failDownload = false } = {}) {
+async function setup(t, { failDownload = false } = {}) {
   const calls = [];
   const server = createApi({
     token: TOKEN,
     uiDir: path.join(ROOT, 'ui'),
     catalogFile: path.join(ROOT, 'src', 'catalog.json'),
-    notesFile,
     identity: () => ({ pid: 1 }),
     getState: async () => ({ enabled: true }),
     getServerFlags: () => ({ version: 1, flags: {} }),
@@ -139,17 +138,8 @@ test('actions are called and their refusals come back as 400', async (t) => {
   assert.equal((await request({ port, path: '/api/nothing', headers: auth })).status, 404);
   const catalog = parse(await request({ port, path: '/api/catalog', headers: auth }));
   assert.ok(catalog.groups.length > 0);
-});
-
-test('the flag notes are served, and a missing notes file gives an empty list', async (t) => {
-  const { port, auth } = await setup(t);
-  assert.equal((await request({ port, path: '/api/flag-notes' })).status, 401);
-  const notes = parse(await request({ port, path: '/api/flag-notes', headers: auth }));
-  assert.ok(notes.groups.length > 0);
-  assert.ok(Object.keys(notes.flags).length > 0);
-
-  const missing = await setup(t, { notesFile: path.join(ROOT, 'no-such-notes.json') });
-  assert.deepEqual(parse(await request({ port: missing.port, path: '/api/flag-notes', headers: missing.auth })), { groups: [], flags: {} });
+  // The flag notes of the old "all flags" list are gone.
+  assert.equal((await request({ port, path: '/api/flag-notes', headers: auth })).status, 404);
 });
 
 test('the ping needs no token', async (t) => {

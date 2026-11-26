@@ -128,7 +128,7 @@
       "requires": [],
       "uiPatch": "l10n",
       "status": "l10n",
-      "tested": "2.35.1",
+      "tested": "2.35.2",
       "riskLabel": {
         "zh": "改变界面加载方式",
         "en": "changes how the page loads"
@@ -152,7 +152,7 @@
       "feature": "chineseTitles",
       "requires": [],
       "status": "titles",
-      "tested": "2.35.1",
+      "tested": "2.35.2",
       "riskLabel": {
         "zh": "改动发给模型的一句指令",
         "en": "changes one sentence sent to the model"
@@ -422,7 +422,7 @@
       "flags": [
         "enable-plugin-ranking"
       ],
-      "tested": "2.35.1",
+      "tested": "2.35.2",
       "title": {
         "zh": "插件市场按热门排序和分类筛选",
         "en": "Plugin marketplace: most popular first and categories"
@@ -437,7 +437,7 @@
       "flags": [
         "enable-marketplace-user-count"
       ],
-      "tested": "2.35.1",
+      "tested": "2.35.2",
       "title": {
         "zh": "插件市场显示使用人数",
         "en": "Plugin marketplace: user counts"

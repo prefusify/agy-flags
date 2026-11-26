@@ -532,81 +532,20 @@ test('an unknown sender next to a working desktop app raises no warning', async 
   assert.equal((await ctx.handle.getState()).traffic.byClient.other, 1);
 });
 
-test('the server flag list says which names the app does not contain, and searches again for new names', async (t) => {
-  // Every name that must be found is written into the page script or into a program, and has
-  // more than one character: no name is found by chance in other bytes of the fake app.
-  const ctx = await setup(t, {
-    flags: { 'page-flag': true, 'custom-gone': true },
-    pageScript: `${fakePageScript()}var g={customFlag:"page-flag"};`,
-    appOptions: { serverText: 'server-seen', asar: 'asar-flag' },
-    upstreamFlags: [
-      { name: 'server-seen', boolValue: false },
-      { name: 'server-gone', boolValue: false },
-    ],
-  });
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
-  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
-  const list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
-  // The first search ends before the server names arrive: wait for one of them.
-  await waitFor(async () => (await list()).usage.unused.includes('server-gone'));
-  const first = await list();
-  assert.equal(first.usage.status, 'ready');
-  assert.deepEqual(first.usage.unused, ['custom-gone', 'server-gone']);
-  assert.ok(ctx.logs.some((line) => line.startsWith('flag usage: the app contains')));
-
-  // A new custom name is searched for, and the page sees a new version of the list.
-  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"asar-flag":true,"also-gone":true}}' });
-  await waitFor(async () => (await list()).usage.unused.includes('also-gone'));
-  const second = await list();
-  assert.deepEqual(second.usage.unused, ['also-gone', 'custom-gone', 'server-gone']);
-  assert.ok(second.version > first.version);
-});
-
-/**
- * A daemon whose search of the app fails: app.asar cannot be opened. Its size and its time
- * stay the same, and the names are the ones the fake server sends, so for the daemon nothing
- * changes between the failure and the next flag response.
- */
-async function setupFailedSearch(t, options) {
-  const ctx = await setup(t, { flags: { x: true, n: 3 }, start: false });
-  const asar = `${ctx.home}/Fake.app/Contents/Resources/app.asar`;
-  fs.chmodSync(asar, 0o000);
-  ctx.handle = await ctx.start(options);
-  const headers = { 'x-agy-flags-token': ctx.handle.token };
-  ctx.list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
-  await waitFor(async () => (await ctx.list()).usage.status === 'failed');
-  assert.match((await ctx.list()).usage.error, /EACCES/);
-  // The file can be read again. A flag response then asks for the search.
-  fs.chmodSync(asar, 0o644);
-  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
-  await waitFor(async () => (await ctx.handle.getState()).server.count === 2);
-  return ctx;
-}
-
-// The user root can open every file, so the failure cannot be made.
-const isRoot = process.getuid?.() === 0;
-
-test('a search of the app that failed is tried again later, also when nothing has changed', { skip: isRoot }, async (t) => {
-  const ctx = await setupFailedSearch(t, { usageRetryMs: 0 });
-  await waitFor(async () => (await ctx.list()).usage.status === 'ready');
-  assert.deepEqual((await ctx.list()).usage.unused, []);
-});
-
-test('a search of the app that failed is not tried again before the waiting time is over', { skip: isRoot }, async (t) => {
-  const ctx = await setupFailedSearch(t, { usageRetryMs: 60_000 });
-  // Much longer than a search of the fake app takes in its own thread.
-  await sleep(400);
-  assert.equal((await ctx.list()).usage.status, 'failed');
-});
-
-test('without app.asar nothing is left out, and the reason is given', async (t) => {
-  const ctx = await setup(t, { flags: { x: true, 'custom-gone': true }, appOptions: { asar: null } });
+test('the page gets what the servers send for each flag', async (t) => {
+  const ctx = await setup(t);
   const headers = { 'x-agy-flags-token': ctx.handle.token };
   const list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
-  await waitFor(async () => (await list()).usage.status === 'failed');
-  const result = await list();
-  assert.deepEqual(result.usage.unused, []);
-  assert.match(result.usage.error, /app\.asar|ENOENT/);
+  const before = await list();
+  assert.deepEqual(before.flags, {});
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
+  const after = await list();
+  assert.ok(after.version > before.version);
+  assert.equal(after.flags.x.type, 'boolValue');
+  assert.equal(after.flags.x.value, false);
+  assert.equal(after.flags.n.type, 'intValue');
+  // Nothing else: the page shows the curated features only.
+  assert.deepEqual(Object.keys(after).sort(), ['flags', 'version']);
 });
 
 // ---- costs at public prices -----------------------------------------------------------
