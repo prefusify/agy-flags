@@ -149,8 +149,6 @@ button:disabled { cursor: default; opacity: 0.55; }
 .feature-head { display: flex; align-items: center; gap: 10px; }
 .feature-head h3 { margin: 0; font-size: 15px; }
 .feature p { margin: 6px 0 8px; }
-.feature ul { list-style: none; margin: 0; padding: 0; color: var(--muted); font-size: 12.5px; }
-.feature li { margin: 2px 0; overflow-wrap: anywhere; }
 
 .badge { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--chip); color: var(--muted); white-space: nowrap; }
 .badge.tested { color: var(--ok); }
@@ -183,5 +181,4 @@ footer { margin-top: 28px; font-size: 12.5px; }
 }
 
 /* A number setting of a feature, and the status lines under it. */
-.feature .feature-status { margin: 4px 0; color: var(--muted); font-size: 12.5px; }
-.feature ul.prices { margin: 0 0 6px 14px; font-variant-numeric: tabular-nums; }
+.feature .feature-status { margin: 4px 0; color: var(--risk); font-size: 12.5px; }

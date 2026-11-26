@@ -33,29 +33,14 @@
       bannerStillRouted: '改写已关闭。Antigravity 还带着旧设置运行，重启后恢复为直连 Google。',
       bannerFlagsChanged: '你改了开关。Antigravity 只在启动时读取开关，重启后才会生效。',
       bannerPageOff: '需要改界面的功能已经关闭。Antigravity 还在从本工具加载界面，重启后恢复为自带的界面。',
-      pageCarried: '界面文件：Antigravity 正在从本工具加载。',
-      pageNotCarried: '界面文件：Antigravity 还没有从本工具加载，重启后生效。',
-      pageScriptOk: '界面脚本：{time} 已加入组件。',
-      pageScriptFail: '界面脚本：没有改动（{reason}）。',
-      pageScriptNone: '界面脚本：还没有被请求。',
-      pageScriptCostOk: '界面脚本：{time} 已加入费用计算。',
+      pageNotCarried: '重启 Antigravity 后生效。',
+      pageScriptFail: '没能改动 Antigravity 的界面（{reason}），这一项暂时不起作用。',
       pageScriptL10nOk: '界面脚本：{time} 已加入翻译程序。',
-      l10nWords: '词条表：{n} 条。',
-      l10nMissing: '词条表：读不出来，界面仍是英文。请重新安装本工具。',
-      titlesSeen: '标题请求：已改写 {n} 次，最近一次 {time}。',
-      titlesNone: '标题请求：还没有看到。新建一个对话后，这里会显示改写的次数。',
-      titlesChanged: '有 {n} 个标题请求没有改写，因为客户端的指令写法变了。',
-      pricesNone: '价格表：还没有下载。',
-      pricesRefreshing: '价格表：正在下载……',
-      pricesOk: '价格表：{n} 个模型，{time} 取自 models.dev 上 Vertex AI 的价格。每天最多更新一次。',
-      pricesError: '价格表：{time} 更新失败（{error}），沿用上一份。',
-      pricesErrorNone: '价格表：{time} 下载失败（{error}）。一小时后自动再试。',
-      pricesNoModels: '还没有看到 Antigravity 的模型清单。Antigravity 下次启动后，这里会列出各模型的价格。',
-      pricesPriced: '有价格的模型（美元 / 每百万 token：输入 / 输出 / 缓存读取）：',
-      pricesRow: '{name}：{input} / {output} / {cache}',
-      pricesRowNoCache: '{name}：{input} / {output} / {cache}（没有缓存价，按输入价算）',
-      pricesMissing: '没有价格的模型（费用仍显示 $0.0000）：{names}',
-      pricesRefresh: '立即更新价格',
+      l10nMissing: '词条表读不出来，界面仍是英文，请重新安装本工具。',
+      titlesChanged: '客户端改了起标题的写法，标题暂时还是英文。',
+      pricesError: '价格表更新失败（{error}），先用上一份。',
+      pricesErrorNone: '价格表下载失败（{error}），一小时后自动再试。',
+      pricesRefresh: '重试',
       errDownload: '下载价格表失败：{detail}',
       restart: '重启 Antigravity',
       restarting: '正在重启…',
@@ -67,11 +52,6 @@
       serverOnBadge: '服务端已开启',
       partial: '部分开启',
       riskConfirm: '这个功能有风险：\n\n{text}\n\n确定开启吗？',
-      flagServerOn: '服务端：开',
-      flagServerOff: '服务端：关',
-      flagServerAbsent: '服务端未下发',
-      flagOverrideOn: '本工具：开',
-      flagOverrideOff: '本工具：关',
       errBadValue: '{name} 的值无效。',
       errGeneric: '操作失败：{detail}',
       errServerType: '{name} 在服务端不是布尔开关，不能改。',
@@ -123,29 +103,14 @@
       bannerStillRouted: 'Rewriting is off. Antigravity still runs with the old settings; restart it to connect directly.',
       bannerFlagsChanged: 'You changed flags. Antigravity reads flags only when it starts; restart it to apply them.',
       bannerPageOff: 'The feature that changes the page is off. Antigravity still loads its page from agy-flags; restart it to go back to its own page.',
-      pageCarried: 'Page files: Antigravity loads them from agy-flags.',
-      pageNotCarried: 'Page files: Antigravity does not load them from agy-flags yet. Restart it.',
-      pageScriptOk: 'Page script: component added at {time}.',
-      pageScriptFail: 'Page script: not changed ({reason}).',
-      pageScriptNone: 'Page script: not requested yet.',
-      pageScriptCostOk: 'Page script: cost calculation added at {time}.',
+      pageNotCarried: 'Restart Antigravity for this to work.',
+      pageScriptFail: 'The Antigravity page could not be changed ({reason}), so this does not work for now.',
       pageScriptL10nOk: 'Page script: translator added at {time}.',
-      l10nWords: 'Word list: {n} entries.',
-      l10nMissing: 'Word list: it cannot be read, so the page stays in English. Install agy-flags again.',
-      titlesSeen: 'Title requests: {n} changed, the last one at {time}.',
-      titlesNone: 'Title requests: none seen yet. Start a new conversation, and the count shows here.',
-      titlesChanged: '{n} title requests were not changed, because the client words its instruction differently now.',
-      pricesNone: 'Price list: not downloaded yet.',
-      pricesRefreshing: 'Price list: downloading…',
-      pricesOk: 'Price list: {n} models, taken at {time} from the Vertex AI prices on models.dev. Updated once a day at most.',
-      pricesError: 'Price list: the update at {time} failed ({error}). The last list is still used.',
-      pricesErrorNone: 'Price list: the download at {time} failed ({error}). It is tried again after one hour.',
-      pricesNoModels: 'The model list of Antigravity was not seen yet. After the next start of Antigravity, the price of each model is listed here.',
-      pricesPriced: 'Models with a price (US dollars per million tokens: input / output / cache read):',
-      pricesRow: '{name}: {input} / {output} / {cache}',
-      pricesRowNoCache: '{name}: {input} / {output} / {cache} (no cache price; the input price is used)',
-      pricesMissing: 'Models without a price (their cost stays $0.0000): {names}',
-      pricesRefresh: 'Update prices now',
+      l10nMissing: 'The word list cannot be read, so the page stays in English; install agy-flags again.',
+      titlesChanged: 'The client now asks for titles differently, so titles are English for now.',
+      pricesError: 'The price list could not be updated ({error}); the last one is still used.',
+      pricesErrorNone: 'The price list could not be downloaded ({error}); it is tried again in an hour.',
+      pricesRefresh: 'Retry',
       errDownload: 'The price list could not be downloaded: {detail}',
       restart: 'Restart Antigravity',
       restarting: 'Restarting…',
@@ -157,11 +122,6 @@
       serverOnBadge: 'already on',
       partial: 'partly on',
       riskConfirm: 'This feature is risky:\n\n{text}\n\nTurn it on?',
-      flagServerOn: 'server: on',
-      flagServerOff: 'server: off',
-      flagServerAbsent: 'not sent by the server',
-      flagOverrideOn: 'agy-flags: on',
-      flagOverrideOff: 'agy-flags: off',
       errBadValue: 'The value for {name} is not valid.',
       errGeneric: 'Failed: {detail}',
       errServerType: '{name} is not a boolean flag on the server and cannot be changed.',
@@ -358,8 +318,6 @@
   // ---- helpers -----------------------------------------------------------------------
 
   const timeOf = (ms) => (ms ? new Date(ms).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB') : '');
-  const dateTimeOf = (ms) =>
-    ms ? new Date(ms).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-GB', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const hasOverride = (name) => Object.hasOwn(state.overrides, name);
 
   /** What the server sends for a flag: true, false, or null when it is absent or not boolean. */
@@ -368,72 +326,24 @@
     return info && info.type === 'boolValue' ? info.value === true : null;
   }
 
-  function serverLabel(name) {
-    const info = server.flags[name];
-    if (!info) return t('flagServerAbsent');
-    if (info.type === 'boolValue') return info.value === true ? t('flagServerOn') : t('flagServerOff');
-    return `${info.type || '?'} = ${String(info.value)}`;
-  }
-
-  /** What Antigravity loads from us, and whether the change `ok` names was made in its script. */
-  function pageLines(group, ok) {
+  /** Problems of the page features only; nothing is shown while all is well. */
+  function pageProblems(group) {
     const page = state.page || {};
-    const lines = [page.carried ? t('pageCarried') : t('pageNotCarried')];
+    if (!page.carried) return [t('pageNotCarried')];
     const part = page.script?.parts?.[group.uiPatch];
-    if (!page.script || !part) lines.push(t('pageScriptNone'));
-    else if (part.ok) lines.push(t(ok, { time: timeOf(page.script.at) }));
-    else lines.push(t('pageScriptFail', { reason: part.reason || '' }));
+    return part && !part.ok ? [t('pageScriptFail', { reason: part.reason || '' })] : [];
+  }
+
+  /** What is wrong with a feature that is on, as plain lines; empty while all is well. */
+  function groupProblems(group) {
+    const lines = group.uiPatch ? pageProblems(group) : [];
+    if (group.status === 'prices' && state.prices?.error) {
+      const prices = state.prices;
+      lines.push(t(prices.fetchedAt ? 'pricesError' : 'pricesErrorNone', { error: prices.error }));
+    }
+    if (group.status === 'l10n' && !state.l10n?.ready) lines.push(t('l10nMissing'));
+    if (group.status === 'titles' && state.titles?.changed > 0) lines.push(t('titlesChanged'));
     return lines;
-  }
-
-  function groupStatusLines(group) {
-    if (group.status === 'page') return pageLines(group, 'pageScriptOk');
-    if (group.status === 'prices') {
-      const lines = pageLines(group, 'pageScriptCostOk');
-      const prices = state.prices || {};
-      if (prices.fetchedAt) lines.push(t('pricesOk', { n: prices.count, time: dateTimeOf(prices.fetchedAt) }));
-      else if (prices.refreshing) lines.push(t('pricesRefreshing'));
-      else if (!prices.error) lines.push(t('pricesNone'));
-      if (prices.error) {
-        lines.push(t(prices.fetchedAt ? 'pricesError' : 'pricesErrorNone', { time: dateTimeOf(prices.errorAt), error: prices.error }));
-      }
-      return lines;
-    }
-    if (group.status === 'l10n') {
-      const lines = pageLines(group, 'pageScriptL10nOk');
-      const l10n = state.l10n || {};
-      lines.push(l10n.ready ? t('l10nWords', { n: l10n.words }) : t('l10nMissing'));
-      return lines;
-    }
-    if (group.status === 'titles') {
-      const seen = state.titles || {};
-      const lines = [seen.rewritten > 0 ? t('titlesSeen', { n: seen.rewritten, time: timeOf(seen.rewrittenAt) }) : t('titlesNone')];
-      if (seen.changed > 0) lines.push(t('titlesChanged', { n: seen.changed }));
-      return lines;
-    }
-    return [];
-  }
-
-  /** The prices of the models of the client, and the button that downloads the list again. */
-  function priceNodes() {
-    const prices = state.prices || {};
-    const nodes = [];
-    const models = prices.models || [];
-    const usd = (n) => `$${Number(n).toFixed(3).replace(/0$/, '')}`;
-    if (prices.fetchedAt && models.length === 0) nodes.push(h('p', { class: 'feature-status' }, t('pricesNoModels')));
-    const priced = models.filter((m) => m.priced);
-    if (priced.length > 0) {
-      const list = h('ul', { class: 'prices' });
-      for (const m of priced) {
-        const key = m.cacheFromInput ? 'pricesRowNoCache' : 'pricesRow';
-        list.append(h('li', null, t(key, { name: m.name, input: usd(m.input), output: usd(m.output), cache: usd(m.cacheRead) })));
-      }
-      nodes.push(h('p', { class: 'feature-status' }, t('pricesPriced')), list);
-    }
-    const missing = models.filter((m) => !m.priced).map((m) => m.name);
-    if (prices.fetchedAt && missing.length > 0) nodes.push(h('p', { class: 'feature-status' }, t('pricesMissing', { names: missing.join(lang === 'zh' ? '、' : ', ') })));
-    nodes.push(h('p', null, h('button', { type: 'button', class: 'small', disabled: prices.refreshing === true, dataset: { pricesRefresh: '1' } }, t('pricesRefresh'))));
-    return nodes;
   }
 
   /** Redraw one part of the page only when what it shows has changed. */
@@ -564,22 +474,18 @@
           },
           h('span')
         );
-        const flagList = h('ul');
-        for (const name of [...group.flags, ...(group.requires || [])]) {
-          const parts = [serverLabel(name)];
-          if (hasOverride(name)) parts.push(state.overrides[name] ? t('flagOverrideOn') : t('flagOverrideOff'));
-          flagList.append(h('li', null, h('code', null, name), ` — ${parts.join(' → ')}`));
+        const status = gs.on ? groupProblems(group).map((line) => h('p', { class: 'feature-status' }, line)) : [];
+        if (gs.on && group.status === 'prices' && state.prices?.error) {
+          const disabled = state.prices.refreshing === true;
+          status.push(h('p', null, h('button', { type: 'button', class: 'small', disabled, dataset: { pricesRefresh: '1' } }, t('pricesRefresh'))));
         }
-        const status = gs.on ? groupStatusLines(group).map((line) => h('p', { class: 'feature-status' }, line)) : [];
-        if (gs.on && group.status === 'prices') status.push(...priceNodes());
         box.append(
           h(
             'article',
             { class: 'feature' },
             h('div', { class: 'feature-head' }, h('h3', null, title), ...badges, h('span', { class: 'spacer' }), toggle),
             h('p', null, description),
-            ...status,
-            flagList.childElementCount > 0 ? flagList : null
+            ...status
           )
         );
       }
