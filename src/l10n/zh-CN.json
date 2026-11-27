@@ -4482,7 +4482,356 @@
   "Open in tab": "在标签页中打开",
   "Set up my environment": "配置开发环境",
   "Conversation link": "对话链接",
-  "View archived in the sidebar (Display options menu).": "在侧边栏查看已归档内容（「显示选项」菜单）。"
+  "View archived in the sidebar (Display options menu).": "在侧边栏查看已归档内容（「显示选项」菜单）。",
+  "(opens in your browser)": "（在浏览器中打开）",
+  "+ Add secret": "+ 添加密钥",
+  "+ Add variable": "+ 添加变量",
+  "API key for Arize AX": "用于 Arize AX 的 API 密钥",
+  "API key for Meshy 3D generation": "用于 Meshy 3D 生成的 API 密钥",
+  "Add your API key or configuration to use this plugin.": "添加你的 API 密钥或配置以使用此插件。",
+  "Administrator access (UAC)": "管理员权限（UAC）",
+  "Agents Options": "Agent 选项",
+  "Allowed hosts": "允许的主机",
+  "Approve & proceed": "批准并继续",
+  "Approve & run": "批准并运行",
+  "Approved — continuing": "已批准 — 继续执行",
+  "Arize API Key": "Arize API 密钥",
+  "Ask anything": "随时提问",
+  "Ask for a follow-up…": "继续追问…",
+  "At least one allowed host is required.": "至少需要填写一个允许的主机。",
+  "Attached": "已附加",
+  "Attachments are currently disabled": "当前已停用附件功能",
+  "Auth format": "认证格式",
+  "Available directly inside your environment. Code running in the environment can read these values.": "可在环境内部直接访问，环境中运行的代码可以读取这些值。",
+  "Bundle installation is not available.": "暂不支持安装捆绑包。",
+  "Bundle membership updates are not available.": "暂不支持更新捆绑包成员。",
+  "Click": "点击",
+  "Cloud automation": "云端自动化",
+  "Cloud automation credentials expire soon — renew to keep runs going.": "云端自动化凭据即将过期 — 请及时续期以保持正常运行。",
+  "Cloud automation credentials expired — re-authorize to resume scheduled runs.": "云端自动化凭据已过期 — 请重新授权以恢复定时运行。",
+  "Cloud trigger": "云端触发器",
+  "Code in the environment can read this value directly. Use Network Secrets for API keys instead.": "环境中运行的代码可以直接读取此值。API 密钥请改用网络密钥。",
+  "Collapse panel": "收起面板",
+  "Comment on plan": "评论计划",
+  "Configuration saved.": "配置已保存。",
+  "Configure global network secrets and environment variables for your remote environments.": "为远程环境配置全局网络密钥和环境变量。",
+  "Configure global network secrets for your remote environments.": "为远程环境配置全局网络密钥。",
+  "Cookie name": "Cookie 名称",
+  "Couldn't load plugin configuration.": "无法加载插件配置。",
+  "Creates a git worktree of this repository, with a working copy of its own.": "为此仓库创建新的 Git Worktree，并提供独立的工作副本。",
+  "Creating git worktree for the forked conversation...": "正在为分叉对话创建 Git Worktree…",
+  "Credentials": "凭据",
+  "Custom Header": "自定义请求头",
+  "Deliverable": "交付物",
+  "Deliverable ready to review.": "交付物已就绪，请审查。",
+  "Design Doc": "设计文档",
+  "Disabled by your organization": "已被你的组织停用",
+  "Doc reviewed": "文档已审阅",
+  "Document created and ready to review.": "文档已创建，请审查。",
+  "Dynatrace API token": "用于 Dynatrace 的 API token",
+  "Earlier": "较早",
+  "Enter value": "输入值",
+  "Enter value (hidden after saving; multiline supported)": "输入值（保存后隐藏，支持多行）",
+  "Env var": "环境变量",
+  "Env var (optional)": "环境变量（可选）",
+  "Environment URL": "环境 URL",
+  "Environment Variable": "环境变量",
+  "Environment error": "环境错误",
+  "Environment paused": "环境已暂停",
+  "Environment variable name can only use letters, numbers, and underscores, and cannot start with a number or $.": "环境变量名只能包含字母、数字和下划线，且不能以数字或 $ 开头。",
+  "Environment variables": "环境变量",
+  "Everything here is handled. Switch back to All to see the rest of your stream.": "当前内容已全部处理完毕。切换回「全部」可查看其余动态。",
+  "Expand full view": "展开完整视图",
+  "Expand panel": "展开面板",
+  "Failed to save configuration.": "保存配置失败。",
+  "Failed to save credential.": "保存凭据失败。",
+  "Feeds": "动态",
+  "File system provider not available": "文件系统提供程序不可用",
+  "Filter agents…": "筛选 Agent…",
+  "Filter feed": "筛选动态",
+  "Finder": "访达",
+  "Fork in Current Folder": "在当前文件夹中分叉",
+  "Fork in New Git Worktree": "在新建 Git Worktree 中分叉",
+  "Full screen": "全屏",
+  "Global (all projects)": "全局（所有项目）",
+  "Google Search": "Google 搜索",
+  "Grant one-time administrator access": "授予一次性管理员权限",
+  "Grant permission": "授予权限",
+  "Header name": "请求头名称",
+  "Header prefix (optional)": "请求头前缀（可选）",
+  "Hide from Sidebar": "从侧边栏隐藏",
+  "Input required": "需要输入",
+  "Inspect": "查看详情",
+  "Kept outside your environment and sent only on requests to allowed hosts.": "保存在环境之外，仅在向允许的主机发送请求时附带。",
+  "Key": "键名",
+  "Key can only use letters, numbers, and underscores, and cannot start with a number or $.": "键名只能包含字母、数字和下划线，且不能以数字或 $ 开头。",
+  "Key is required.": "请填写键名。",
+  "Korean": "韩语",
+  "Latest screenshot": "最新截图",
+  "Loading Remote Control QR code…": "正在加载远程控制二维码…",
+  "Looks good": "没问题",
+  "Mark done": "标记完成",
+  "Marked done": "已标记为完成",
+  "Media upload failed after 3 attempts.": "媒体上传重试 3 次后仍失败。",
+  "Mention suggestions": "提及建议",
+  "Name is required.": "请填写名称。",
+  "Needs permission to continue.": "需要权限才能继续。",
+  "Needs you": "待你处理",
+  "Network Secret": "网络密钥",
+  "Network secrets": "网络密钥",
+  "New Personal Agent": "新建个人 Agent",
+  "New secret value": "新密钥值",
+  "New Team Agent": "新建团队 Agent",
+  "New value": "新值",
+  "Next (newer) match (Enter)": "下一个（较新）匹配项（Enter）",
+  "No environment variables saved for this project yet.": "此项目尚未保存环境变量。",
+  "No global environment variables saved yet.": "尚未保存全局环境变量。",
+  "No global network secrets saved yet.": "尚未保存全局网络密钥。",
+  "No KEY=VALUE entries found in .env text.": "在 .env 文本中未找到 KEY=VALUE 条目。",
+  "No matches on this page.": "当前页无匹配项。",
+  "No network secrets saved for this project yet.": "此项目尚未保存网络密钥。",
+  "Non-admin": "非管理员",
+  "Not available on your plan": "当前套餐暂不可用",
+  "Nothing in this view": "当前视图暂无内容",
+  "Nothing needs your attention right now. New deliverables, docs, and agent updates will appear here.": "当前没有需要你关注的事项。新的交付物、文档和 Agent 动态会显示在这里。",
+  "Org recommended": "组织推荐",
+  "Org required": "组织必需",
+  "Organization prepaid wallet is empty": "组织预付余额已耗尽",
+  "Our servers are experiencing high traffic right now, please try again in a minute.": "服务器当前流量较高，请稍等一分钟后重试。",
+  "Parent conversation": "父对话",
+  "Parent thread": "父对话",
+  "Parse .env": "解析 .env",
+  "Paste .env": "粘贴 .env",
+  "Paste .env entries": "粘贴 .env 条目",
+  "Paste a single KEY=VALUE line or fill fields below": "粘贴单行 KEY=VALUE，或直接填写下方字段",
+  "Paste secret key (hidden after saving)": "粘贴密钥（保存后隐藏）",
+  "Pick →": "选择 →",
+  "Pick this back up…": "继续此对话…",
+  "Plugin installation is not available.": "暂不支持安装插件。",
+  "Plugin removal is not available.": "暂不支持移除插件。",
+  "Plugins are unavailable until your organization's policy loads.": "组织策略加载完成前暂不可用插件。",
+  "Previous (older) match (Shift+Enter)": "上一个（较旧）匹配项（Shift+Enter）",
+  "Published site ready to view.": "已发布站点，可立即查看。",
+  "Pushing...": "推送中…",
+  "Query": "查询参数",
+  "Query param": "查询参数名",
+  "Question waiting": "等待回答问题",
+  "Ready for your review and sign-off.": "已就绪，等待你审查并确认。",
+  "Ready for your review.": "已就绪，等待你审查。",
+  "Ready to review": "待审查",
+  "Remove or retry failed attachments before sending": "发送前请移除或重试上传失败的附件",
+  "Replace Secret": "替换密钥",
+  "Replace Variable": "替换变量",
+  "Reply in thread": "在讨论串中回复",
+  "Reply, or approve with changes…": "回复，或附带修改意见批准…",
+  "Required by your organization": "由你的组织强制要求",
+  "Resize details panel": "调整详情面板宽度",
+  "Respond": "回复",
+  "Resume it to see its git changes.": "恢复环境后即可查看 Git 更改。",
+  "Review details": "查看详情",
+  "Run cleared": "已清除运行记录",
+  "Run error": "运行错误",
+  "Run now": "立即运行",
+  "Save Secret": "保存密钥",
+  "Save Variable": "保存变量",
+  "Saved securely. Secret values are hidden after saving.": "已安全保存。密钥值在保存后将隐藏显示。",
+  "Scheduled automation": "定时自动化",
+  "Scheduled automation is running now.": "定时自动化正在运行中。",
+  "Scheduled run": "定时运行",
+  "Scheduled run finished.": "定时运行已完成。",
+  "Scheduled run is waiting for your input.": "定时运行正在等待你的输入。",
+  "Search by name or identity…": "按名称或身份搜索…",
+  "Search settings": "搜索设置",
+  "Searching messages…": "正在搜索消息…",
+  "Secret value": "密钥值",
+  "Secret value is required.": "请填写密钥值。",
+  "Sending is currently disabled": "当前已禁用发送",
+  "Sending…": "发送中…",
+  "Sent as a quiet FYI (delivered on next turn without waking agent)": "已作为静默 FYI 发送（将在下一轮送达，不会唤醒 Agent）",
+  "Settings search results": "设置搜索结果",
+  "Side Question Conversation Log": "旁支问题对话日志",
+  "Skipped command": "已跳过命令",
+  "Steer while it works…": "在运行期间随时引导…",
+  "Subagent cleared": "已清除 Subagent",
+  "Subagent is blocked and needs your decision.": "Subagent 已阻塞，需要你做出决定。",
+  "Subagent needs approval": "Subagent 需要批准",
+  "Subagent stopped with an error before finishing.": "Subagent 在完成前因错误停止。",
+  "Subagent worker": "Subagent 成员",
+  "Type a message or attach an image to send": "输入消息或添加图片后发送",
+  "Type a message to send": "输入要发送的消息",
+  "Unable to load preview media.": "无法加载预览媒体。",
+  "Unread message": "未读消息",
+  "Untitled conversation": "未命名对话",
+  "Upgrade for access": "升级以获取访问权限",
+  "Username (optional)": "用户名（可选）",
+  "Value is required.": "请填写值。",
+  "View plan": "查看计划",
+  "Waiting for attachments to finish uploading…": "等待附件上传完成…",
+  "Waiting for the agents’ windows…": "正在等待各 Agent 窗口…",
+  "Waiting for tool permission approval — click Open in full conversation (↗) to approve": "正在等待工具权限批准 — 点击「在完整对话中打开」（↗）进行批准",
+  "Waiting for video…": "等待视频画面…",
+  "Waiting for you to finish signing in…": "等待你完成登录…",
+  "You have exhausted your capacity on this model.": "你在此模型上的可用容量已耗尽。",
+  "You have exhausted your quota on this model.": "你在此模型上的配额已耗尽。",
+  "You're all caught up": "已全部处理完毕",
+  "Your organization has run out of Antigravity funds. Prompt generation is paused until your administrator adds funds.": "你所在组织的 Antigravity 余额已用尽。在管理员充值前，提示词生成已暂停。",
+  "Your quota for this model has been reached.": "你在此模型上的配额已用尽。",
+  "Reading terminal:": "读取终端中：",
+  "Cookie name is required.": "请填写 Cookie 名称。",
+  "Query param is required.": "请填写查询参数名。",
+  "Google Doc · Design Doc": "Google Doc · 设计文档",
+  "Generating worktree name took > 7 seconds": "生成 Worktree 名称耗时超过 7 秒",
+  "Generating workspace name took > 7 seconds": "生成工作区名称耗时超过 7 秒",
+  "Side Panel header": "侧面板标题栏",
+  "Overview header": "概览标题栏",
+  "File Viewer header": "文件查看器标题栏",
+  "Directory Viewer header": "目录查看器标题栏",
+  "Virtual File Viewer header": "虚拟文件查看器标题栏",
+  "Artifact Viewer header": "Artifact 查看器标题栏",
+  "Review header": "审查标题栏",
+  "Browser Subagent Viewer header": "浏览器 Subagent 查看器标题栏",
+  "Background Task Output header": "后台任务输出标题栏",
+  "Custom View header": "自定义视图标题栏",
+  "Sidecar View header": "伴生服务视图标题栏",
+  "MCP App header": "MCP 应用标题栏",
+  "Workspace File Explorer header": "工作区文件浏览器标题栏",
+  "Terminal header": "终端标题栏",
+  "Subagent Conversation header": "Subagent 对话标题栏",
+  "Side Question header": "旁支问题标题栏",
+  "Subagent needs approval — restore split view": "Subagent 需要批准 — 恢复分屏视图",
+  "Question waiting — restore split view": "等待回答问题 — 恢复分屏视图",
+  "Action required — restore split view": "需要操作 — 恢复分屏视图",
+  "Canceling — restore split view": "取消中 — 恢复分屏视图",
+  "Compacting — restore split view": "压缩中 — 恢复分屏视图",
+  "Working — restore split view": "处理中 — 恢复分屏视图",
+  "Unread message — restore split view": "未读消息 — 恢复分屏视图",
+  "Plugins are disabled by your organization.": "插件功能已被你的组织停用。",
+  "The plugin marketplace is disabled by your organization.": "插件市场已被你的组织停用。",
+  "Folders cannot be attached": "无法附加文件夹",
+  "Attach image": "附加图片",
+  "1 reply": "1 条回复",
+  "THREAD": "讨论串",
+  "TOPIC": "主题",
+  "Group chat · Thread": "群聊 · 讨论串",
+  "DM · Thread": "私信 · 讨论串",
+  "Topic": "主题",
+  "Link copied to clipboard": "链接已复制到剪贴板",
+  "Show link previews": "显示链接预览",
+  "Hide link previews": "隐藏链接预览",
+  "Former user": "原用户",
+  "Reply in Thread": "在讨论串中回复",
+  "Hide matching messages list": "隐藏匹配消息列表",
+  "Show matching messages list": "显示匹配消息列表",
+  "Load older": "加载更早消息",
+  "Thread reply": "讨论串回复",
+  "In thread": "讨论串中",
+  "Load more results": "加载更多结果",
+  "Hub": "中心",
+  "Alert": "提醒",
+  "Rocket": "火箭",
+  "Bug": "缺陷",
+  "Idea": "灵感",
+  "Bolt": "闪电",
+  "Package": "软件包",
+  "1 task": "1 个任务",
+  "Executing notebook cells": "正在执行 Notebook 单元格",
+  "Executed notebook cells": "已执行 Notebook 单元格",
+  "Failed to execute notebook cells": "执行 Notebook 单元格失败",
+  ", not available, opens in your browser": "，不可用，将在浏览器中打开",
+  "Image exceeds the 20 MB maximum size": "图片大小超过 20 MB 上限",
+  "Image dimensions exceed the maximum transcode limit": "图片尺寸超出最大转码限制",
+  "File exceeds the 200MB display limit, so it can't be opened or downloaded here.": "文件超过 200MB 显示上限，无法在此处打开或下载。",
+  "Folder is nested deeper than 30": "文件夹嵌套层级超过 30 层",
+  "No commit message was generated": "未生成提交信息",
+  "Could not apply the selected permissions.": "无法应用所选权限。",
+  "Data & Analytics": "数据与分析",
+  "Design": "设计",
+  "Antigravity can review code, trace errors, and ship across your stack.": "Antigravity 可以审查代码、排查错误，并在你的整个技术栈中完成交付。",
+  "Antigravity can turn notes and docs into plans, decks, and action items.": "Antigravity 可以将笔记和文档整理为计划、演示文稿和待办事项。",
+  "Antigravity can query tables, clean spreadsheets, and chart trends.": "Antigravity 可以查询数据表、清理电子表格，并绘制趋势图表。",
+  "Antigravity can synthesize scientific literature, build interactive visualizations, and run workflows across biology, chemistry, and more.": "Antigravity 可以综合分析科学文献、构建交互式可视化图表，并运行覆盖生物学、化学等学科的工作流。",
+  "Antigravity can turn your designs into live code, briefs, and assets.": "Antigravity 可以将你的设计转化为可运行的代码、设计简报和素材资源。",
+  "Antigravity can draft docs, analyze files, and organize your work.": "Antigravity 可以起草文档、分析文件，并帮你梳理工作内容。",
+  "Build me a web app": "帮我开发一个 Web 应用",
+  "Add a Gemini feature to my app": "为我的应用添加 Gemini 功能",
+  "Bring over my setup from other Agentic Developer Tools": "从其他 Agentic 开发工具迁移我的配置",
+  "Brief me on my meetings every morning": "每天早上向我汇报当日会议",
+  "Catch up on my recent meeting notes": "帮我梳理最近的会议纪要",
+  "Turn a doc into a slide deck": "将文档转化为演示文稿",
+  "Check a BigQuery table for anomalies": "检查 BigQuery 数据表中的异常",
+  "Build a dashboard from my sheet": "根据我的电子表格构建仪表盘",
+  "Analyze user trends and retention cohorts": "分析用户趋势与留存队列",
+  "Query research databases for recent papers on a topic": "在科研数据库中检索某主题的最新论文",
+  "Explore the proteins behind our 24-hour body clock.": "探索调控人体 24 小时生物钟的蛋白质。",
+  "Predict the functional impact of a genomic variant": "预测基因组变异的功能影响",
+  "Explore the synthesis of aspirin.": "探索阿司匹林的合成过程。",
+  "Build a page from my Figma design": "根据我的 Figma 设计构建页面",
+  "Turn a screenshot into a web page": "将截图转化为网页",
+  "Write a design brief from my research": "根据我的调研资料撰写设计简报",
+  "Summarize a spreadsheet": "总结电子表格内容",
+  "Audio transcription session timed out waiting for ready": "语音转写会话等待就绪超时",
+  "Jetski Chat": "Jetski 对话",
+  "Your Dynatrace environment URL": "你的 Dynatrace 环境 URL",
+  "Platform Token": "平台 token",
+  "Meshy API Key": "Meshy API 密钥",
+  "Error: File system provider not available": "错误：文件系统提供程序不可用",
+  "Error: readDir is not supported by the file system provider": "错误：文件系统提供程序不支持 readDir",
+  "readDir is not supported by the file system provider": "文件系统提供程序不支持 readDir",
+  "Open thread": "打开讨论串",
+  "Loading more results…": "正在加载更多结果…",
+  "Explored file": "已探索文件",
+  "Explored files": "已探索文件",
+  "Explored artifact": "已探索 Artifact",
+  "Explored artifacts": "已探索 Artifact",
+  "Ran commands": "已运行命令",
+  "Edited file": "已编辑文件",
+  "Edited files": "已编辑文件",
+  "Edited artifact": "已编辑 Artifact",
+  "Edited artifacts": "已编辑 Artifact",
+  "Editing file": "正在编辑文件",
+  "Editing artifact": "正在编辑 Artifact",
+  "parent conversation": "父对话",
+  "Failed to delete credential.": "删除凭据失败。",
+  "Add reaction": "添加回应",
+  "Add secret": "添加密钥",
+  "Add env secret": "添加环境变量密钥",
+  "Open conversation": "打开对话",
+  "Open linked conversation": "打开关联对话",
+  "Open parent": "打开父对话",
+  "Open parent conversation": "打开父对话",
+  "Open doc": "打开文档",
+  "Close search": "关闭搜索",
+  "Close search (Esc)": "关闭搜索（Esc）",
+  "Close details": "关闭详情",
+  "Back to split view": "返回分屏视图",
+  "Waiting on you": "等待你处理",
+  "Conversation input": "对话输入框",
+  "Remove attachments before sending": "发送前请移除附件",
+  "Add Environment Variable": "添加环境变量",
+  "Add Network Secret": "添加网络密钥",
+  "Delete Environment Variable": "删除环境变量",
+  "Delete Network Secret": "删除网络密钥",
+  "Upload failed": "上传失败",
+  "Upload failed. Click to retry.": "上传失败。点击重试。",
+  "Loading app...": "正在加载应用…",
+  "Loading plugin...": "正在加载插件…",
+  "Loading bundle...": "正在加载捆绑包…",
+  "Add Reaction": "添加回应",
+  "Stop Side Question": "停止旁支问题",
+  "Started during the main conversation": "发起于主对话期间",
+  "Started from the main conversation": "发起自主对话",
+  "Started during the subagent conversation": "发起于 Subagent 对话期间",
+  "Started from the subagent conversation": "发起自 Subagent 对话",
+  "Started during the main conversation. Show in main conversation": "发起于主对话期间。在主对话中显示",
+  "Started from the main conversation. Show in main conversation": "发起自主对话。在主对话中显示",
+  "Started during the subagent conversation. Show in subagent conversation": "发起于 Subagent 对话期间。在 Subagent 对话中显示",
+  "Started from the subagent conversation. Show in subagent conversation": "发起自 Subagent 对话。在 Subagent 对话中显示",
+  "Open System Settings ↗": "打开系统设置 ↗",
+  "Open Remote Control": "打开远程控制",
+  "Open in Remote": "在远程打开",
+  "Open Tabs": "已打开的标签页",
+  "Failed to read file": "读取文件失败",
+  "Using browser · Thinking…": "使用浏览器中 · 思考中…"
  },
  "patterns": [
   [
@@ -10416,6 +10765,586 @@
   [
    "^\\(([\\d,]+) tokens\\) · estimated$",
    "（$1 个 token）· 估算"
+  ],
+  [
+   "^Answered: \"(.+?)\"$",
+   "已回答：「$1」"
+  ],
+  [
+   "^Couldn't load plugin configuration: (.+?)$",
+   "无法加载插件配置：$1"
+  ],
+  [
+   "^Create plugin, (.+?)$",
+   "创建插件，$1"
+  ],
+  [
+   "^Enter a valid public https:// URL for (.+?) with only a hostname \\(no path, port, query, or IP address\\)\\.$",
+   "请为 $1 输入有效的公开 https:// URL，且仅包含主机名（不含路径、端口、查询参数或 IP 地址）。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by another credential in this scope\\. Choose a different name or update the existing credential\\.$",
+   "环境变量「$1」已被此范围内的其他凭据占用，请更换名称或更新现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by another credential in this scope\\. Choose a different key or replace the existing credential\\.$",
+   "环境变量「$1」已被此范围内的其他凭据占用，请更换键名或替换现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by another credential in this scope\\. Choose a different name or replace the existing credential\\.$",
+   "环境变量「$1」已被此范围内的其他凭据占用，请更换名称或替换现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by \"(.+?)\" in this scope\\. Choose a different key or replace the existing credential\\.$",
+   "环境变量「$1」已被此范围内的「$2」占用，请更换键名或替换现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by \"(.+?)\" in this scope\\. Choose a different name or replace the existing credential\\.$",
+   "环境变量「$1」已被此范围内的「$2」占用，请更换名称或替换现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by an Environment Variable \\(\"(.+?)\"\\) in this scope\\. Choose a different name or delete the existing credential\\.$",
+   "环境变量「$1」已被此范围内的环境变量（「$2」）占用，请更换名称或删除现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by an Environment Variable in this scope\\. Choose a different name or delete the existing credential\\.$",
+   "环境变量「$1」已被此范围内的环境变量占用，请更换名称或删除现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by a Network Secret \\(\"(.+?)\"\\) in this scope\\. Choose a different key or delete the existing credential\\.$",
+   "环境变量「$1」已被此范围内的网络密钥（「$2」）占用，请更换键名或删除现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is already used by a Network Secret in this scope\\. Choose a different key or delete the existing credential\\.$",
+   "环境变量「$1」已被此范围内的网络密钥占用，请更换键名或删除现有凭据。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is reserved by the system and cannot be used\\. Choose a different key\\.$",
+   "环境变量「$1」为系统保留变量，无法使用，请更换键名。"
+  ],
+  [
+   "^Environment variable \"(.+?)\" is reserved by the system and cannot be used\\. Choose a different name\\.$",
+   "环境变量「$1」为系统保留变量，无法使用，请更换名称。"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekdays (.+?) · This computer$",
+   "工作日每小时（$1 至 $2，$3）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekdays · This computer$",
+   "工作日每小时（$1 至 $2）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekdays (.+?) · Remote$",
+   "工作日每小时（$1 至 $2，$3）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekdays · Remote$",
+   "工作日每小时（$1 至 $2）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekends (.+?) · This computer$",
+   "周末每小时（$1 至 $2，$3）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekends · This computer$",
+   "周末每小时（$1 至 $2）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekends (.+?) · Remote$",
+   "周末每小时（$1 至 $2，$3）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on weekends · Remote$",
+   "周末每小时（$1 至 $2）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on (.+?) · This computer$",
+   "每小时（$1 至 $2，$3）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on (.+?) · Remote$",
+   "每小时（$1 至 $2，$3）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M) (.+?) · This computer$",
+   "每小时（$1 至 $2，$3）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M) · This computer$",
+   "每小时（$1 至 $2）· 本机"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M) (.+?) · Remote$",
+   "每小时（$1 至 $2，$3）· 远程"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M) · Remote$",
+   "每小时（$1 至 $2）· 远程"
+  ],
+  [
+   "^⚠️ Failed to render Mermaid diagram: Invalid mermaid header: \"(.+?)\"\\. Expected \"graph TD\", \"flowchart LR\", \"stateDiagram-v2\", etc\\.\\. Supported types: (.+?)\\.$",
+   "⚠️ 渲染 Mermaid 图表失败：无效的 Mermaid 头部「$1」，期望为 \"graph TD\"、\"flowchart LR\"、\"stateDiagram-v2\" 等。支持的类型：$2。"
+  ],
+  [
+   "^Maximum (\\d+) attachments? reached$",
+   "最多可添加 $1 个附件"
+  ],
+  [
+   "^No messages matching \"(.+?)\" in loaded messages\\.$",
+   "已加载的消息中未找到与「$1」匹配的内容。"
+  ],
+  [
+   "^No messages matching \"(.+?)\"\\.$",
+   "未找到与「$1」匹配的消息。"
+  ],
+  [
+   "^No settings match \"(.+?)\"$",
+   "未找到与「$1」匹配的设置"
+  ],
+  [
+   "^No settings match ([^\"]+)$",
+   "未找到与「$1」匹配的设置"
+  ],
+  [
+   "^Permission: (.+?)$",
+   "权限：$1"
+  ],
+  [
+   "^Project: (.+?)$",
+   "项目：$1"
+  ],
+  [
+   "^Replace environment variable: (.+?)$",
+   "替换环境变量：$1"
+  ],
+  [
+   "^Replace secret: (.+?)$",
+   "替换密钥：$1"
+  ],
+  [
+   "^Replace (.+?)$",
+   "替换 $1"
+  ],
+  [
+   "^Retry loading (.+?) configuration$",
+   "重试加载 $1 配置"
+  ],
+  [
+   "^Run failed: (.+?)$",
+   "运行失败：$1"
+  ],
+  [
+   "^View Screenshot for (.+?) full screen$",
+   "全屏查看 $1 的截图"
+  ],
+  [
+   "^View (.+?) full screen$",
+   "全屏查看 $1"
+  ],
+  [
+   "^Screenshot for (.+?)$",
+   "$1 的截图"
+  ],
+  [
+   "^Searching (\\d+) loaded messages? — older history available$",
+   "正在搜索已加载的 $1 条消息 — 可加载更早历史"
+  ],
+  [
+   "^Show in Sidebar \\((\\d+)/(\\d+)\\)$",
+   "在侧边栏中显示（$1/$2）"
+  ],
+  [
+   "^Use (Fola|Arlo|Cleo|Finn|Gero|Lora|Neno|Olin|Tari)$",
+   "使用 $1"
+  ],
+  [
+   "^View (.+?)$",
+   "查看 $1"
+  ],
+  [
+   "^View image attachment (\\d+)$",
+   "查看图片附件 $1"
+  ],
+  [
+   "^View video attachment (\\d+)$",
+   "查看视频附件 $1"
+  ],
+  [
+   "^Your quota for (.+?) has been reached\\.$",
+   "$1 的配额已用尽。"
+  ],
+  [
+   "^(.+?) \\(Disabled\\)$",
+   "$1（已停用）"
+  ],
+  [
+   "^(.+?) added$",
+   "已添加 $1"
+  ],
+  [
+   "^(\\d+) agents? (?:is|are) working quietly in the background\\. Anything that needs your input will show up here\\.$",
+   "有 $1 个 Agent 正在后台静默工作，需要你输入的内容会显示在这里。"
+  ],
+  [
+   "^(\\d+) files?$",
+   "$1 个文件"
+  ],
+  [
+   "^(\\d+) needing your input$",
+   "$1 项等待你输入"
+  ],
+  [
+   "^(\\d+) of (\\d+) steps done$",
+   "已完成 $1/$2 步"
+  ],
+  [
+   "^(https?://[^ ]+) says$",
+   "$1 显示"
+  ],
+  [
+   "^(.+?) spawned from$",
+   "$1 派生自"
+  ],
+  [
+   "^(.+?) tab, (\\d+) needing your input$",
+   "$1 标签页，$2 项等待你输入"
+  ],
+  [
+   "^(.+?) tab, (\\d+) items?$",
+   "$1 标签页，$2 项"
+  ],
+  [
+   "^(.+?) tab, (.+?)$",
+   "$1 标签页，$2"
+  ],
+  [
+   "^(\\d+) tasks? running — restore split view$",
+   "$1 个任务运行中 — 恢复分屏视图"
+  ],
+  [
+   "^(.+?) — restore split view$",
+   "$1 — 恢复分屏视图"
+  ],
+  [
+   "^(\\d+) plugins?\\. Managed by your organization\\. Disabling the bundle turns off its plugins\\.$",
+   "共 $1 个插件，由你的组织管理。停用此捆绑包会关闭其中的插件。"
+  ],
+  [
+   "^(\\d+) plugins?\\. Managed by your organization\\.$",
+   "共 $1 个插件，由你的组织管理。"
+  ],
+  [
+   "^Artifact · \\+(\\d+) more$",
+   "Artifact · 另有 $1 项"
+  ],
+  [
+   "^Link · \\+(\\d+) more$",
+   "链接 · 另有 $1 项"
+  ],
+  [
+   "^(.+?) · \\+(\\d+) more$",
+   "$1 · 另有 $2 项"
+  ],
+  [
+   "^· \\+(\\d+) more$",
+   "· 另有 $1 项"
+  ],
+  [
+   "^Show all \\((\\d+)\\)$",
+   "显示全部（$1）"
+  ],
+  [
+   "^Restore (\\d+) cleared$",
+   "恢复已清除的 $1 项"
+  ],
+  [
+   "^Reset \\((\\d+) cleared\\)$",
+   "重置（已清除 $1 项）"
+  ],
+  [
+   "^Hide non-admin \\((\\d+)\\)$",
+   "隐藏非管理员（$1）"
+  ],
+  [
+   "^Show all \\((\\d+) hidden\\)$",
+   "显示全部（已隐藏 $1 项）"
+  ],
+  [
+   "^pid (\\d+)$",
+   "PID $1"
+  ],
+  [
+   "^(\\d+) items?$",
+   "$1 项"
+  ],
+  [
+   "^Scroll to Bottom \\((\\d+) unread\\)$",
+   "滚动到底部（$1 条未读）"
+  ],
+  [
+   "^Uploading (.+?)\\.\\.\\.$",
+   "正在上传 $1…"
+  ],
+  [
+   "^Uploading (.+?)$",
+   "正在上传 $1"
+  ],
+  [
+   "^Preview (.+?)$",
+   "预览 $1"
+  ],
+  [
+   "^Retry uploading (.+?)$",
+   "重试上传 $1"
+  ],
+  [
+   "^Upload failed for (.+?)$",
+   "$1 上传失败"
+  ],
+  [
+   "^(.+?)\\. Click to retry\\.$",
+   "$1。点击重试。"
+  ],
+  [
+   "^(\\d+) replies$",
+   "$1 条回复"
+  ],
+  [
+   "^(\\d+)(\\+?) match(?:es)?$",
+   "$1$2 个匹配项"
+  ],
+  [
+   "^Copied link to (.+?)$",
+   "已复制 $1 的链接"
+  ],
+  [
+   "^(.+?) \\(You\\)$",
+   "$1（你）"
+  ],
+  [
+   "^(.+?) \\((\\d+)\\), click to remove your reaction$",
+   "$1（$2），点击移除你的回应"
+  ],
+  [
+   "^You reacted with (.+?)$",
+   "你回应了 $1"
+  ],
+  [
+   "^(.+?) reacted with (.+?)$",
+   "$1 回应了 $2"
+  ],
+  [
+   "^Reply in thread to (.+?)$",
+   "在讨论串中回复 $1"
+  ],
+  [
+   "^Thread: (.+?)$",
+   "讨论串：$1"
+  ],
+  [
+   "^Started voice chat · (.+?)$",
+   "已开始语音对话 · $1"
+  ],
+  [
+   "^Stopped voice chat · (.+?)$",
+   "已结束语音对话 · $1"
+  ],
+  [
+   "^Page (\\d+)$",
+   "第 $1 页"
+  ],
+  [
+   "^SSH: (.+?)$",
+   "SSH：$1"
+  ],
+  [
+   "^Model: (.+?)$",
+   "模型：$1"
+  ],
+  [
+   "^Stopping (\\d+) tasks?\\. Closed (\\d+) terminals?$",
+   "正在停止 $1 个任务，已关闭 $2 个终端"
+  ],
+  [
+   "^Your quota for this model resets (?:at|on) (.+?)\\.$",
+   "你在此模型上的配额将于 $1 重置。"
+  ],
+  [
+   "^Your quota for (.+?) resets (?:at|on) (.+?)\\.$",
+   "$1 的配额将于 $2 重置。"
+  ],
+  [
+   "^at (\\d{1,2}:\\d{2}(?: [AP]M)?)$",
+   "于 $1"
+  ],
+  [
+   "^Allow this plugin to (.+?)\\?$",
+   "允许此插件 $1？"
+  ],
+  [
+   "^Allow the (.+?) plugin to (.+?)\\?$",
+   "允许 $1 插件 $2？"
+  ],
+  [
+   "^Failed to save hooks\\.json: (.+?)$",
+   "保存 hooks.json 失败：$1"
+  ],
+  [
+   "^Loading (.+?)$",
+   "正在加载 $1"
+  ],
+  [
+   "^(\\d+) Attached$",
+   "已附加 $1 项"
+  ],
+  [
+   "^Allow the (.+?[Pp]lugin) to (.+?)\\?$",
+   "允许 $1 $2？"
+  ],
+  [
+   "^No hosts in (.+?) yet\\. Type one above\\.$",
+   "$1 中尚无主机，请在上方输入。"
+  ],
+  [
+   "^Hid (.+?) from sidebar$",
+   "已从侧边栏隐藏 $1"
+  ],
+  [
+   "^Remove (.+?) reaction$",
+   "移除 $1 回应"
+  ],
+  [
+   "^Copy link to (.+?)$",
+   "复制 $1 的链接"
+  ],
+  [
+   "^Open thread (.+?)$",
+   "打开讨论串 $1"
+  ],
+  [
+   "^Stop (\\d+) items?\\?$",
+   "确定停止 $1 项？"
+  ],
+  [
+   "^Stopping (\\d+) tasks?$",
+   "正在停止 $1 个任务"
+  ],
+  [
+   "^Closed (\\d+) terminals?$",
+   "已关闭 $1 个终端"
+  ],
+  [
+   "^(\\d+) items? could not be stopped: (.+?)$",
+   "无法停止 $1 项：$2"
+  ],
+  [
+   "^Added (.+?) and installed (\\d+) plugins?\\.$",
+   "已添加 $1，并安装了 $2 个插件。"
+  ],
+  [
+   "^(\\d+) plugins?\\. Disabling or removing the bundle applies only to the ones it installed\\.$",
+   "共 $1 个插件。停用或移除此捆绑包仅影响随包安装的插件。"
+  ],
+  [
+   "^Explored files?, ran commands?, edited files?$",
+   "已探索文件、运行命令并编辑文件"
+  ],
+  [
+   "^Explored files?, ran commands?, edited artifacts?$",
+   "已探索文件、运行命令并编辑 Artifact"
+  ],
+  [
+   "^Explored artifacts?, ran commands?, edited files?$",
+   "已探索 Artifact、运行命令并编辑文件"
+  ],
+  [
+   "^Explored artifacts?, ran commands?, edited artifacts?$",
+   "已探索 Artifact、运行命令并编辑 Artifact"
+  ],
+  [
+   "^Explored files?, ran commands?$",
+   "已探索文件并运行命令"
+  ],
+  [
+   "^Explored artifacts?, ran commands?$",
+   "已探索 Artifact 并运行命令"
+  ],
+  [
+   "^Explored files?, edited files?$",
+   "已探索并编辑文件"
+  ],
+  [
+   "^Explored files?, edited artifacts?$",
+   "已探索文件并编辑 Artifact"
+  ],
+  [
+   "^Explored artifacts?, edited files?$",
+   "已探索 Artifact 并编辑文件"
+  ],
+  [
+   "^Explored artifacts?, edited artifacts?$",
+   "已探索并编辑 Artifact"
+  ],
+  [
+   "^Explored, ran commands?, edited files?$",
+   "已探索、运行命令并编辑文件"
+  ],
+  [
+   "^Explored, ran commands?, edited artifacts?$",
+   "已探索、运行命令并编辑 Artifact"
+  ],
+  [
+   "^Explored, edited files?$",
+   "已探索并编辑文件"
+  ],
+  [
+   "^Explored, edited artifacts?$",
+   "已探索并编辑 Artifact"
+  ],
+  [
+   "^Ran commands?, edited files?$",
+   "已运行命令并编辑文件"
+  ],
+  [
+   "^Ran commands?, edited artifacts?$",
+   "已运行命令并编辑 Artifact"
+  ],
+  [
+   "^Add environment variable: (.+?)$",
+   "添加环境变量：$1"
+  ],
+  [
+   "^Add network secret: (.+?)$",
+   "添加网络密钥：$1"
+  ],
+  [
+   "^Started during \"(.+?)\"$",
+   "发起于「$1」期间"
+  ],
+  [
+   "^Started from \"(.+?)\"$",
+   "发起自「$1」"
+  ],
+  [
+   "^Started during \"(.+?)\"\\. Show in main conversation$",
+   "发起于「$1」期间。在主对话中显示"
+  ],
+  [
+   "^Started from \"(.+?)\"\\. Show in main conversation$",
+   "发起自「$1」。在主对话中显示"
+  ],
+  [
+   "^Started during \"(.+?)\"\\. Show in subagent conversation$",
+   "发起于「$1」期间。在 Subagent 对话中显示"
+  ],
+  [
+   "^Started from \"(.+?)\"\\. Show in subagent conversation$",
+   "发起自「$1」。在 Subagent 对话中显示"
+  ],
+  [
+   "^Using browser · Thinking \\((\\d+)s\\)\\.\\.\\.$",
+   "使用浏览器中 · 思考中（$1 秒）…"
   ]
  ],
  "inline": {
@@ -10521,6 +11450,28 @@
   "Configure allowed and denied URLs for the browser subagent (invoked with /browser). Requires {1}.": "配置浏览器子代理（通过 /browser 调用）允许和拒绝访问的网址，需要 {1}。",
   "Long pages like this one will be broken down into outlines and read as needed. Read more at our {1}.": "此类长页面会拆分为大纲按需读取，详情请参阅{1}。",
   "To switch accounts, sign out in the {1} and sign in again.": "切换账号时，请先在{1}退出登录，再重新登录。",
-  "Signed in as {1}. To add another account, go to the {2}.": "当前登录账号：{1}。要添加其他账号，请前往{2}。"
+  "Signed in as {1}. To add another account, go to the {2}.": "当前登录账号：{1}。要添加其他账号，请前往{2}。",
+  "No app found for {1}.": "未找到与 {1} 匹配的应用。",
+  "No plugin found for {1}.": "未找到与 {1} 匹配的插件。",
+  "No bundle found for {1}.": "未找到与 {1} 匹配的捆绑包。",
+  "Worker spawned from {1}.": "成员派生自 {1}。",
+  "Subagent worker spawned from {1}.": "Subagent 成员派生自 {1}。",
+  "Learn more by visiting our {1}.": "更多信息请访问我们的 {1}。",
+  "Hold {1} to upload": "按住 {1} 以上传",
+  "Hold {1} to add to Agent": "按住 {1} 以添加到 Agent",
+  "Are you sure you want to delete {1}? Deleted environment variables cannot be recovered.": "确定要删除 {1} 吗？已删除的环境变量无法恢复。",
+  "Are you sure you want to delete {1}? Deleted secrets cannot be recovered.": "确定要删除 {1} 吗？已删除的密钥无法恢复。",
+  "Your agent’s ability to execute commands is also controlled by enterprise security policies. {1}.": "你的 Agent 执行命令的能力同时受企业安全策略管控。{1}。",
+  "Configure default behaviors, skills, and MCP servers. {1}.": "配置默认行为、Skill 和 MCP 服务器。{1}。",
+  "{1} Sign up for newsletters, tips and tricks, and other notifications about Antigravity.": "{1} 订阅关于 Antigravity 的新闻资讯、使用技巧及其他通知。",
+  "{1} Sign up for newsletters, tips and tricks, and other notifications about Jetski.": "{1} 订阅关于 Jetski 的新闻资讯、使用技巧及其他通知。",
+  "Signed in as {1}. To add another account, go to the {2}.{3}": "当前登录账号：{1}。要添加其他账号，请前往{2}。{3}",
+  "Open Google Chrome on the machine running Antigravity. If that machine is a cloudtop, reach it via {1}.": "在运行 Antigravity 的机器上打开 Google Chrome。如果该机器是 Cloudtop，请通过 {1} 访问。",
+  "Pressing {1} in Browser": "正在浏览器中按下 {1}",
+  "Pressed {1} in Browser": "已在浏览器中按下 {1}",
+  "Pressing {1}{2}{3} in Browser": "正在浏览器中按下 {1}{2}{3}",
+  "Pressed {1}{2}{3} in Browser": "已在浏览器中按下 {1}{2}{3}",
+  "Pressing {1}{2}{3}{4}{5} in Browser": "正在浏览器中按下 {1}{2}{3}{4}{5}",
+  "Pressed {1}{2}{3}{4}{5} in Browser": "已在浏览器中按下 {1}{2}{3}{4}{5}"
  }
 }
