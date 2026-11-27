@@ -4,7 +4,7 @@ Manage hidden experimental features of the Antigravity desktop app directly from
 
 [中文](README.md)
 
-![AGY-flags settings page preview](assets/settings-en.svg)
+![The AGY-flags page in Antigravity Settings](assets/settings-en.png)
 
 Many features in Antigravity are gated by server-side experiment flags sent by Google. `agy-flags` runs locally on your Mac, overrides those flag responses on the fly according to your preferences, and injects an **AGY-flags** management page straight into Antigravity's own Settings window.
 
@@ -26,7 +26,7 @@ macOS only (tested on Antigravity 2.35.0 – 2.35.2).
 
 Beyond toggling hidden flags, `agy-flags` ships four enhancements that flags alone cannot provide:
 
-![Context usage indicator and estimated turn costs](assets/features-en.svg)
+![Left: estimated turn costs from the $ button under a reply. Right: the context usage breakdown next to the input box](assets/features-en.png)
 
 | Feature | Description |
 | --- | --- |

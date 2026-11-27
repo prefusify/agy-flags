@@ -4,7 +4,7 @@
 
 [English](README.en.md)
 
-![AGY-flags 设置页预览](assets/settings-zh.svg)
+![Antigravity 设置里的 AGY-flags 页](assets/settings-zh.png)
 
 Antigravity 客户端的许多功能受 Google 服务端下发的实验开关（Experiment Flags）控制。`agy-flags` 运行在本地，会在配置下发时按你的选择改写开关状态，并将管理界面直接嵌入 Antigravity 的「设置」面板中。
 
@@ -26,7 +26,7 @@ Antigravity 客户端的许多功能受 Google 服务端下发的实验开关（
 
 除了开启客户端原有的隐藏开关，`agy-flags` 还补充了四项仅靠开关无法实现的功能：
 
-![上下文用量指示器与单轮估算费用](assets/features-zh.svg)
+![左：回复下方 $ 按钮弹出的单轮估算费用；右：输入框旁的上下文用量明细](assets/features-zh.png)
 
 | 功能 | 说明 |
 | --- | --- |
