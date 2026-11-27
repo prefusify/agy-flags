@@ -233,7 +233,8 @@ npm test
 
 ## 许可证与致谢
 
-本项目基于 [MIT](LICENSE) 许可证开源。
+本项目基于 [MIT](LICENSE) 许可证完整开源，无未开源部分。
 
 - 界面汉化词条表部分整理自 [antigravity-chinese](https://github.com/yiheng8023/antigravity-chinese)（MIT，许可声明见 [`src/l10n/LICENSE-antigravity-chinese.txt`](src/l10n/LICENSE-antigravity-chinese.txt)）。
 - 将功能开关直接嵌入客户端原生设置面板的交互思路启发自 [obsidian-prism](https://github.com/RMvdesi/obsidian-prism)（未使用其代码）。
+- 感谢 [LINUX DO](https://linux.do/) 社区的技术交流与开源推广支持。

@@ -237,3 +237,4 @@ The test suite runs completely isolated in memory and temporary folders — it n
 
 - Portions of the Chinese localization table are adapted from [antigravity-chinese](https://github.com/yiheng8023/antigravity-chinese) (MIT; see [`src/l10n/LICENSE-antigravity-chinese.txt`](src/l10n/LICENSE-antigravity-chinese.txt)).
 - The idea of embedding feature toggles directly into the host app's native Settings window was inspired by [obsidian-prism](https://github.com/RMvdesi/obsidian-prism) (no code was used).
+- Community link: [LINUX DO](https://linux.do/).
