@@ -19,7 +19,7 @@ import { isDictionary, isSafePattern, l10nFactory } from '../src/l10n.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const WORD_LIST_PATH = path.join(ROOT, 'src', 'l10n', 'zh-CN.json');
-const MAX_CHARS = 600;
+const MAX_CHARS = 1000;
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
@@ -363,7 +363,7 @@ function scanReact(source) {
 
   const prefix = `${react}.createElement(`;
   const elTagRe = new RegExp(`^${react}\\.createElement\\((?:"([a-z0-9-]+)"|'([a-z0-9-]+)'|([A-Za-z_$][\\w$]*))`);
-  const propRe = /(?:["']([a-zA-Z0-9-]+)["']|([a-zA-Z_$][\w$]*))\s*:\s*(?:"((?:[^"\\\n]|\\.){2,500})"|'((?:[^'\\\n]|\\.){2,500})')/g;
+  const propRe = /(?:["']([a-zA-Z0-9-]+)["']|([a-zA-Z_$][\w$]*))\s*:\s*(?:"((?:[^"\\\n]|\\.){2,1000})"|'((?:[^'\\\n]|\\.){2,1000})')/g;
 
   for (let at = source.indexOf(prefix); at !== -1; at = source.indexOf(prefix, at + prefix.length)) {
     const callArgs = splitCallArgs(source, at + prefix.length);
@@ -401,10 +401,10 @@ function scanReact(source) {
       continue;
     }
 
-    // 3. Inline-element split sentence (1..3 inline HTML elements, no other element types)
+    // 3. Inline-element split sentence (1..6 inline HTML elements, no other element types)
     const elItems = items.filter((x) => x.kind === 'el' || x.kind === 'condEl');
     const exprItems = items.filter((x) => x.kind === 'expr');
-    if (elItems.length >= 1 && elItems.length <= 3 && exprItems.length === 0 && elItems.every((x) => x.kind === 'el' && INLINE_HTML_TAGS.has(x.tag))) {
+    if (elItems.length >= 1 && elItems.length <= 6 && exprItems.length === 0 && elItems.every((x) => x.kind === 'el' && INLINE_HTML_TAGS.has(x.tag))) {
       let slot = 0;
       let tpl = '';
       let hasLetter = false;

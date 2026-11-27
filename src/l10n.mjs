@@ -3,18 +3,22 @@
 // The page script of the client has no languages: every English text is written directly in
 // its code. So the translation is made in the page, after the page has drawn its text. A
 // translator is added to the end of the page script. It watches the page and replaces a text
-// that the word list knows with its Chinese form. The code of the client is not changed, so
-// a mistake in the word list can only show a wrong text; it cannot break a function.
+// that the word list knows with its Chinese form. The code of the client is not changed,
+// except the two calls that hand texts to Electron outside the page: the native context menu
+// and the system notification (see `patchIpcCalls`). There the texts are looked up before the
+// call, and nothing else is changed; a menu item is still known by its id. So a mistake in
+// the word list can only show a wrong text; it cannot break a function.
 //
 // What is translated: a whole text node, a contiguous run of text nodes, an inline-slot
 // sentence (modifying only existing text nodes in place — never adding, removing, or moving
-// DOM nodes), or a whole visible attribute value that matches the word list. Nothing is
-// translated in part.
+// DOM nodes), a whole visible attribute value, a label of a native context menu, or the
+// title or body of a system notification, when the word list has it. Nothing is translated
+// in part.
 //
 // What is never translated: the text of the conversation (messages of the user and of the
-// model), code (including Shiki code/diff views), terminals, editors, PDF text layers, and
-// input field values. The translator knows these places by the marks that the client itself
-// puts on them (see `kindOf` below).
+// model, also the agent's question in a notification), code (including Shiki code/diff
+// views), terminals, editors, PDF text layers, and input field values. The translator knows
+// these places by the marks that the client itself puts on them (see `kindOf` below).
 
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -38,7 +42,9 @@ export const L10N_ATTRIBUTES = Object.freeze([
  * imports, and it writes text only with nodeValue and setAttribute.
  *
  * `data` is { exact: { english: chinese }, patterns: [[regexSource, replacement], ...], inline?: { template: chinese } }.
- * @returns {{ start(doc): void, stop(): void, lookup(text): string|null, modeOf(el): number }}
+ * @returns {{ start(doc): void, stop(): void, lookup(text): string|null, modeOf(el): number,
+ *   translateMenu(items): Array, translateNotification(options): object,
+ *   wrapContextMenu(bridge): Function|undefined, wrapNotificationSend(bridge): Function|undefined }}
  */
 export function l10nFactory(data, attrs) {
   const exact = data && data.exact && typeof data.exact === 'object' ? data.exact : {};
@@ -48,7 +54,7 @@ export function l10nFactory(data, attrs) {
     Array.isArray(attrs) && attrs.length > 0
       ? attrs
       : ['title', 'placeholder', 'aria-label', 'aria-description', 'aria-placeholder', 'aria-valuetext', 'aria-roledescription', 'alt', 'data-tooltip', 'data-slot-out'];
-  const MAX_CHARS = 600;
+  const MAX_CHARS = 1000;
   const MAX_CACHE = 5000;
 
   // ---- punctuation normalization --------------------------------------------------------
@@ -249,10 +255,19 @@ export function l10nFactory(data, attrs) {
     const ft = fixedText(src);
     // A pattern with only one fixed word, such as "^Turn (.+?)$", would turn the first word of
     // any sentence into Chinese and leave the rest in English. It is used only for short parts,
-    // except explicit colon-prefixed UI labels such as "^Error: (.+?)$" or "^Failed: (.+?)$".
+    // except explicit structured UI patterns (colon prefixes, quoted captures, strong separators
+    // like " — " / " · " / "- ", parenthesized status suffixes/wrappers, and numeric counters).
     const wordCount = (ft.wordsText.match(/[A-Za-z]{2,}/g) || []).length;
-    const colonPrefix = /^\^[A-Za-z][A-Za-z-]*:(?: |\\s)/.test(src);
-    const loose = wordCount <= 1 && !colonPrefix;
+    const structured =
+      /^\^[A-Za-z][A-Za-z-]*:(?: |\\s)/.test(src) ||
+      /"\((?:\?:)?\.[+*]\??\)"/.test(src) ||
+      / (?:—|·) /.test(src) ||
+      /^\^[A-Za-z][A-Za-z-]* - /.test(src) ||
+      /\\\([A-Za-z][A-Za-z-]*\\\)\$$/.test(src) ||
+      /^\^[A-Za-z][A-Za-z-]* \\\(.+\\\)\$$/.test(src) ||
+      /[:,](?: |\\s)\((?:\\d|\[\\d|\[0-9)/.test(src) ||
+      /:\(\\d/.test(src);
+    const loose = wordCount <= 1 && !structured;
     const item = {
       re,
       to: row[1],
@@ -325,8 +340,9 @@ export function l10nFactory(data, attrs) {
   const CLOSED = 0; // Nothing on or below this element is translated.
   const CONTENT = 1; // Text of the user or of the model. Below it, only controls are translated.
   const OPEN = 2; // No rule of its own.
-  const CONTROL = 3; // A button, menu item, tab, switch or tooltip. Its text belongs to the interface.
+  const CONTROL = 3; // A button, menu item, tab, switch, tooltip, or known UI chrome inside CONTENT.
   const CLOSED_CHILDREN = 4; // Textarea or contenteditable host: own attributes translate if parent is OPEN; children are CLOSED.
+  const CONTENT_OWN_ATTRS = 5; // Own visible attributes translate unless inside CLOSED; text & children are CONTENT.
 
   const CLOSED_TAGS = {
     SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEMPLATE: 1, HEAD: 1, CODE: 1, PRE: 1, SAMP: 1, KBD: 1,
@@ -336,10 +352,11 @@ export function l10nFactory(data, attrs) {
   const CLOSED_CLASSES = ['monaco-editor', 'xterm', 'katex', 'cm-editor', 'mermaid', 'code-block', 'textLayer'];
   const CLOSED_ATTRS = ['data-line-tokens'];
   const CLOSED_IDS = { 'pdf-text-layer': 1 };
+  // Code/diff line content containers (keeps gutter tooltips & hover buttons translatable).
+  const CONTENT_CLASSES = ['line-content'];
   // The marks the client puts on text that the user or the model wrote, and on names of things
   // (conversations, projects, branches, files, models). Verified on Antigravity 2.35.2.
   const CONTENT_IDS = {
-    'user-message-content': 1,
     'user-message-bubble': 1,
     'planner-response-text': 1,
     'live-user-turn': 1,
@@ -348,17 +365,16 @@ export function l10nFactory(data, attrs) {
     'conversation-row-sidebar': 1,
     'conversation-row-history': 1,
     'breadcrumb-segment': 1,
-    'model-selector-trigger': 1,
     'model-selector-item': 1,
     'model-selector-custom-item': 1,
+    'model-selector-effort-group': 1,
     'orchestrator-picker-row': 1,
-    'side-question-tab-header-name': 1,
-    'pending-user-messages': 1,
-    'sidecar-logs-content': 1,
     'branch-pill-label': 1,
     'branch-option': 1,
     'branch-repo-label': 1,
     'file-title-name': 1,
+    'changed-file-row': 1,
+    'comment-card-text': 1,
     'webview-download-filename': 1,
     'ssh-config-file-name': 1,
     'sidebar-agent-hover-card-title': 1,
@@ -368,20 +384,32 @@ export function l10nFactory(data, attrs) {
     'url-security-host': 1,
     'webview-prompt-origin': 1,
     'webview-prompt-message': 1,
-    'voice-transcript-summary': 1,
     'voice-transcript-summary-lead': 1,
     'voice-transcript-summary-point': 1,
     'markdown-frontmatter': 1,
   };
+  // Content containers whose own aria-label/title is fixed client UI (not raw user text).
+  const CONTENT_OWN_ATTRS_IDS = {
+    'user-message-content': 1,
+    'side-question-tab-header-name': 1,
+  };
   const CONTENT_ATTRS = [
     'data-markdown-root',
-    'data-project-label',
     'data-project-name',
     'data-repo-slug',
     'data-uri',
-    'data-file-uri',
     'data-quotable-inline',
   ];
+  // Built-in client UI chrome that sits inside CONTENT containers (never punches through CLOSED).
+  const CONTROL_IDS = {
+    'file-title-badge': 1,
+    'conversation-row-draft': 1,
+    'attention-count': 1,
+    'plugin-card-fallback': 1,
+    'plugin-suggestion-card': 1,
+    'plugin-suggestion-card-unavailable': 1,
+    'code-block-preview-toggle': 1,
+  };
   const CONTROL_ROLES = {
     button: 1,
     tooltip: 1,
@@ -394,6 +422,14 @@ export function l10nFactory(data, attrs) {
     checkbox: 1,
   };
   const INLINE_TAGS = { SPAN: 1, STRONG: 1, B: 1, EM: 1, A: 1, CODE: 1, KBD: 1, BUTTON: 1 };
+
+  function hasAncestor(el, maxDepth, test) {
+    let cur = el.parentNode;
+    for (let d = 0; d < maxDepth && cur && cur.nodeType === 1; d++, cur = cur.parentNode) {
+      if (test(cur)) return true;
+    }
+    return false;
+  }
 
   function kindOf(el) {
     if (CLOSED_TAGS[el.tagName] === 1) return CLOSED;
@@ -410,11 +446,122 @@ export function l10nFactory(data, attrs) {
     if (el.tagName === 'TEXTAREA') return CLOSED_CHILDREN;
     const editable = el.getAttribute('contenteditable');
     if (editable !== null && editable !== 'false') return CLOSED_CHILDREN;
+    if (classes && classes.length > 0) {
+      for (let i = 0; i < CONTENT_CLASSES.length; i++) if (classes.contains(CONTENT_CLASSES[i])) return CONTENT;
+    }
+    if (id === 'model-selector-trigger') {
+      const ml = el.getAttribute('data-model-label');
+      if (ml === 'No Model Selected' || ml === 'Orchestrator' || (ml !== null && (ml.startsWith('Orchestrator ') || /^\d+ models selected$/.test(ml)))) {
+        return CONTROL;
+      }
+      return CONTENT_OWN_ATTRS;
+    }
+    if (id !== null && CONTENT_OWN_ATTRS_IDS[id] === 1) return CONTENT_OWN_ATTRS;
     if (id !== null && CONTENT_IDS[id] === 1) return CONTENT;
     for (let i = 0; i < CONTENT_ATTRS.length; i++) if (el.hasAttribute(CONTENT_ATTRS[i])) return CONTENT;
+    // System sidebar groups (Needs Input/Running/Unread/Idle/This Computer/Remote) reuse
+    // project-header with data-project-icon="custom"; user projects use folder/cloud/google3/archived.
+    if (el.hasAttribute('data-project-label') && el.getAttribute('data-project-icon') !== 'custom') return CONTENT;
+    // Narrow data-file-uri: protect FileTitle, changed-file-row, log_line, and any unknown file node,
+    // while leaving virtualized diff wrappers (data-group-key), .code-line wrappers (inner .line-content
+    // and data-line-tokens stay protected), and inline comment rows open for UI badges/placeholders/gutters.
+    if (
+      el.hasAttribute('data-file-uri') &&
+      !el.hasAttribute('data-group-key') &&
+      !(classes && classes.contains('code-line')) &&
+      id !== 'comment-box-row' &&
+      id !== 'comment-thread-row'
+    ) {
+      return CONTENT;
+    }
+    if (id !== null && CONTROL_IDS[id] === 1) return CONTROL;
+    if (el.hasAttribute('data-screenshot-volatile')) return CONTROL;
     if (el.tagName === 'BUTTON') return CONTROL;
     const role = el.getAttribute('role');
     if (role !== null && CONTROL_ROLES[role] === 1) return CONTROL;
+    // Surgical UI chrome exemptions inside specific CONTENT containers (never punch through CLOSED).
+    if (classes && classes.length > 0) {
+      // Model badge (G5: Leaving Soon / New / Beta) inside model-selector-item / custom-item.
+      if (
+        el.tagName === 'DIV' &&
+        classes.contains('bg-secondary') &&
+        classes.contains('rounded-full') &&
+        hasAncestor(el, 3, (p) => {
+          const tid = p.getAttribute('data-testid');
+          return tid === 'model-selector-item' || tid === 'model-selector-custom-item';
+        })
+      ) {
+        return CONTROL;
+      }
+      // Effort / planner secondary label (Low/Medium/High/Extra/Max, Default (Gemini Pro))
+      // inside model-selector-trigger or orchestrator-picker-row.
+      if (
+        el.tagName === 'SPAN' &&
+        classes.contains('opacity-70') &&
+        hasAncestor(el, 3, (p) => {
+          const tid = p.getAttribute('data-testid');
+          return tid === 'model-selector-trigger' || tid === 'orchestrator-picker-row';
+        })
+      ) {
+        return CONTROL;
+      }
+      // Secondary action/status description (Cloning locally…, Checked out in …) inside data-project-name / branch-option.
+      if (
+        el.tagName === 'SPAN' &&
+        classes.contains('text-muted-foreground') &&
+        hasAncestor(el, 3, (p) => p.hasAttribute('data-project-name') || p.getAttribute('data-testid') === 'branch-option')
+      ) {
+        return CONTROL;
+      }
+      // Mermaid render error banner inside data-markdown-root (raw diagram source stays protected).
+      if (
+        el.tagName === 'DIV' &&
+        classes.contains('whitespace-pre-line') &&
+        el.parentNode &&
+        el.parentNode.nodeType === 1 &&
+        el.parentNode.classList &&
+        el.parentNode.classList.contains('mermaid-wrapper')
+      ) {
+        return CONTROL;
+      }
+      // Strict-mode blocked image card labels (jqc: Image rendering blocked / Alt text: / Image URL:)
+      // inside data-markdown-root; user alt text & URL remain outside span.opacity-70 and stay protected.
+      if (
+        el.tagName === 'SPAN' &&
+        classes.contains('opacity-70') &&
+        hasAncestor(
+          el,
+          6,
+          (p) => p.classList && p.classList.contains('bg-muted') && p.classList.contains('border-border') && p.classList.contains('my-2')
+        )
+      ) {
+        return CONTROL;
+      }
+    }
+    if (el.tagName === 'SPAN') {
+      // Standalone conversation subtitle ("Outside of Project") inside conversation-row-*; title lives under <div>.
+      if (
+        el.parentNode &&
+        el.parentNode.nodeType === 1 &&
+        el.parentNode.tagName === 'SPAN' &&
+        hasAncestor(el, 5, (p) => p.getAttribute('data-subtext') === 'Outside of Project')
+      ) {
+        return CONTROL;
+      }
+      // Media fallback "Preview unavailable" inside data-markdown-root (markdown HTML sanitizer strips span class).
+      const cls = el.getAttribute('class');
+      if (cls === 'text-base') return CONTROL;
+      // "Commented on: " prefix inside user-message-content.
+      if (
+        cls === 'text-secondary-foreground' &&
+        el.parentNode &&
+        el.parentNode.parentNode &&
+        el.parentNode.parentNode.nodeType === 1 &&
+        el.parentNode.parentNode.getAttribute('data-testid') === 'user-message-content'
+      ) {
+        return CONTROL;
+      }
+    }
     return OPEN;
   }
 
@@ -426,7 +573,7 @@ export function l10nFactory(data, attrs) {
         ? parentMode
         : kind === CONTROL
           ? OPEN
-          : kind;
+          : CONTENT;
 
   /** CLOSED, CONTENT or OPEN for the text and children of `el`, from `el` and everything above it. */
   function modeOf(el) {
@@ -437,7 +584,7 @@ export function l10nFactory(data, attrs) {
       if (kind === CLOSED || kind === CLOSED_CHILDREN) return CLOSED;
       if (decided !== null) continue;
       if (kind === CONTROL) control = true;
-      else if (kind === CONTENT) decided = control ? OPEN : CONTENT;
+      else if (kind === CONTENT || kind === CONTENT_OWN_ATTRS) decided = control ? OPEN : CONTENT;
     }
     return decided === null ? OPEN : decided;
   }
@@ -483,7 +630,7 @@ export function l10nFactory(data, attrs) {
   }
 
   /**
-   * Translate a sentence split by 1..3 inline child elements in place using the `inline` table.
+   * Translate a sentence split by 1..6 inline child elements in place using the `inline` table.
    * Only existing Text nodes' nodeValue is written; DOM structure and node references never change.
    */
   function translateInline(el) {
@@ -498,7 +645,7 @@ export function l10nFactory(data, attrs) {
       } else if (child.nodeType === 8) {
         continue;
       } else if (child.nodeType === 1) {
-        if (INLINE_TAGS[child.tagName] !== 1 || slots >= 3) return false;
+        if (INLINE_TAGS[child.tagName] !== 1 || slots >= 6) return false;
         slots += 1;
         segs.push([]);
       } else {
@@ -522,7 +669,7 @@ export function l10nFactory(data, attrs) {
     if (typeof tpl !== 'string' || tpl === '') return false;
     const found = [...tpl.matchAll(/\{(\d+)\}/g)].map((m) => Number(m[1]));
     if (found.length !== slots || !found.every((n, i) => n === i + 1)) return false;
-    const zhParts = tpl.split(/\{[1-3]\}/);
+    const zhParts = tpl.split(/\{[1-6]\}/);
     if (zhParts.length !== slots + 1) return false;
     // Never create a Text node where the original DOM had none.
     for (let i = 0; i <= slots; i++) {
@@ -592,6 +739,8 @@ export function l10nFactory(data, attrs) {
       if (mode === OPEN) {
         translateAttributesOf(el);
         translateTextOf(el);
+      } else if (kind === CONTENT_OWN_ATTRS && above !== CLOSED) {
+        translateAttributesOf(el);
       }
       for (let child = el.firstChild; child; child = child.nextSibling) {
         if (child.nodeType === 1) stack.push([child, mode]);
@@ -665,7 +814,12 @@ export function l10nFactory(data, attrs) {
       } else if (record.type === 'attributes') {
         if (target.nodeType === 1) {
           const kind = kindOf(target);
-          const ok = kind === CLOSED_CHILDREN ? mode(target.parentNode) === OPEN : mode(target) === OPEN;
+          const ok =
+            kind === CLOSED_CHILDREN
+              ? mode(target.parentNode) === OPEN
+              : kind === CONTENT_OWN_ATTRS
+                ? mode(target.parentNode) !== CLOSED
+                : mode(target) === OPEN;
           if (ok) translateAttribute(target, record.attributeName);
         }
       } else {
@@ -709,6 +863,100 @@ export function l10nFactory(data, attrs) {
     }
   }
 
+  // ---- Electron preload IPC translation (context menu & OS notifications) --------------
+
+  /** Shallow-clone native context menu items, translating label/sublabel/toolTip recursively. */
+  function translateMenu(items, depth = 0, seen = new WeakSet()) {
+    if (!Array.isArray(items) || depth > 16 || seen.has(items)) return items;
+    seen.add(items);
+    try {
+      return items.map((item) => {
+        if (!item || typeof item !== 'object' || seen.has(item)) return item;
+        seen.add(item);
+        try {
+          const next = Object.assign({}, item);
+          if (next.type !== 'separator') {
+            if (typeof next.label === 'string') {
+              const out = lookup(next.label);
+              if (out !== null) next.label = out;
+            }
+            if (typeof next.sublabel === 'string') {
+              const out = lookup(next.sublabel);
+              if (out !== null) next.sublabel = out;
+            }
+            if (typeof next.toolTip === 'string') {
+              const out = lookup(next.toolTip);
+              if (out !== null) next.toolTip = out;
+            }
+          }
+          if (Array.isArray(next.submenu)) next.submenu = translateMenu(next.submenu, depth + 1, seen);
+          return next;
+        } finally {
+          seen.delete(item);
+        }
+      });
+    } catch {
+      return items;
+    } finally {
+      seen.delete(items);
+    }
+  }
+
+  // Under these titles the body is the agent's own question (Antigravity 2.35.2), which stays as
+  // the agent wrote it. Only the sentence the client shows when the question is empty is translated.
+  const QUESTION_TITLES = { 'The agent has a question for you:': 1, 'The agent has questions for you:': 1 };
+  const QUESTION_FALLBACKS = { 'Click to respond to the question.': 1, 'Click to respond to the questions.': 1 };
+
+  /** Shallow-clone OS notification options, translating title/body while preserving id/silent/payload. */
+  function translateNotification(options) {
+    if (!options || typeof options !== 'object') return options;
+    try {
+      const next = Object.assign({}, options);
+      const question = typeof next.title === 'string' && QUESTION_TITLES[next.title] === 1;
+      if (typeof next.title === 'string') {
+        const out = lookup(next.title);
+        if (out !== null) next.title = out;
+      }
+      if (typeof next.body === 'string' && (!question || QUESTION_FALLBACKS[next.body] === 1)) {
+        const out = lookup(next.body);
+        if (out !== null) next.body = out;
+      }
+      return next;
+    } catch {
+      return options;
+    }
+  }
+
+  // The patched page calls these instead of the bridge methods (see `patchIpcCalls`). Electron's
+  // contextBridge makes `window.electronNative` and `window.nativeNotifications` read-only and
+  // frozen, so the bridges themselves cannot be replaced.
+
+  function wrapContextMenu(nativeBridge) {
+    if (!nativeBridge || typeof nativeBridge.showContextMenu !== 'function') return undefined;
+    return function (items, ...rest) {
+      let translated = items;
+      try {
+        translated = translateMenu(items);
+      } catch {
+        translated = items;
+      }
+      return nativeBridge.showContextMenu(translated, ...rest);
+    };
+  }
+
+  function wrapNotificationSend(notifBridge) {
+    if (!notifBridge || typeof notifBridge.send !== 'function') return undefined;
+    return function (options, ...rest) {
+      let translated = options;
+      try {
+        translated = translateNotification(options);
+      } catch {
+        translated = options;
+      }
+      return notifBridge.send(translated, ...rest);
+    };
+  }
+
   function start(doc) {
     if (observer || !doc || !doc.documentElement || typeof MutationObserver !== 'function') return;
     observer = new MutationObserver(safely);
@@ -736,7 +984,7 @@ export function l10nFactory(data, attrs) {
     observer = null;
   }
 
-  return { start, stop, lookup, modeOf };
+  return { start, stop, lookup, modeOf, translateMenu, translateNotification, wrapContextMenu, wrapNotificationSend };
 }
 
 // ---- the word list file ---------------------------------------------------------------------
@@ -744,7 +992,7 @@ export function l10nFactory(data, attrs) {
 const MAX_ENTRIES = 20000;
 const MAX_PATTERNS = 2000;
 const MAX_INLINE = 2000;
-const MAX_TEXT = 600;
+const MAX_TEXT = 1000;
 
 /** A pattern must be simple enough that it cannot take long on any text. */
 export function isSafePattern(source) {
@@ -790,17 +1038,17 @@ function groupCount(source) {
   return new RegExp(`${source}|`).exec('').length - 1;
 }
 
-/** Validate one inline-slot template entry (`{1}`, `{2}`, `{3}` strictly ascending, zero DOM additions). */
+/** Validate one inline-slot template entry (`{1}`..`{6}` strictly ascending, zero DOM additions). */
 function isInlineEntry(from, to, plain) {
   if (!plain(from) || !plain(to) || from !== from.replace(/\s+/g, ' ').trim()) return false;
   if (!/[A-Za-z]/.test(from)) return false;
   const fromSlots = [...from.matchAll(/\{(\d+)\}/g)].map((m) => Number(m[1]));
-  if (fromSlots.length < 1 || fromSlots.length > 3) return false;
+  if (fromSlots.length < 1 || fromSlots.length > 6) return false;
   if (!fromSlots.every((n, i) => n === i + 1)) return false;
   const toSlots = [...to.matchAll(/\{(\d+)\}/g)].map((m) => Number(m[1]));
   if (toSlots.length !== fromSlots.length || !toSlots.every((n, i) => n === i + 1)) return false;
-  const fromParts = from.split(/\{[1-3]\}/);
-  const toParts = to.split(/\{[1-3]\}/);
+  const fromParts = from.split(/\{[1-6]\}/);
+  const toParts = to.split(/\{[1-6]\}/);
   if (fromParts.length !== fromSlots.length + 1 || toParts.length !== toSlots.length + 1) return false;
   return fromParts.every((part, i) => part !== '' || toParts[i] === '');
 }
@@ -865,15 +1113,46 @@ export function loadDictionary(file) {
 }
 
 /**
- * Add the translator to the end of the page script. The script of the client stays as it is.
+ * Wrap the single Electron preload IPC call sites for native context menus and OS notifications
+ * when each anchor appears uniquely in `main.js`. Electron's `contextBridge.exposeInMainWorld`
+ * defines `window.electronNative` and `window.nativeNotifications` non-writable/non-configurable
+ * and deeply frozen, so wrapping the exact call sites in the page script is the zero-invasion
+ * path. Missing or ambiguous anchors are silently skipped so DOM translation is never affected.
+ */
+function patchIpcCalls(source) {
+  let out = source;
+  const menuAnchor = 'window.electronNative?.showContextMenu?.(';
+  const menuAt = out.indexOf(menuAnchor);
+  if (menuAt !== -1 && out.indexOf(menuAnchor, menuAt + menuAnchor.length) === -1) {
+    const menuWrap =
+      '(globalThis.__agyFlagsL10n?.wrapContextMenu?.(window.electronNative)??window.electronNative?.showContextMenu?.bind?.(window.electronNative))?.(';
+    out = out.slice(0, menuAt) + menuWrap + out.slice(menuAt + menuAnchor.length);
+  }
+  const notifAnchor = 'this.bridge.send(';
+  const notifAt = out.indexOf(notifAnchor);
+  if (
+    notifAt !== -1 &&
+    out.indexOf(notifAnchor, notifAt + notifAnchor.length) === -1 &&
+    out.slice(Math.max(0, notifAt - 2000), notifAt).includes('nativeNotifications')
+  ) {
+    const notifWrap = '(globalThis.__agyFlagsL10n?.wrapNotificationSend?.(this.bridge)??this.bridge.send.bind(this.bridge))(';
+    out = out.slice(0, notifAt) + notifWrap + out.slice(notifAt + notifAnchor.length);
+  }
+  return out;
+}
+
+/**
+ * Add the translator to the end of the page script (and wrap unique Electron IPC menu/notification
+ * call sites when present). The rest of the client script stays as it is.
  * @returns {{ ok: true, source: string } | { ok: false, reason: string }}
  */
 export function patchL10n(source, data) {
   if (!isDictionary(data)) return { ok: false, reason: 'there is no word list' };
+  const base = patchIpcCalls(source);
   // The translator is made once for each page load. A failure while it is made changes nothing.
   const code =
     '\n;(()=>{try{if(!globalThis.__agyFlagsL10n){globalThis.__agyFlagsL10n=(' +
     l10nFactory.toString() +
     `)(${JSON.stringify(data)},${JSON.stringify(L10N_ATTRIBUTES)});globalThis.__agyFlagsL10n.start(document)}}catch(e){try{console.error("[agy-flags]",e)}catch(_){}}})();\n`;
-  return { ok: true, source: source + code };
+  return { ok: true, source: base + code };
 }

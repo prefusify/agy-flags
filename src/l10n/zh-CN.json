@@ -111,7 +111,7 @@
   "Add": "添加",
   "Remove": "移除",
   "Permissions": "权限",
-  "New": "新建",
+  "New": "新",
   "Retry": "重试",
   "Cache": "缓存",
   "Start": "启动",
@@ -2574,8 +2574,8 @@
   "Stage and amend all changes into the current commit": "暂存全部更改并修订至当前提交",
   "Commit staged changes": "提交已暂存更改",
   "Stage and commit all changes": "暂存并提交全部更改",
-  "Commit message cannot be empty": "提交信息不能为空",
-  "Failed to Generate Commit Message": "生成提交信息失败",
+  "Commit message cannot be empty": "提交说明不能为空",
+  "Failed to Generate Commit Message": "生成提交说明失败",
   "Commit succeeded": "提交成功",
   "Failed to Commit": "提交失败",
   "No commit to amend": "没有可修订的提交",
@@ -3023,6 +3023,10 @@
   "Searched web": "已搜索网页",
   "Invoked subagent": "已调用子代理",
   "Input:": "输入：",
+  "Thinking:": "思考：",
+  "Response (incl. tool calls):": "回复（含工具调用）：",
+  "Generations:": "生成次数：",
+  "Turn": "本轮",
   "Pricing is based on public API pricing": "按公开 API 定价估算",
   "Grand Total": "总计",
   "Cumulative Total": "累计",
@@ -4193,7 +4197,292 @@
   "e.g. main,dev or *": "例如：main,dev 或 *",
   "e.g. ci.yml,deploy.yml or *": "例如：ci.yml,deploy.yml 或 *",
   "e.g. google or *": "例如：google 或 *",
-  "e.g. jetski or *": "例如：jetski 或 *"
+  "e.g. jetski or *": "例如：jetski 或 *",
+  "Gemini Models": "Gemini 模型",
+  "Claude and GPT models": "Claude 与 GPT 模型",
+  "Claude and GPT Models": "Claude 与 GPT 模型",
+  "Claude & GPT models": "Claude 与 GPT 模型",
+  "Claude & GPT Models": "Claude 与 GPT 模型",
+  "Claude Models": "Claude 模型",
+  "Claude models": "Claude 模型",
+  "GPT Models": "GPT 模型",
+  "GPT models": "GPT 模型",
+  "OpenAI Models": "OpenAI 模型",
+  "OpenAI models": "OpenAI 模型",
+  "Other Models": "其他模型",
+  "Other models": "其他模型",
+  "Weekly Limit Remaining": "每周剩余限额",
+  "Five Hour Limit Remaining": "5 小时剩余限额",
+  "5-Hour Limit Remaining": "5 小时剩余限额",
+  "5 Hour Limit Remaining": "5 小时剩余限额",
+  "Daily Limit Remaining": "每日剩余限额",
+  "Hourly Limit Remaining": "每小时剩余限额",
+  "Monthly Limit Remaining": "每月剩余限额",
+  "Weekly Limit": "每周限额",
+  "Five Hour Limit": "5 小时限额",
+  "5-Hour Limit": "5 小时限额",
+  "5 Hour Limit": "5 小时限额",
+  "Daily Limit": "每日限额",
+  "Hourly Limit": "每小时限额",
+  "Monthly Limit": "每月限额",
+  "You have not used any of your weekly limit.": "尚未消耗每周限额。",
+  "You have not used any of your 5-hour limit.": "尚未消耗 5 小时限额。",
+  "You have not used any of your daily limit.": "尚未消耗每日限额。",
+  "You have not used any of your hourly limit.": "尚未消耗每小时限额。",
+  "You have not used any of your monthly limit.": "尚未消耗每月限额。",
+  "You haven't used any of your weekly limit.": "尚未消耗每周限额。",
+  "You haven't used any of your 5-hour limit.": "尚未消耗 5 小时限额。",
+  "You haven't used any of your daily limit.": "尚未消耗每日限额。",
+  "You haven't used any of your hourly limit.": "尚未消耗每小时限额。",
+  "You haven't used any of your monthly limit.": "尚未消耗每月限额。",
+  "You have used some of your weekly limit.": "每周限额已用部分。",
+  "You have used some of your 5-hour limit.": "5 小时限额已用部分。",
+  "You have used some of your daily limit.": "每日限额已用部分。",
+  "You have used some of your hourly limit.": "每小时限额已用部分。",
+  "You have used some of your monthly limit.": "每月限额已用部分。",
+  "You have used all of your weekly limit.": "每周限额已用完。",
+  "You have used all of your 5-hour limit.": "5 小时限额已用完。",
+  "You have used all of your daily limit.": "每日限额已用完。",
+  "You have used all of your hourly limit.": "每小时限额已用完。",
+  "You have used all of your monthly limit.": "每月限额已用完。",
+  "You have reached your weekly limit.": "已达每周限额。",
+  "You have reached your 5-hour limit.": "已达 5 小时限额。",
+  "You have reached your daily limit.": "已达每日限额。",
+  "You have reached your hourly limit.": "已达每小时限额。",
+  "You have reached your monthly limit.": "已达每月限额。",
+  "Leaving Soon": "即将下线",
+  "Leaving soon": "即将下线",
+  "Deprecated": "已弃用",
+  "not available for remote agents": "暂不支持远程代理",
+  "Run until the specified goal is completely finished.": "持续运行，直至指定目标彻底完成。",
+  "Plan carefully before executing a task.": "动手前先仔细制定计划。",
+  "Run an instruction on a recurring schedule or as a one-time timer.": "按周期定时或单次倒计时运行指令。",
+  "Compact the conversation now (summarize history to free up the context window).": "立即压缩当前对话（总结历史记录，释放上下文窗口）。",
+  "Invoke a browser agent for web tasks.": "调用浏览器代理处理网页任务。",
+  "Invoke a computer-use agent to operate apps on this Mac.": "调用电脑操作代理控制本机 Mac 上的应用。",
+  "[Teamfood] Invoke a browser with computer-use tools only with experimental model.": "「内部试用」仅用电脑操作工具与实验性模型调用浏览器。",
+  "Interview me to align on a plan.": "通过问答互动对齐计划。",
+  "Invoke a team of agents to autonomously tackle large projects.": "调用代理团队自主攻克大型项目。",
+  "Reflect on recent successes or corrections to capture reusable skills or rules.": "复盘近期的成功经验或纠错过程，沉淀为可复用的技能或规则。",
+  "Invoke the Boost multi-agent orchestrator for complex tasks.": "调用 Boost 多代理编排器处理复杂任务。",
+  "Experimental. Invoke the deep agent to plan, build, verify complex coding tasks.": "实验性功能。调用深度代理规划、实现并验证复杂编码任务。",
+  "Experimental. Invoke the review agent to audit code changes, surface bugs, and verify correctness.": "实验性功能。调用审查代理审计代码更改、发现 Bug 并验证正确性。",
+  "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers.": "Antigravity 自定义系统完整指南与参考手册。说明自定义项的工作原理、加载优先级与发现机制，并指导创建技能、规则、插件、钩子和 MCP 服务器。",
+  "Manage local Antigravity conversations programmatically over HTTP+JSON: create a new conversation (with an optional initial prompt), list conversations, read conversation metadata and run state, rename, archive, pin, star, tag, or group conversations, and delete conversations. Use when the user asks to list, rename, pin, star, archive, delete, or start conversations, including the current one, or when a script, plugin, or automation needs to manage conversations outside of subagent tool calls.": "通过 HTTP+JSON 以编程方式管理本地 Antigravity 对话：新建对话（可选初始提示词）、列出对话、读取元数据与运行状态，以及重命名、归档、置顶、星标、打标签、分组或删除对话。适用于在子代理工具调用之外，通过脚本、插件或自动化管理对话的场景。",
+  "Build, package, and debug MCP Apps for Antigravity: MCP server tools whose results render as interactive UI in the conversation, in the side pane, or full-page from the sidebar. Use when adding a UI to an MCP tool, building or theming the app itself, packaging it as a plugin, or debugging an app that doesn't render or behave as expected.": "构建、打包与调试 Antigravity 的 MCP 应用——将 MCP 服务器工具的结果渲染为对话内、侧面板或侧边栏全页交互界面。适用于为 MCP 工具添加界面、开发或定制应用主题、打包为插件，以及排查渲染或交互异常。",
+  "Migrates the user's MCP servers, skills, slash commands, subagents, and instruction files from other coding agents (Claude Code, Codex, Cursor, Gemini CLI) into one new Antigravity plugin. Use when the user wants to bring over, import, or migrate their setup or config from another agent or tool. Don't use for installing Marketplace plugins or authoring a new plugin from scratch (use the plugin skill).": "将其他编码代理（Claude Code、Codex、Cursor、Gemini CLI）中的 MCP 服务器、技能、斜杠命令、子代理与指令文件迁移为一个新的 Antigravity 插件。适用于导入其他工具的配置；从插件市场安装插件或从零创建插件请改用 plugin 技能。",
+  "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work.": "（预览 · 高配额消耗）启动 Swarm 多代理协作：多名代理在各自对话中并行处理同一任务，并通过共享留言板协同配合。适用于可拆分为并行子任务，或需要专人复核产出结果的场景。",
+  "How to manage and create plugins — namespaced bundles of skills, agents, rules, MCP servers and hooks that install, enable and disable as a single unit. Use this skill when the user wants to enable, disable, install or uninstall a plugin, when they want to create a new plugin, or when a new customization should be packaged into a plugin rather than left loose. Also triggered by the /plugin slash command. Don't use for the underlying customization system itself — discovery roots, loading priority, or authoring a standalone skill, agent, rule, hook or MCP server outside a plugin; see the customizations guide skill for those.": "管理与创建插件的指南——插件是将技能、代理、规则、MCP 服务器与钩子按命名空间打包的独立单元，可整体安装、启用或停用。适用于启停、安装、卸载、新建插件，或将自定义项打包为插件；也可通过 /plugin 斜杠命令触发。涉及底层自定义机制（发现路径、加载优先级或编写独立技能、代理、规则、钩子、MCP 服务器）时，请改用自定义指南技能。",
+  "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows).": "指导使用 `run_workflow` 工具编写并运行动态工作流脚本——通过 Python 脚本中的 `agent`、`parallel`、`pipeline` 与 `phase` 编排多个代理。适用于按文件、模块、Bug 或审查维度分片并行再汇总的多阶段任务；单个委派任务请用子代理，旧版工作流请参见 migrate-workflows。",
+  "ONLY for the native-swarm worker whose brief says it is the monitor. On a timer, it checks whether the whole swarm has stalled and calls on the one member who can unstick it. Coordinators and other workers: do not load this.": "仅限任务简报指定为监控员的 Swarm 工作代理使用。定时检查整个 Swarm 是否停滞，并唤醒能解除阻塞的成员。协调者与其他工作代理请勿加载。",
+  "ONLY for the native-swarm worker whose brief says it is the narrator. It watches the board and keeps the facts behind the user's Overview (view.json) current. Coordinators and other workers: do not load this.": "仅限任务简报指定为解说员的 Swarm 工作代理使用。持续关注留言板，实时更新总览页（view.json）的进展信息。协调者与其他工作代理请勿加载。",
+  "ONLY for the coordinator of an active /swarm session. What the coordinator writes so the Swarm UI's Overview can show the swarm's goal, its groups of work and a screenshot timeline; load it before you brief and add the first workers. Outside /swarm, do not load this.": "仅限活跃 /swarm 会话的协调者使用。用于维护 Swarm 界面总览页的目标、工作分组与截图时间线；请在派发任务和添加首批工作代理前加载。非 /swarm 会话请勿加载。",
+  "Unlock the power of agent swarms.": "开启多代理 Swarm 协同工作能力。",
+  "Live view of the native swarm board, roster and @mention graph for the current conversation's swarm.": "实时查看当前对话的 Swarm 留言板、成员名册与 @提及关系图。",
+  "Native swarm board sidecar": "内置 Swarm 留言板伴生服务",
+  "Design, Creative & Media": "设计、创意与媒体",
+  "Science": "科学研究",
+  "Productivity & Project Management": "效率与项目管理",
+  "Cloud Hosting & Deployment": "云托管与部署",
+  "swarm status": "Swarm 状态",
+  "Checked swarm status": "已查看 Swarm 状态",
+  "Checking task": "检查任务中",
+  "Checked task": "已检查任务",
+  "Killing task": "终止任务中",
+  "Killed task": "已终止任务",
+  "Sending input to task": "发送任务输入中",
+  "Sent input to task": "已发送任务输入",
+  "Listed 0 tasks": "已列出 0 个任务",
+  "0 tasks": "0 个任务",
+  "Listing": "列出中",
+  "Listed": "已列出",
+  "Defining": "定义中",
+  "Defined": "已定义",
+  "Messaged": "已发送消息",
+  "Spawned": "已创建",
+  "Posted": "已发布",
+  "Resumed": "已恢复",
+  "Switched": "已切换",
+  "Checked": "已检查",
+  "Allowed": "已允许",
+  "File is too large to show the diff.": "文件过大，无法显示差异。",
+  "Searching marketplace for": "搜索插件市场中",
+  "Searched marketplace for": "已搜索插件市场",
+  "Inbox: Listed 0 messages": "收件箱：已列出 0 条消息",
+  "Running browser action": "运行浏览器操作中",
+  "Running desktop action": "运行桌面操作中",
+  "Running desktop script": "运行桌面脚本中",
+  "Desktop script": "桌面脚本",
+  "Waiting for approval": "等待审批",
+  "Waiting for download approval": "等待下载审批",
+  "Waiting for upload approval": "等待上传审批",
+  "Waiting for site approval": "等待网站访问审批",
+  "Execute notebook cells": "运行 Notebook 单元格",
+  "Cached Content": "缓存内容",
+  "Fetched from cache": "已从缓存获取",
+  "Live Content": "实时内容",
+  "Fetched live": "已实时获取",
+  "Live Content (via Proxy)": "实时内容（经网络代理）",
+  "Fetched live via SandboxProxy": "已通过沙箱网络代理实时获取",
+  "Desktop screenshot after this call": "此次调用后的桌面截图",
+  "Desktop screenshot after this script": "此脚本运行后的桌面截图",
+  "No active tasks.": "暂无活跃任务。",
+  "No messages in inbox.": "收件箱暂无消息。",
+  "No results found in grep": "未搜索到匹配结果",
+  "No files were searched": "未搜索任何文件",
+  "Cannot search directory": "无法搜索目录",
+  "Cannot search path": "无法搜索路径",
+  "Cannot list directory": "无法列出目录",
+  "Matches this automation": "匹配此自动化",
+  "Allow the agent to see your screen and use the mouse and keyboard?": "允许代理查看屏幕并使用鼠标和键盘吗？",
+  "the agent to see your screen and use the mouse and keyboard": "代理查看屏幕并使用鼠标和键盘",
+  "Covers every app you approve in this conversation: the agent can see, click and type in them while they stay behind your other windows. Each app also needs its own approval.": "适用于本次对话中批准的所有应用：代理可在窗口保持后台时查看、点击与输入。每个应用仍需单独授权。",
+  "The agent can see your whole screen and use the mouse and keyboard in this conversation.": "本次对话中，代理可查看整个屏幕并使用鼠标和键盘。",
+  "Matches user-configured deny rule.": "命中用户配置的拒绝规则。",
+  "Matches hardcoded system protection boundary rule.": "命中系统内置保护边界规则。",
+  "Matches system denylist.": "命中系统黑名单。",
+  "Matches default system policy.": "命中系统默认策略。",
+  "Battle Mode arms cannot read the parent or a sibling arm's conversation data.": "对决模式分支无法读取父对话或其他分支的对话数据。",
+  "Battle Mode arms cannot read directories containing other conversations' data.": "对决模式分支无法读取包含其他对话数据的目录。",
+  "Battle Mode arms cannot read conversation databases, which include sibling arms' conversations.": "对决模式分支无法读取包含其他分支数据的对话数据库。",
+  "File:": "文件：",
+  "From:": "来源：",
+  "Save to:": "保存至：",
+  "Agent execution terminated due to error.": "代理因错误终止运行。",
+  "The requested model was not found, or your project does not have access to it.": "未找到所请求的模型，或当前项目无权访问该模型。",
+  "There was a network issue connecting to the server, please try again.": "连接服务器时发生网络异常，请重试。",
+  "Selected model is not supported in the selected location. For a full list of available locations and deployment endpoints, please refer to Antigravity documentation at https://antigravity.google/docs/enterprise.": "所选地区不支持当前模型。完整可用地区与部署端点列表请参阅 Antigravity 企业文档：https://antigravity.google/docs/enterprise。",
+  "Sign-in session is no longer active. Please start sign-in again.": "登录会话已失效，请重新登录。",
+  "Authorization code submission timed out. Please try again.": "授权码提交超时，请重试。",
+  "Invalid authorization code. Please copy the code again and retry.": "授权码无效，请重新复制后重试。",
+  "Invalid callback URL. Please paste the authorization code shown in your browser.": "回调网址无效，请粘贴浏览器中显示的授权码。",
+  "Please enter the authorization code.": "请输入授权码。",
+  "Authorization state mismatch. Please copy the code from the latest browser tab.": "授权状态不匹配，请从最新打开的浏览器标签页复制授权码。",
+  "No authorization code found in the pasted URL. Please copy the authorization code and try again.": "粘贴的网址中未找到授权码，请重新复制授权码后重试。",
+  "Google sign-in was canceled or access was denied": "已取消 Google 登录或拒绝访问",
+  "Sign-in failed while exchanging authorization code. Return to Antigravity for details and try again.": "交换授权码时登录失败，请返回 Antigravity 查看详情并重试。",
+  "Voice is not available in your location.": "当前地区暂不支持语音功能。",
+  "Questions cancelled.": "已取消提问。",
+  "Agent cannot edit files that do not exist.": "代理无法编辑不存在的文件。",
+  "The agent was unable to read the target file.": "代理无法读取目标文件。",
+  "Could not apply since file was edited while the changes were being generated.": "生成更改期间文件有变动，无法应用。",
+  "Find command timed out during execution.": "文件查找超时。",
+  "Grep command timed out during execution.": "内容搜索超时。",
+  "Skill deleted successfully": "技能已删除",
+  "Skill installed successfully": "技能已安装",
+  "Plugin installed successfully": "插件已安装",
+  "Plugin deleted successfully": "插件已删除",
+  "Plugin downloaded and extracted successfully": "插件已下载并解压",
+  "Plugin is already up to date": "插件已是最新版本",
+  "Included the plugin, but failed to install it": "已纳入该插件，但安装失败",
+  "Initializing MCP servers": "初始化 MCP 服务器中",
+  "MCP server connection closed unexpectedly without explicit error": "MCP 服务器连接意外断开，未返回具体错误",
+  "plugin unavailable": "插件不可用",
+  "consumer account sign-in is disabled by administrator policy": "管理员策略已停用个人账号登录",
+  "enterprise license selection is disabled by administrator policy; pay-as-you-go billing is required": "管理员策略已停用企业许可证选择，须使用按量计费",
+  "pay-as-you-go billing is disabled by administrator policy; an enterprise license is required": "管理员策略已停用按量计费，须使用企业许可证",
+  "enterprise license assignment is disabled by administrator policy; pay-as-you-go billing is required": "管理员策略已停用企业许可证分配，须使用按量计费",
+  "enterprise remote conversations are not enabled for this user": "当前账号未启用企业远程对话",
+  "logout is disabled in enterprise gateway mode": "企业网关模式下不可退出登录",
+  "OAuth session expired or revoked": "OAuth 会话已过期或被撤销",
+  "OAuth access token is temporarily unavailable": "OAuth 访问令牌暂时不可用",
+  "OAuth flow timed out": "OAuth 授权流程超时",
+  "Invalid plugin manifest": "插件清单格式无效",
+  "Failed to generate commit message": "生成提交说明失败",
+  "Failed to generate worktree name": "生成工作树名称失败",
+  "Copy Image Address": "复制图片地址",
+  "Copy Link Address": "复制链接地址",
+  "Pin Entire Folder": "置顶整个文件夹",
+  "Unpin Folder": "取消置顶文件夹",
+  "No archived conversations": "暂无已归档对话",
+  "No conversations": "暂无对话",
+  "No branches found": "未找到分支",
+  "Open Mermaid diagram preview": "打开 Mermaid 图表预览",
+  "Open locally": "在本地打开",
+  "Suggested plugin:": "推荐插件：",
+  "Couldn't load older messages — retry": "加载更早消息失败 — 重试",
+  "Couldn't load older messages · Retry": "加载更早消息失败 · 重试",
+  "Applies to messages sent after this turn": "适用于本轮之后发送的消息",
+  "Browser task still running…": "浏览器任务仍在运行…",
+  "Amending...": "修订提交中…",
+  "PDF file size exceeds 10MB limit": "PDF 文件超过 10 MB 上限",
+  "Document file size exceeds 10MB limit": "文档文件超过 10 MB 上限",
+  "Zip file size exceeds 20MB limit": "压缩文件超过 20 MB 上限",
+  "Text file size exceeds 1MB limit": "文本文件超过 1 MB 上限",
+  "File size exceeds 20MB limit": "文件超过 20 MB 上限",
+  "Better solution & code": "方案与代码更优",
+  "More thorough research": "调研更充分",
+  "The other model hallucinated": "另一个模型出现了幻觉",
+  "Clearer writing & artifacts": "表述与工件更清晰",
+  "at": "于",
+  "here": "此处",
+  "Choose…": "请选择…",
+  "(still loading…)": "（加载中…）",
+  "· waiting for the pointer": "· 等待指针",
+  ", always on.": "，始终开启。",
+  "Show breakdown": "显示明细",
+  "Image viewer": "图片查看器",
+  "Removed bookmark": "已移除书签",
+  "Runs a command": "运行命令",
+  "Virtual File": "虚拟文件",
+  "Internal": "内部错误",
+  "Unimplemented": "未实现",
+  "Unexpected leading binary operator": "意外的前置二元运算符",
+  "File Tree Component is not loaded.": "文件树组件未加载。",
+  "Accumulated Item": "汇总项",
+  "Queued message loaded into editor": "已将排队消息载入编辑器",
+  "example: source ~/.jetski_shell_setup": "示例：source ~/.jetski_shell_setup",
+  "e.g., chromium/chromium/src": "例如：chromium/chromium/src",
+  "e.g., main or refs/heads/main": "例如：main 或 refs/heads/main",
+  "Show Worktree": "显示工作树",
+  "Show Workspace + Worktree": "显示工作区 + 工作树",
+  "Show Workspace": "显示工作区",
+  "Show Project + Worktree": "显示项目 + 工作树",
+  "Show Project": "显示项目",
+  "Show Pull Requests": "显示拉取请求",
+  "Waiting for approval to read": "等待批准读取",
+  "Waiting for approval to write": "等待批准写入",
+  "Waiting for approval to run": "等待批准运行",
+  "Waiting for approval to run (unsandboxed)": "等待批准在沙箱外运行",
+  "Waiting for approval to use": "等待批准使用",
+  "Waiting for approval to download from": "等待批准下载",
+  "Waiting for approval to grant administrator access for": "等待批准授予管理员权限",
+  "Waiting for approval to access": "等待批准访问",
+  "Requesting permission to run (unsandboxed)": "请求在沙箱外运行的权限",
+  "Every hour on weekdays": "工作日每小时",
+  "Every hour on weekends": "周末每小时",
+  "Every hour on Sundays": "每周日每小时",
+  "Every hour on Mondays": "每周一每小时",
+  "Every hour on Tuesdays": "每周二每小时",
+  "Every hour on Wednesdays": "每周三每小时",
+  "Every hour on Thursdays": "每周四每小时",
+  "Every hour on Fridays": "每周五每小时",
+  "Every hour on Saturdays": "每周六每小时",
+  "Every hour · This computer": "每小时 · 本机",
+  "Every hour · Remote": "每小时 · 远程",
+  "Every hour on weekdays · This computer": "工作日每小时 · 本机",
+  "Every hour on weekdays · Remote": "工作日每小时 · 远程",
+  "Every hour on weekends · This computer": "周末每小时 · 本机",
+  "Every hour on weekends · Remote": "周末每小时 · 远程",
+  "Custom schedule · This computer": "自定义定时 · 本机",
+  "Custom schedule · Remote": "自定义定时 · 远程",
+  "Create ABFS Workspace (Alpha)": "创建 ABFS 工作区（Alpha）",
+  "[Dev Mode] View full search results": "「开发模式」查看完整搜索结果",
+  "We'll keep waiting, or you can open it directly in a new tab.": "将继续等待，你也可以直接在新标签页中打开。",
+  "Sample GDoc": "示例 GDoc",
+  "Copy transcript": "复制转写内容",
+  "Running command": "运行命令中",
+  "Allowed in this conversation": "已在此对话中允许",
+  "Remove bundle": "移除插件包",
+  "Failed to load marketplace bundles. Please try again.": "加载插件市场插件包失败，请重试。",
+  "Failed to load bundle. Please try again.": "加载插件包失败，请重试。",
+  "Stop this agent": "停止此代理",
+  "Stop all agents": "停止所有代理",
+  "Back to all agents": "返回所有代理",
+  "Open in tab": "在标签页中打开",
+  "Set up my environment": "配置开发环境",
+  "Conversation link": "对话链接",
+  "View archived in the sidebar (Display options menu).": "在侧边栏查看已归档内容（「显示选项」菜单）。"
  },
  "patterns": [
   [
@@ -4231,6 +4520,10 @@
   [
    "^Tot: (.+)$",
    "累计：$1"
+  ],
+  [
+   "^· Tot: (.+)$",
+   "· 累计：$1"
   ],
   [
    "^(\\d+)m ago$",
@@ -5837,7 +6130,7 @@
    "图片 $1"
   ],
   [
-   "^Copy (.+?)$",
+   "^Copy ([^.]+)$",
    "复制 $1"
   ],
   [
@@ -6001,7 +6294,7 @@
    "列出 $1 中"
   ],
   [
-   "^Searching (.+?)$",
+   "^Searching ([^.]+)$",
    "搜索 $1 中"
   ],
   [
@@ -6009,7 +6302,7 @@
    "任务「$1」"
   ],
   [
-   "^Running (.+?)$",
+   "^Running ([^·.]+)$",
    "运行 $1 中"
   ],
   [
@@ -6017,7 +6310,7 @@
    "等待 $1 个计时器"
   ],
   [
-   "^Waiting for (.+?)$",
+   "^Waiting for ([^ ,.;:!?]+(?: [^ ,.;:!?]+)?)$",
    "等待 $1"
   ],
   [
@@ -8109,7 +8402,7 @@
    "第 $1 行 → 第 $2 行"
   ],
   [
-   "^Matches (.+?)$",
+   "^Matches ([^.]+)$",
    "匹配 $1"
   ],
   [
@@ -8345,8 +8638,8 @@
    "可在设置和插件市场中自定义代理、插件与产品体验。我们不会展示广告，也不会让广告商影响 $1 的回复。"
   ],
   [
-   "^, from (.+?)$",
-   "，来自 $1"
+   "^(.+?), from (.+?)$",
+   "$1，来自 $2"
   ],
   [
    "^Handler #(\\d+)$",
@@ -8795,6 +9088,1334 @@
   [
    "^(.+?) · waiting for the pointer$",
    "$1 · 等待指针"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "每周限额已用部分，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) minutes?\\.$",
+   "每周限额已用部分，将于 $1 天 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每周限额已用部分，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) days?\\.$",
+   "每周限额已用部分，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每周限额已用部分，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每周限额已用部分，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your weekly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每周限额已用部分，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "每周限额已用完，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) minutes?\\.$",
+   "每周限额已用完，将于 $1 天 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每周限额已用完，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) days?\\.$",
+   "每周限额已用完，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每周限额已用完，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每周限额已用完，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your weekly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每周限额已用完，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "已达每周限额，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) days?(?:, | and )(\\d+) minutes?\\.$",
+   "已达每周限额，将于 $1 天 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "已达每周限额，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) days?\\.$",
+   "已达每周限额，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达每周限额，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达每周限额，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your weekly limit(?:, it|\\. It) will fully refresh in less than (?:a|1) minute\\.$",
+   "已达每周限额，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "$1 小时限额已用部分，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "$1 小时限额已用部分，将于 $2 分钟 $3 秒后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in (\\d+) hours?\\.$",
+   "$1 小时限额已用部分，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "$1 小时限额已用部分，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in (\\d+) seconds?\\.$",
+   "$1 小时限额已用部分，将于 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "$1 小时限额已用部分，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "$1 小时限额已用完，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "$1 小时限额已用完，将于 $2 分钟 $3 秒后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in (\\d+) hours?\\.$",
+   "$1 小时限额已用完，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "$1 小时限额已用完，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in (\\d+) seconds?\\.$",
+   "$1 小时限额已用完，将于 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "$1 小时限额已用完，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "已达 $1 小时限额，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "已达 $1 小时限额，将于 $2 分钟 $3 秒后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达 $1 小时限额，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达 $1 小时限额，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in (\\d+) seconds?\\.$",
+   "已达 $1 小时限额，将于 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit(?:, it|\\. It) will fully refresh in less than (?:a|1) minute\\.$",
+   "已达 $1 小时限额，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your daily limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每日限额已用部分，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your daily limit, it will fully refresh in (\\d+) days?\\.$",
+   "每日限额已用部分，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used some of your daily limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每日限额已用部分，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your daily limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每日限额已用部分，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your daily limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每日限额已用部分，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your daily limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每日限额已用完，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your daily limit, it will fully refresh in (\\d+) days?\\.$",
+   "每日限额已用完，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used all of your daily limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每日限额已用完，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your daily limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每日限额已用完，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your daily limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每日限额已用完，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your daily limit(?:, it|\\. It) will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "已达每日限额，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your daily limit(?:, it|\\. It) will fully refresh in (\\d+) days?\\.$",
+   "已达每日限额，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have reached your daily limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达每日限额，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your daily limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达每日限额，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your daily limit(?:, it|\\. It) will fully refresh in less than (?:a|1) minute\\.$",
+   "已达每日限额，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your hourly limit, it will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "每小时限额已用部分，将于 $1 分钟 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have used some of your hourly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每小时限额已用部分，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your hourly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每小时限额已用部分，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your hourly limit, it will fully refresh in (\\d+) seconds?\\.$",
+   "每小时限额已用部分，将于 $1 秒后完全刷新。"
+  ],
+  [
+   "^You have used some of your hourly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每小时限额已用部分，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your hourly limit, it will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "每小时限额已用完，将于 $1 分钟 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have used all of your hourly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每小时限额已用完，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your hourly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每小时限额已用完，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your hourly limit, it will fully refresh in (\\d+) seconds?\\.$",
+   "每小时限额已用完，将于 $1 秒后完全刷新。"
+  ],
+  [
+   "^You have used all of your hourly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每小时限额已用完，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your hourly limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?(?:, | and )(\\d+) seconds?\\.$",
+   "已达每小时限额，将于 $1 分钟 $2 秒后完全刷新。"
+  ],
+  [
+   "^You have reached your hourly limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达每小时限额，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your hourly limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达每小时限额，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your hourly limit(?:, it|\\. It) will fully refresh in (\\d+) seconds?\\.$",
+   "已达每小时限额，将于 $1 秒后完全刷新。"
+  ],
+  [
+   "^You have reached your hourly limit(?:, it|\\. It) will fully refresh in less than (?:a|1) minute\\.$",
+   "已达每小时限额，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "每月限额已用部分，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每月限额已用部分，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in (\\d+) days?\\.$",
+   "每月限额已用部分，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每月限额已用部分，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每月限额已用部分，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your monthly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每月限额已用部分，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "每月限额已用完，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "每月限额已用完，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in (\\d+) days?\\.$",
+   "每月限额已用完，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in (\\d+) hours?\\.$",
+   "每月限额已用完，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "每月限额已用完，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your monthly limit, it will fully refresh in less than (?:a|1) minute\\.$",
+   "每月限额已用完，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "已达每月限额，将于 $1 天 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "已达每月限额，将于 $1 小时 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in (\\d+) days?\\.$",
+   "已达每月限额，将于 $1 天后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达每月限额，将于 $1 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达每月限额，将于 $1 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your monthly limit(?:, it|\\. It) will fully refresh in less than (?:a|1) minute\\.$",
+   "已达每月限额，将于不到 1 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-day limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "$1 天限额已用部分，将于 $2 天 $3 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-day limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "$1 天限额已用部分，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-day limit, it will fully refresh in (\\d+) days?\\.$",
+   "$1 天限额已用部分，将于 $2 天后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-day limit, it will fully refresh in (\\d+) hours?\\.$",
+   "$1 天限额已用部分，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used some of your (\\d+)-day limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "$1 天限额已用部分，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-day limit, it will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "$1 天限额已用完，将于 $2 天 $3 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-day limit, it will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "$1 天限额已用完，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-day limit, it will fully refresh in (\\d+) days?\\.$",
+   "$1 天限额已用完，将于 $2 天后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-day limit, it will fully refresh in (\\d+) hours?\\.$",
+   "$1 天限额已用完，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have used all of your (\\d+)-day limit, it will fully refresh in (\\d+) minutes?\\.$",
+   "$1 天限额已用完，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-day limit(?:, it|\\. It) will fully refresh in (\\d+) days?(?:, | and )(\\d+) hours?\\.$",
+   "已达 $1 天限额，将于 $2 天 $3 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-day limit(?:, it|\\. It) will fully refresh in (\\d+) hours?(?:, | and )(\\d+) minutes?\\.$",
+   "已达 $1 天限额，将于 $2 小时 $3 分钟后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-day limit(?:, it|\\. It) will fully refresh in (\\d+) days?\\.$",
+   "已达 $1 天限额，将于 $2 天后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-day limit(?:, it|\\. It) will fully refresh in (\\d+) hours?\\.$",
+   "已达 $1 天限额，将于 $2 小时后完全刷新。"
+  ],
+  [
+   "^You have reached your (\\d+)-day limit(?:, it|\\. It) will fully refresh in (\\d+) minutes?\\.$",
+   "已达 $1 天限额，将于 $2 分钟后完全刷新。"
+  ],
+  [
+   "^(\\d+)-Hour Limit Remaining$",
+   "$1 小时剩余限额"
+  ],
+  [
+   "^(\\d+) Hour Limit Remaining$",
+   "$1 小时剩余限额"
+  ],
+  [
+   "^(\\d+)-Day Limit Remaining$",
+   "$1 天剩余限额"
+  ],
+  [
+   "^You have not used any of your (\\d+)-hour limit\\.$",
+   "尚未消耗 $1 小时限额。"
+  ],
+  [
+   "^You haven't used any of your (\\d+)-hour limit\\.$",
+   "尚未消耗 $1 小时限额。"
+  ],
+  [
+   "^You have used some of your (\\d+)-hour limit\\.$",
+   "$1 小时限额已用部分。"
+  ],
+  [
+   "^You have used all of your (\\d+)-hour limit\\.$",
+   "$1 小时限额已用完。"
+  ],
+  [
+   "^You have reached your (\\d+)-hour limit\\.$",
+   "已达 $1 小时限额。"
+  ],
+  [
+   "^Upgrade to ([A-Z][A-Za-z0-9+.-]*(?: [A-Z0-9][A-Za-z0-9+.-]*)?(?: [A-Z0-9][A-Za-z0-9+.-]*)?)$",
+   "升级至 $1"
+  ],
+  [
+   "^Leaving on Jan(?:uary)? (\\d{1,2})\\.?$",
+   "将于 1 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Feb(?:ruary)? (\\d{1,2})\\.?$",
+   "将于 2 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Mar(?:ch)? (\\d{1,2})\\.?$",
+   "将于 3 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Apr(?:il)? (\\d{1,2})\\.?$",
+   "将于 4 月 $1 日下线"
+  ],
+  [
+   "^Leaving on May (\\d{1,2})\\.?$",
+   "将于 5 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Jun(?:e)? (\\d{1,2})\\.?$",
+   "将于 6 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Jul(?:y)? (\\d{1,2})\\.?$",
+   "将于 7 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Aug(?:ust)? (\\d{1,2})\\.?$",
+   "将于 8 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Sep(?:t(?:ember)?)? (\\d{1,2})\\.?$",
+   "将于 9 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Oct(?:ober)? (\\d{1,2})\\.?$",
+   "将于 10 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Nov(?:ember)? (\\d{1,2})\\.?$",
+   "将于 11 月 $1 日下线"
+  ],
+  [
+   "^Leaving on Dec(?:ember)? (\\d{1,2})\\.?$",
+   "将于 12 月 $1 日下线"
+  ],
+  [
+   "^Swarm Worker \\((.+)\\)$",
+   "Swarm 工作代理（$1）"
+  ],
+  [
+   "^Open Subagent: Swarm Worker \\((.+)\\)$",
+   "打开子代理：Swarm 工作代理（$1）"
+  ],
+  [
+   "^swarm status \\(board #(\\d+)\\)$",
+   "Swarm 状态（留言板 #$1）"
+  ],
+  [
+   "^swarm status \\((.+?)\\)$",
+   "Swarm 状态（$1）"
+  ],
+  [
+   "^Checked swarm status \\(board #(\\d+)\\)$",
+   "已查看 Swarm 状态（留言板 #$1）"
+  ],
+  [
+   "^Checked swarm status \\((.+?)\\)$",
+   "已查看 Swarm 状态（$1）"
+  ],
+  [
+   "^Spawned worker (@.+?)$",
+   "已创建工作代理 $1"
+  ],
+  [
+   "^Spawned (\\d+) workers \\((@.+?)\\)$",
+   "已创建 $1 个工作代理（$2）"
+  ],
+  [
+   "^Killed worker (@.+?)$",
+   "已终止工作代理 $1"
+  ],
+  [
+   "^Killed (\\d+) workers \\((@.+?)\\)$",
+   "已终止 $1 个工作代理（$2）"
+  ],
+  [
+   "^Killed (\\d+) worker\\(s\\)$",
+   "已终止 $1 个工作代理"
+  ],
+  [
+   "^Posted (#\\d+) to (.+?)$",
+   "已发布 $1 至 $2"
+  ],
+  [
+   "^Read (.+?) \\(0 messages\\)$",
+   "已读取 $1（0 条消息）"
+  ],
+  [
+   "^Read 1 message from (.+?) \\((#\\d+)\\)$",
+   "已从 $1 读取 1 条消息（$2）"
+  ],
+  [
+   "^Read (\\d+) messages from (.+?) \\((#.+?)\\)$",
+   "已从 $2 读取 $1 条消息（$3）"
+  ],
+  [
+   "^Resumed wait — new board message \\((#\\d+)\\)$",
+   "已恢复等待 — 收到新留言（$1）"
+  ],
+  [
+   "^Resumed wait — new board messages \\((#.+?)\\)$",
+   "已恢复等待 — 收到新留言（$1）"
+  ],
+  [
+   "^Waiting for (.+?) after (#\\d+)$",
+   "等待 $1（$2 之后）"
+  ],
+  [
+   "^Switched worker (@.+?) to (.+?)$",
+   "已将工作代理 $1 切换至 $2"
+  ],
+  [
+   "^Switched (@.+?) to (.+?)$",
+   "已将 $1 切换至 $2"
+  ],
+  [
+   "^Subscribed to ([^ ]+)$",
+   "已订阅 $1"
+  ],
+  [
+   "^Unsubscribed from ([^ ]+)$",
+   "已取消订阅 $1"
+  ],
+  [
+   "^(.+?) subagent$",
+   "$1 子代理"
+  ],
+  [
+   "^Running · (\\d+/\\d+) agents$",
+   "运行中 · $1 个代理"
+  ],
+  [
+   "^Idle · (\\d+/\\d+) agents$",
+   "空闲 · $1 个代理"
+  ],
+  [
+   "^Canceled · (\\d+/\\d+) agents$",
+   "已取消 · $1 个代理"
+  ],
+  [
+   "^Failed · (\\d+/\\d+) agents$",
+   "已失败 · $1 个代理"
+  ],
+  [
+   "^Ran · (\\d+/\\d+) agents$",
+   "已运行 · $1 个代理"
+  ],
+  [
+   "^(\\d+/\\d+) agents complete$",
+   "已完成 $1 个代理"
+  ],
+  [
+   "^Listed (\\d+) tasks$",
+   "已列出 $1 个任务"
+  ],
+  [
+   "^(\\d+) tasks$",
+   "$1 个任务"
+  ],
+  [
+   "^Messaging (.+?)$",
+   "向 $1 发送消息中"
+  ],
+  [
+   "^Messaged (.+?)$",
+   "已向 $1 发送消息"
+  ],
+  [
+   "^Searching marketplace for (.+?)$",
+   "搜索插件市场：$1"
+  ],
+  [
+   "^Searched marketplace for (.+?)$",
+   "已搜索插件市场：$1"
+  ],
+  [
+   "^Inbox: Listed (\\d+) messages$",
+   "收件箱：已列出 $1 条消息"
+  ],
+  [
+   "^Inbox: (.+?)$",
+   "收件箱：$1"
+  ],
+  [
+   "^Analyzing (.+?)$",
+   "分析 $1 中"
+  ],
+  [
+   "^Window screenshot of (.+?)$",
+   "$1 窗口截图"
+  ],
+  [
+   "^Grep output has (\\d+) lines$",
+   "搜索输出共 $1 行"
+  ],
+  [
+   "^every (\\d+) minutes$",
+   "每 $1 分钟"
+  ],
+  [
+   "^every (\\d+) hours$",
+   "每 $1 小时"
+  ],
+  [
+   "^every hour at minute (\\d+)$",
+   "每小时第 $1 分"
+  ],
+  [
+   "^daily at (\\d{2}:\\d{2})$",
+   "每天 $1"
+  ],
+  [
+   "^Run (.+?) from MCP server (.+?)$",
+   "运行 MCP 服务器 $2 的 $1"
+  ],
+  [
+   "^Allow Run (.+?) from MCP server (.+?)\\?$",
+   "允许运行 MCP 服务器 $2 的 $1 吗？"
+  ],
+  [
+   "^Allow run (.+?) from MCP server (.+?)\\?$",
+   "允许运行 MCP 服务器 $2 的 $1 吗？"
+  ],
+  [
+   "^Save rule to always allow run (.+?) from MCP server (.+?)\\?$",
+   "保存规则，始终允许运行 MCP 服务器 $2 的 $1 吗？"
+  ],
+  [
+   "^Allow the agent to bring (.+?) to the front, see your screen and use the mouse and keyboard\\?$",
+   "允许代理将 $1 置顶、查看屏幕并使用鼠标和键盘吗？"
+  ],
+  [
+   "^Bringing (.+?) to the front takes over your screen: the agent can then see your whole screen and use the mouse and keyboard in this conversation\\.$",
+   "将 $1 置顶会接管屏幕：本次对话中，代理将能查看整个屏幕并使用鼠标和键盘。"
+  ],
+  [
+   "^⚠ Local server access: the agent wants to open (.+?), a server on your machine, but this conversation has no local workspace to develop in\\. Local servers can expose files, admin pages and tools without a login\\. Allow only if you started this server for this task\\.$",
+   "⚠ 本地服务访问风险：代理请求打开本机服务 $1，但当前对话未关联本地工作区。本地服务可能在无需登录的情况下暴露文件、管理页或工具，仅在确为本次任务自行启动时允许。"
+  ],
+  [
+   "^⚠ Possible data leak: this URL carries data that is not in your request or on the current page \\((.+?)\\)\\. Allow only if you expect the agent to send it to this site\\.$",
+   "⚠ 可能存在数据泄露：此网址携带了既非来自请求也不在当前页面中的数据（$1）。仅在确认允许代理将数据发送至该网站时放行。"
+  ],
+  [
+   "^(.+?) is a sensitive site \\((.+?)\\)\\. Broad browser permissions and Turbo don't cover it, so the agent asks before it opens this site\\.$",
+   "$1 属于敏感网站（$2）。宽泛浏览器权限与极速模式不覆盖此类站点，因此代理打开前会先询问。"
+  ],
+  [
+   "^The edited value \"(.+?)\" does not cover the originally requested permission \\((.+?)\\)\\. Please check for typos\\.$",
+   "修改后的值「$1」未覆盖原请求权限（$2），请检查拼写。"
+  ],
+  [
+   "^(.+?) is a sensitive site, so it can only be approved by itself\\. Approve \"(.+?)\" \\(or a host within it\\) instead of \"(.+?)\"\\.$",
+   "$1 为敏感网站，只能单独授权。请批准「$2」（或其子主机），而非「$3」。"
+  ],
+  [
+   "^This permission can't be approved automatically \\((.+?)\\)\\.$",
+   "此权限无法自动批准（$1）。"
+  ],
+  [
+   "^This permission can't be approved for the chosen scope \\((.+?)\\)\\.$",
+   "此权限不支持所选授权范围（$1）。"
+  ],
+  [
+   "^The browser agent stopped before this action because it (.+?)\\. Allow it only if you asked for it\\. Page: (.+?)$",
+   "浏览器代理在操作前已暂停，原因：$1。仅在确为你主动要求时允许。页面：$2"
+  ],
+  [
+   "^The browser agent stopped before this action because it (.+?)\\. Allow it only if you asked for it\\.$",
+   "浏览器代理在操作前已暂停，原因：$1。仅在确为你主动要求时允许。"
+  ],
+  [
+   "^Navigation to payment page (.+?) is blocked for agent actions\\. Ask the user to complete the payment directly in the browser pane\\.$",
+   "为保障安全，已阻止代理操作支付页面 $1。请在浏览器面板中手动完成支付。"
+  ],
+  [
+   "^Reason provided by agent: (.+?)$",
+   "代理说明原因：$1"
+  ],
+  [
+   "^(.+?) isn't available for remote conversations yet\\. Choose another model and try again\\.$",
+   "$1 暂不支持远程对话，请切换其他模型重试。"
+  ],
+  [
+   "^Google sign-in was canceled or access was denied: (.+?)$",
+   "已取消 Google 登录或拒绝访问：$1"
+  ],
+  [
+   "^OAuth callback error \\((.+?)\\): (.+?)$",
+   "OAuth 回调错误（$1）：$2"
+  ],
+  [
+   "^OAuth callback error: (.+?)$",
+   "OAuth 回调错误：$1"
+  ],
+  [
+   "^OAuth error: (.+?)$",
+   "OAuth 错误：$1"
+  ],
+  [
+   "^Sign-in is blocked because the administrator policy could not be applied: (.+?)\\. Restart Antigravity; if this persists, report it as a bug\\.$",
+   "管理员策略应用失败，登录已受阻：$1。请重启 Antigravity；若问题持续，请反馈 Bug。"
+  ],
+  [
+   "^Sign-in is blocked because your administrator's policy file \\(admin_settings\\.json\\) is invalid: (.+?)\\. Contact your IT administrator\\.$",
+   "管理员策略文件（admin_settings.json）无效，登录已受阻：$1。请联系 IT 管理员。"
+  ],
+  [
+   "^No Gemini Enterprise license found or auto-assign disabled for project (.+?) \\((.+?)\\)\\.$",
+   "项目 $1（$2）未找到 Gemini Enterprise 许可证，或已停用自动分配。"
+  ],
+  [
+   "^GCP project \"(.+?)\" is not permitted by administrator policy \\(required: \"(.+?)\"\\)$",
+   "管理员策略不允许使用 GCP 项目「$1」（要求：「$2」）"
+  ],
+  [
+   "^GCP location \"(.+?)\" is not permitted by administrator policy \\(required: \"(.+?)\"\\)$",
+   "管理员策略不允许使用 GCP 地区「$1」（要求：「$2」）"
+  ],
+  [
+   "^WIF provider \"(.+?)\" is not permitted by administrator policy \\(required: \"(.+?)\"\\)$",
+   "管理员策略不允许使用 WIF 提供方「$1」（要求：「$2」）"
+  ],
+  [
+   "^Another plugin is already installed in the folder \"(.+?)\"\\. Uninstall it first, then install \"(.+?)\" again\\.$",
+   "文件夹「$1」中已安装另一个插件。请先卸载，再重新安装「$2」。"
+  ],
+  [
+   "^Another skill is already installed in the folder \"(.+?)\"\\. Uninstall it first, then install \"(.+?)\" again\\.$",
+   "文件夹「$1」中已安装另一个技能。请先卸载，再重新安装「$2」。"
+  ],
+  [
+   "^Another bundle is already installed in the folder \"(.+?)\"\\. Uninstall it first, then install \"(.+?)\" again\\.$",
+   "文件夹「$1」中已安装另一个插件包。请先卸载，再重新安装「$2」。"
+  ],
+  [
+   "^Another extension is already installed in the folder \"(.+?)\"\\. Uninstall it first, then install \"(.+?)\" again\\.$",
+   "文件夹「$1」中已安装另一个扩展。请先卸载，再重新安装「$2」。"
+  ],
+  [
+   "^MCP server (.+?) rejected the credential \\(HTTP 401\\)$",
+   "MCP 服务器 $1 拒绝了凭据（HTTP 401）"
+  ],
+  [
+   "^MCP server (.+?) does not support OAuth sign-in$",
+   "MCP 服务器 $1 不支持 OAuth 登录"
+  ],
+  [
+   "^OAuth setup failed for (.+?)$",
+   "$1 的 OAuth 配置失败"
+  ],
+  [
+   "^URL: (.+?)$",
+   "网址：$1"
+  ],
+  [
+   "^Show (\\d+) more$",
+   "再显示 $1 项"
+  ],
+  [
+   "^Show (\\d+) more subagents?$",
+   "再显示 $1 个子代理"
+  ],
+  [
+   "^Show (\\d+) breakdowns?$",
+   "显示 $1 项明细"
+  ],
+  [
+   "^(\\d+) conflicts?$",
+   "$1 处冲突"
+  ],
+  [
+   "^(\\d+)m$",
+   "$1 分钟"
+  ],
+  [
+   "^(\\d+)h$",
+   "$1 小时"
+  ],
+  [
+   "^(\\d+)d$",
+   "$1 天"
+  ],
+  [
+   "^(\\d+)w$",
+   "$1 周"
+  ],
+  [
+   "^(\\d+)mo$",
+   "$1 个月"
+  ],
+  [
+   "^(\\d+)y$",
+   "$1 年"
+  ],
+  [
+   "^Yes, always allow (?!downloads from(?: |$))([^ ,;:!?]+(?: [^ ,;:!?]+)?(?: [^ ,;:!?]+)?)$",
+   "始终允许 $1"
+  ],
+  [
+   "^Yes, save rule for '(.+)' in this conversation$",
+   "在此对话中为「$1」保存规则"
+  ],
+  [
+   "^Yes, save rule for '(.+)' globally$",
+   "为「$1」保存全局规则"
+  ],
+  [
+   "^Yes, and always allow '(.+)' in this conversation$",
+   "是，在此对话中始终允许「$1」"
+  ],
+  [
+   "^Yes, and always allow '(.+)'$",
+   "是，始终允许「$1」"
+  ],
+  [
+   "^Waiting for approval to read: (.+)$",
+   "等待批准读取：$1"
+  ],
+  [
+   "^Waiting for approval to write: (.+)$",
+   "等待批准写入：$1"
+  ],
+  [
+   "^Waiting for approval to run \\(unsandboxed\\): (.+)$",
+   "等待批准在沙箱外运行：$1"
+  ],
+  [
+   "^Waiting for approval to run: (.+)$",
+   "等待批准运行：$1"
+  ],
+  [
+   "^Waiting for approval to use: (.+)$",
+   "等待批准使用：$1"
+  ],
+  [
+   "^Waiting for approval to download from: (.+)$",
+   "等待批准从 $1 下载"
+  ],
+  [
+   "^Waiting for approval to grant administrator access for: (.+)$",
+   "等待批准授予管理员权限：$1"
+  ],
+  [
+   "^Waiting for approval to access: (.+)$",
+   "等待批准访问：$1"
+  ],
+  [
+   "^Could not load the app view: (.+)$",
+   "无法加载应用视图：$1"
+  ],
+  [
+   "^Running for (\\d+)d (\\d+)h (\\d+)m$",
+   "已运行 $1 天 $2 小时 $3 分钟"
+  ],
+  [
+   "^Running for (\\d+)h (\\d+)m$",
+   "已运行 $1 小时 $2 分钟"
+  ],
+  [
+   "^Running for (\\d+)h$",
+   "已运行 $1 小时"
+  ],
+  [
+   "^Running for (\\d+)m$",
+   "已运行 $1 分钟"
+  ],
+  [
+   "^Running for (\\d+)s$",
+   "已运行 $1 秒"
+  ],
+  [
+   "^Select model, current: (.+?)\\. Applies to /btw and messages sent after this turn$",
+   "选择模型，当前：$1。适用于 /btw 及本轮之后发送的消息"
+  ],
+  [
+   "^Select model, current: (.+?)\\. Applies to messages sent after this turn$",
+   "选择模型，当前：$1。适用于本轮之后发送的消息"
+  ],
+  [
+   "^Every (\\d+) minutes on weekdays$",
+   "工作日每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on weekends$",
+   "周末每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Sundays$",
+   "每周日每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Mondays$",
+   "每周一每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Tuesdays$",
+   "每周二每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Wednesdays$",
+   "每周三每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Thursdays$",
+   "每周四每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Fridays$",
+   "每周五每 $1 分钟"
+  ],
+  [
+   "^Every (\\d+) minutes on Saturdays$",
+   "每周六每 $1 分钟"
+  ],
+  [
+   "^Every hour on (.+?)$",
+   "每小时（$1）"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekdays$",
+   "工作日每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekends$",
+   "周末每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Sundays$",
+   "每周日每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Mondays$",
+   "每周一每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Tuesdays$",
+   "每周二每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Wednesdays$",
+   "每周三每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Thursdays$",
+   "每周四每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Fridays$",
+   "每周五每小时第 $1 分"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on Saturdays$",
+   "每周六每小时第 $1 分"
+  ],
+  [
+   "^Every (\\d+) hours on weekdays$",
+   "工作日每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on weekends$",
+   "周末每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Sundays$",
+   "每周日每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Mondays$",
+   "每周一每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Tuesdays$",
+   "每周二每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Wednesdays$",
+   "每周三每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Thursdays$",
+   "每周四每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Fridays$",
+   "每周五每 $1 小时"
+  ],
+  [
+   "^Every (\\d+) hours on Saturdays$",
+   "每周六每 $1 小时"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Sundays$",
+   "每周日每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Mondays$",
+   "每周一每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Tuesdays$",
+   "每周二每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Wednesdays$",
+   "每周三每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Thursdays$",
+   "每周四每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Fridays$",
+   "每周五每小时（$1 至 $2）"
+  ],
+  [
+   "^Every hour, (\\d{1,2} [AP]M) to (\\d{1,2} [AP]M), on Saturdays$",
+   "每周六每小时（$1 至 $2）"
+  ],
+  [
+   "^Sun (\\d{1,2}:\\d{2} [AP]M)$",
+   "周日 $1"
+  ],
+  [
+   "^Mon (\\d{1,2}:\\d{2} [AP]M)$",
+   "周一 $1"
+  ],
+  [
+   "^Tue (\\d{1,2}:\\d{2} [AP]M)$",
+   "周二 $1"
+  ],
+  [
+   "^Wed (\\d{1,2}:\\d{2} [AP]M)$",
+   "周三 $1"
+  ],
+  [
+   "^Thu (\\d{1,2}:\\d{2} [AP]M)$",
+   "周四 $1"
+  ],
+  [
+   "^Fri (\\d{1,2}:\\d{2} [AP]M)$",
+   "周五 $1"
+  ],
+  [
+   "^Sat (\\d{1,2}:\\d{2} [AP]M)$",
+   "周六 $1"
+  ],
+  [
+   "^Every (\\d+) hours on weekdays (.+?) · This computer$",
+   "工作日每 $1 小时（$2）· 本机"
+  ],
+  [
+   "^Every (\\d+) hours on weekdays · This computer$",
+   "工作日每 $1 小时 · 本机"
+  ],
+  [
+   "^Every (\\d+) hours on weekdays (.+?) · Remote$",
+   "工作日每 $1 小时（$2）· 远程"
+  ],
+  [
+   "^Every (\\d+) hours on weekdays · Remote$",
+   "工作日每 $1 小时 · 远程"
+  ],
+  [
+   "^Every (\\d+) hours on weekends (.+?) · This computer$",
+   "周末每 $1 小时（$2）· 本机"
+  ],
+  [
+   "^Every (\\d+) hours on weekends · This computer$",
+   "周末每 $1 小时 · 本机"
+  ],
+  [
+   "^Every (\\d+) hours on weekends (.+?) · Remote$",
+   "周末每 $1 小时（$2）· 远程"
+  ],
+  [
+   "^Every (\\d+) hours on weekends · Remote$",
+   "周末每 $1 小时 · 远程"
+  ],
+  [
+   "^Every (\\d+) minutes on weekdays (.+?) · This computer$",
+   "工作日每 $1 分钟（$2）· 本机"
+  ],
+  [
+   "^Every (\\d+) minutes on weekdays · This computer$",
+   "工作日每 $1 分钟 · 本机"
+  ],
+  [
+   "^Every (\\d+) minutes on weekdays (.+?) · Remote$",
+   "工作日每 $1 分钟（$2）· 远程"
+  ],
+  [
+   "^Every (\\d+) minutes on weekdays · Remote$",
+   "工作日每 $1 分钟 · 远程"
+  ],
+  [
+   "^Every (\\d+) minutes on weekends (.+?) · This computer$",
+   "周末每 $1 分钟（$2）· 本机"
+  ],
+  [
+   "^Every (\\d+) minutes on weekends · This computer$",
+   "周末每 $1 分钟 · 本机"
+  ],
+  [
+   "^Every (\\d+) minutes on weekends (.+?) · Remote$",
+   "周末每 $1 分钟（$2）· 远程"
+  ],
+  [
+   "^Every (\\d+) minutes on weekends · Remote$",
+   "周末每 $1 分钟 · 远程"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekdays (.+?) · This computer$",
+   "工作日每小时第 $1 分（$2）· 本机"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekdays · This computer$",
+   "工作日每小时第 $1 分 · 本机"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekdays (.+?) · Remote$",
+   "工作日每小时第 $1 分（$2）· 远程"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekdays · Remote$",
+   "工作日每小时第 $1 分 · 远程"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekends (.+?) · This computer$",
+   "周末每小时第 $1 分（$2）· 本机"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekends · This computer$",
+   "周末每小时第 $1 分 · 本机"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekends (.+?) · Remote$",
+   "周末每小时第 $1 分（$2）· 远程"
+  ],
+  [
+   "^Every hour at :(\\d{2}) on weekends · Remote$",
+   "周末每小时第 $1 分 · 远程"
+  ],
+  [
+   "^Every hour on weekdays (.+?) · This computer$",
+   "工作日每小时（$1）· 本机"
+  ],
+  [
+   "^Every hour on weekdays (.+?) · Remote$",
+   "工作日每小时（$1）· 远程"
+  ],
+  [
+   "^Every hour on weekends (.+?) · This computer$",
+   "周末每小时（$1）· 本机"
+  ],
+  [
+   "^Every hour on weekends (.+?) · Remote$",
+   "周末每小时（$1）· 远程"
+  ],
+  [
+   "^Every hour (.+?) · This computer$",
+   "每小时（$1）· 本机"
+  ],
+  [
+   "^Every hour (.+?) · Remote$",
+   "每小时（$1）· 远程"
+  ],
+  [
+   "^Weekdays at (.+?) · This computer$",
+   "工作日 $1 · 本机"
+  ],
+  [
+   "^Weekdays at (.+?) · Remote$",
+   "工作日 $1 · 远程"
+  ],
+  [
+   "^Weekends at (.+?) · This computer$",
+   "周末 $1 · 本机"
+  ],
+  [
+   "^Weekends at (.+?) · Remote$",
+   "周末 $1 · 远程"
+  ],
+  [
+   "^Sundays at (.+?) · This computer$",
+   "每周日 $1 · 本机"
+  ],
+  [
+   "^Sundays at (.+?) · Remote$",
+   "每周日 $1 · 远程"
+  ],
+  [
+   "^Mondays at (.+?) · This computer$",
+   "每周一 $1 · 本机"
+  ],
+  [
+   "^Mondays at (.+?) · Remote$",
+   "每周一 $1 · 远程"
+  ],
+  [
+   "^Tuesdays at (.+?) · This computer$",
+   "每周二 $1 · 本机"
+  ],
+  [
+   "^Tuesdays at (.+?) · Remote$",
+   "每周二 $1 · 远程"
+  ],
+  [
+   "^Wednesdays at (.+?) · This computer$",
+   "每周三 $1 · 本机"
+  ],
+  [
+   "^Wednesdays at (.+?) · Remote$",
+   "每周三 $1 · 远程"
+  ],
+  [
+   "^Thursdays at (.+?) · This computer$",
+   "每周四 $1 · 本机"
+  ],
+  [
+   "^Thursdays at (.+?) · Remote$",
+   "每周四 $1 · 远程"
+  ],
+  [
+   "^Fridays at (.+?) · This computer$",
+   "每周五 $1 · 本机"
+  ],
+  [
+   "^Fridays at (.+?) · Remote$",
+   "每周五 $1 · 远程"
+  ],
+  [
+   "^Saturdays at (.+?) · This computer$",
+   "每周六 $1 · 本机"
+  ],
+  [
+   "^Saturdays at (.+?) · Remote$",
+   "每周六 $1 · 远程"
+  ],
+  [
+   "^Monthly on the (\\d+)(?:st|nd|rd|th) at (.+?) · This computer$",
+   "每月 $1 日 $2 · 本机"
+  ],
+  [
+   "^Monthly on the (\\d+)(?:st|nd|rd|th) at (.+?) · Remote$",
+   "每月 $1 日 $2 · 远程"
+  ],
+  [
+   "^Sign-ins to (.+?) are kept in the cloud with your account\\. Other credentials stay on this machine\\. Credentials are only sent to the domains listed\\.$",
+   "$1 的登录状态会随账号保存在云端，其他凭据保存在本机，且仅发送至所列域名。"
+  ],
+  [
+   "^Sign-ins to (.+?) are kept in the cloud with your account\\. Credentials are only sent to the domains listed\\.$",
+   "$1 的登录状态会随账号保存在云端，凭据仅发送至所列域名。"
+  ],
+  [
+   "^MCP error (-?\\d+): (.+)$",
+   "MCP 错误 $1：$2"
+  ],
+  [
+   "^Internal: (.+)$",
+   "内部错误：$1"
+  ],
+  [
+   "^Unimplemented: (.+)$",
+   "未实现：$1"
+  ],
+  [
+   "^\\(([\\d,]+) tokens\\) · estimated$",
+   "（$1 个 token）· 估算"
   ]
  ],
  "inline": {
@@ -8882,6 +10503,24 @@
   "Visit {1} to ask for content changes for legal reasons.": "访问 {1} 可因法律原因申请修改内容。",
   "[Dev Mode] View full search results{1}": "「开发模式」查看完整搜索结果{1}",
   "{1} Copy the folder elsewhere first if you might want it back.": "{1} 如果日后可能还需要，请先将文件夹复制到其他位置。",
-  "{1}Required": "{1}必填"
+  "{1}Required": "{1}必填",
+  "Yes, allow downloads from {1} for this run": "允许本次运行从 {1} 下载",
+  "Yes, allow downloads from {1} in this conversation": "允许在此对话中从 {1} 下载",
+  "Yes, always allow downloads from {1}": "始终允许下载自 {1}",
+  "Yes, allow {1} in this conversation": "允许在此对话中使用 {1}",
+  "Yes, always allow {1}": "始终允许 {1}",
+  "Yes, save rule for '{1}' in this conversation": "在此对话中为「{1}」保存规则",
+  "Yes, save rule for '{1}' globally": "为「{1}」保存全局规则",
+  "Yes, and always allow '{1}' in this conversation": "是，在此对话中始终允许「{1}」",
+  "Yes, and always allow '{1}'": "是，始终允许「{1}」",
+  "Avoid uploading highly sensitive data and verify actions taken by your agent. Make sure you have the {1} to any content or files that you upload, including content of minors. Don't generate content that infringes on others' rights, including content that deceives, harasses, or harms. When using Antigravity, you must comply with Google's {2}. Your use is subject to the {3} and {4}.": "请勿上传高度敏感数据，并核实代理的操作。请确保对上传的任何内容或文件（含未成年人内容）拥有{1}。不得生成侵犯他人权利的内容，包括欺骗、骚扰或伤害他人的内容。使用 Antigravity 须遵守 Google 的{2}。使用本服务受 {3}和 {4}约束。",
+  "In System Settings, click {1}, choose {2}, then turn it on. Already on? Select {3}, click {4}, then click {5} and add it again.": "在「系统设置」中点击 {1}，选择 {2}，然后开启。已开启？选中 {3}，点击 {4}，再点击 {5} 重新添加。",
+  "There was an error with your authentication. To log in, click {1}": "身份验证出错，登录请点击{1}",
+  "To use the agent, please login {1}": "使用代理前请先登录，点击{1}",
+  "Validated with GitHub and stored in {1}. It is not visible in the agent's sandbox and is shared across all your projects. {2}.": "已通过 GitHub 验证并保存至 {1}，在代理沙箱中不可见，且在所有项目间共享。{2}。",
+  "Configure allowed and denied URLs for the browser subagent (invoked with /browser). Requires {1}.": "配置浏览器子代理（通过 /browser 调用）允许和拒绝访问的网址，需要 {1}。",
+  "Long pages like this one will be broken down into outlines and read as needed. Read more at our {1}.": "此类长页面会拆分为大纲按需读取，详情请参阅{1}。",
+  "To switch accounts, sign out in the {1} and sign in again.": "切换账号时，请先在{1}退出登录，再重新登录。",
+  "Signed in as {1}. To add another account, go to the {2}.": "当前登录账号：{1}。要添加其他账号，请前往{2}。"
  }
 }

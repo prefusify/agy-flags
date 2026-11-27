@@ -64,7 +64,7 @@
         "en": "Developer settings page"
       },
       "description": {
-        "zh": "在设置里多出 Developer 页，可以在客户端里自己覆盖界面开关。",
+        "zh": "在设置里多出「开发者」（Developer）页，可以在客户端里自己覆盖界面开关。",
         "en": "Adds a Developer page to Settings, where you can override interface flags inside the app."
       }
     },
@@ -82,7 +82,7 @@
         "en": "Context usage indicator"
       },
       "description": {
-        "zh": "在输入框旁显示上下文已经用了多少；重启后还要在 Settings → Appearance → Advanced Settings → Chat Layout 里打开「Context and quota indicator」。",
+        "zh": "在输入框旁显示上下文已经用了多少；重启后还要在设置 → 外观 → 高级设置 → 对话布局（Settings → Appearance → Advanced Settings → Chat Layout）里打开「上下文和配额指示器」（Context and quota indicator）。",
         "en": "Shows how full the context window is next to the input box; after the restart, also turn on \"Context and quota indicator\" under Settings → Appearance → Advanced Settings → Chat Layout."
       }
     },
@@ -208,7 +208,7 @@
         "en": "New sidebar"
       },
       "description": {
-        "zh": "换成按状态分组、带收件箱模式的新侧边栏；关掉后分组如果还是 Status，到 Display Options → Group By 选回 Project。",
+        "zh": "换成按状态分组、带收件箱模式的新侧边栏；关掉后如果还是按「状态」（Status）分组，到显示选项 → 分组依据（Display Options → Group By）选回「项目」（Project）。",
         "en": "Switches to a new sidebar that groups conversations by status and has an inbox mode; if grouping stays on Status after you turn it off, set Display Options → Group By back to Project."
       }
     },
@@ -240,7 +240,7 @@
         "en": "Background tasks"
       },
       "description": {
-        "zh": "在设置里多出 Running 页，列出所有还在运行的后台任务和终端。",
+        "zh": "在设置里多出「运行中」（Running）页，列出所有还在运行的后台任务和终端。",
         "en": "Adds a Running page to Settings that lists all background tasks and terminals that are still running."
       }
     },
@@ -256,7 +256,7 @@
         "en": "Markdown artifact width"
       },
       "description": {
-        "zh": "可以在 Chat Layout 设置里把 Markdown 工件调宽或铺满。",
+        "zh": "可以在「对话布局」（Chat Layout）设置里把 Markdown 工件调宽或铺满。",
         "en": "Lets you make Markdown artifacts wider or full width in the Chat Layout settings."
       }
     },
@@ -304,7 +304,7 @@
         "en": "Connectors in the input box"
       },
       "description": {
-        "zh": "输入框的「Add context」菜单里多出连接器入口。",
+        "zh": "输入框的「添加上下文」（Add context）菜单里多出连接器入口。",
         "en": "Adds connectors to the \"Add context\" menu of the input box."
       }
     },

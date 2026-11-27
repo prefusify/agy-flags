@@ -210,7 +210,11 @@ test('a text is looked up whole, and keeps the spaces around it', () => {
   }
   // An entry that is the same in both languages changes nothing.
   assert.equal(lookup('Skills'), null);
-  assert.equal(lookup(`Settings${' '.repeat(700)}`), null);
+  assert.equal(lookup(`Settings${' '.repeat(1100)}`), null);
+  // Descriptions up to 1000 characters (e.g. the 630-char built-in plugin skill description) are allowed.
+  const longKey = `Plugin guide ${'a '.repeat(320)}end`;
+  assert.ok(longKey.length > 600 && longKey.length <= 1000);
+  assert.equal(l10nFactory({ exact: { [longKey]: '插件指南' }, patterns: [] }).lookup(longKey), '插件指南');
 });
 
 test('names of an object are not entries', () => {
@@ -360,6 +364,54 @@ test('a pattern with one fixed word is not used for a sentence, except explicit 
   assert.equal(lookup('Thought for a long time about the question'), '思考了 a long time about the question');
 });
 
+test('structured single-word UI patterns are exempted from loose prose rejection while bare verbs remain strict', () => {
+  const { lookup } = l10nFactory({
+    exact: {},
+    patterns: [
+      ['^(.+?) — Toggles: (.+?)$', '$1 — 切换：$2'],
+      ['^(.+?) — Inserts: (.+?)$', '$1 — 插入：$2'],
+      ['^(.+?) · Remote$', '$1 · 远程'],
+      ['^See (.+?): (.+?)$', '参阅 $1：$2'],
+      ['^Started "(.+?)"\\.$', '已启动「$1」。'],
+      ['^Task "(.+?)"$', '任务「$1」'],
+      ['^Resolved "(.+?)"$', '已解决「$1」'],
+      ['^(.+?) \\(Default\\)$', '$1（默认）'],
+      ['^(.+?) \\(Remote\\)$', '$1（远程）'],
+      ['^(.+?): (\\d+) comments?$', '$1：$2 条评论'],
+      ['^(.+?), (\\d+) grants?$', '$1，$2 条授权'],
+      ['^Allow (.+?)\\?$', '允许 $1？'],
+      ['^Stop (.+?)\\?$', '确定停止 $1？'],
+      ['^Loading (.+?)\\.\\.\\.$', '加载 $1 中…'],
+      ['^Enter (.+?)\\.\\.\\.$', '输入 $1…'],
+      ['^Open (.+?)$', '打开 $1'],
+      ['^Conversation (.+?)$', '对话 $1'],
+      ['^Running (.+?)$', '运行 $1 中'],
+    ],
+  });
+  assert.equal(lookup('My Flag — Toggles: Enable the new experimental sidebar layout'), 'My Flag — 切换：Enable the new experimental sidebar layout');
+  assert.equal(lookup('My Shortcut — Inserts: Insert current file path into prompt'), 'My Shortcut — 插入：Insert current file path into prompt');
+  assert.equal(lookup('Production Build Workspace Cluster · Remote'), 'Production Build Workspace Cluster · 远程');
+  assert.equal(lookup('Started "Run all integration tests in workspace".'), '已启动「Run all integration tests in workspace」。');
+  assert.equal(lookup('Task "Audit DOM blindspots across the sidebar"'), '任务「Audit DOM blindspots across the sidebar」');
+  assert.equal(lookup('Resolved "Fix authentication bug in login flow"'), '已解决「Fix authentication bug in login flow」');
+  assert.equal(lookup('Open in Built in Browser Window (Default)'), 'Open in Built in Browser Window（默认）');
+  assert.equal(lookup('Cloud Development Server Cluster Instance (Remote)'), 'Cloud Development Server Cluster Instance（远程）');
+  assert.equal(lookup('Fix authentication bug in login flow: 4 comments'), 'Fix authentication bug in login flow：4 条评论');
+  assert.equal(lookup('Google Workspace Enterprise Integration Plugin, 3 grants'), 'Google Workspace Enterprise Integration Plugin，3 条授权');
+  // Short targets still translate for loose single-word patterns (including "?$", "...$", and "See X: Y").
+  assert.equal(lookup('Loading branches...'), '加载 branches 中…');
+  assert.equal(lookup('Stop my-server?'), '确定停止 my-server？');
+  assert.equal(lookup('See docs: MCP'), '参阅 docs：MCP');
+  // Long English sentences with "?$", "...$", "See X: Y", or bare single verbs remain rejected by loose.
+  assert.equal(lookup('Allow the browser extension to read all tabs and modify page content?'), null);
+  assert.equal(lookup('Loading the remote workspace and indexing project files...'), null);
+  assert.equal(lookup('Enter a detailed description of the issue you encountered...'), null);
+  assert.equal(lookup('See documentation: how to configure custom plugins'), null);
+  assert.equal(lookup('Open the settings panel to configure your preferences'), null);
+  assert.equal(lookup('Conversation is not open in this Hub window'), null);
+  assert.equal(lookup('Running all the integration tests in the workspace'), null);
+});
+
 test('a pattern must be simple', () => {
   for (const good of ['^Show (\\d+) More$', '^(.+) and (\\d+) others?$', '^Turn \\((.+)\\)$', '^(?:Open|Close) (.+)$', '^[A-Z]+ (.+)\\.$']) {
     assert.equal(isSafePattern(good), true, good);
@@ -398,10 +450,14 @@ test('a word list is checked before it goes into the page, including optional in
         'Always open {1} links without asking': '始终直接打开 {1} 链接，不再询问',
         '{1} Press {2} to continue': '{1} 按 {2} 继续',
         'Visit {1} or {2} for {3}.': '访问 {1} 或 {2} 获取 {3}。',
+        'See {1}, {2}, {3}, and {4}.': '参阅 {1}、{2}、{3} 和 {4}。',
+        'Click {1}, pick {2}, select {3}, click {4}, then {5}.': '点 {1}、选 {2}、选 {3}、点 {4}，再点 {5}。',
+        'A {1} B {2} C {3} D {4} E {5} F {6} G': '甲 {1} 乙 {2} 丙 {3} 丁 {4} 戊 {5} 己 {6} 庚',
       },
     }),
     true
   );
+  assert.equal(isDictionary({ exact: { ['a'.repeat(630)]: '长文本', ['b'.repeat(1000)]: '上限文本' }, patterns: [] }), true);
   const bad = [
     null,
     [],
@@ -413,7 +469,7 @@ test('a word list is checked before it goes into the page, including optional in
     { exact: { Empty: '' }, patterns: [] },
     { exact: { Number: 7 }, patterns: [] },
     { exact: { Control: 'a\u0000b' }, patterns: [] },
-    { exact: { Long: 'x'.repeat(601) }, patterns: [] },
+    { exact: { Long: 'x'.repeat(1001) }, patterns: [] },
     { exact: { a: 'b' }, patterns: [['Show (\\d+)', '$1']] },
     { exact: { a: 'b' }, patterns: [['^Show (\\d+)$', '$2 项']] },
     { exact: { a: 'b' }, patterns: [['^Show (\\d+)$', '$& 项']] },
@@ -424,7 +480,7 @@ test('a word list is checked before it goes into the page, including optional in
     { exact: { a: 'b' }, patterns: [], inline: [] },
     { exact: { a: 'b' }, patterns: [], inline: { 'No slots here': '没有槽位' } },
     { exact: { a: 'b' }, patterns: [], inline: { 'Swap {1} and {2}': '交换 {2} 和 {1}' } },
-    { exact: { a: 'b' }, patterns: [], inline: { 'Too many {1} {2} {3} {4}': '太多 {1} {2} {3} {4}' } },
+    { exact: { a: 'b' }, patterns: [], inline: { 'Too many {1} {2} {3} {4} {5} {6} {7}': '太多 {1} {2} {3} {4} {5} {6} {7}' } },
     // Boundary violations: must not add text where DOM has no text node
     { exact: { a: 'b' }, patterns: [], inline: { '{1} files': '共 {1} 个文件' } },
     { exact: { a: 'b' }, patterns: [], inline: { 'Open {1}': '打开 {1} 项' } },
@@ -801,6 +857,562 @@ test('inline-slot templates translate in place without adding, removing, or movi
   assert.deepEqual(childrenOf(span), beforeSpanChildren);
 });
 
+test('inline-slot templates support up to 6 slots in place with strict DOM node identity', (t) => {
+  const page = setup({
+    exact: { 'necessary rights': '必要权利', 'Prohibited Use Policy': '禁止使用政策', 'Terms of Service': '服务条款', 'Privacy Policy': '隐私政策' },
+    patterns: [],
+    inline: {
+      'Ensure you have {1} and follow {2}. Subject to {3} and {4}.': '请确保你拥有{1}并遵守{2}。使用受{3}和{4}约束。',
+      'In System Settings, click {1}, choose {2}, turn it on. Select {3}, click {4}, then {5} again.':
+        '在系统设置中点按 {1}，选择 {2} 并开启。选中 {3}，点按 {4}，再点按 {5} 重新添加。',
+      'Step {1} -> {2} -> {3} -> {4} -> {5} -> {6} done': '步骤 {1} → {2} → {3} → {4} → {5} → {6} 完成',
+    },
+  });
+  t.after(page.restore);
+
+  // 4-slot privacy disclosure (<a> x 4)
+  const a1 = page.el('a', {}, 'necessary rights');
+  const a2 = page.el('a', {}, 'Prohibited Use Policy');
+  const a3 = page.el('a', {}, 'Terms of Service');
+  const a4 = page.el('a', {}, 'Privacy Policy');
+  const privacy = page.el('p', {}, 'Ensure you have ', a1, ' and follow ', a2, '. Subject to ', a3, ' and ', a4, '.');
+  const privacyBefore = childrenOf(privacy);
+
+  // 5-slot macOS permission guide (<strong> x 5)
+  const s1 = page.el('strong', {}, '+');
+  const s2 = page.el('strong', {}, 'Antigravity');
+  const s3 = page.el('strong', {}, 'Antigravity');
+  const s4 = page.el('strong', {}, '–');
+  const s5 = page.el('strong', {}, '+');
+  const guide = page.el(
+    'p',
+    {},
+    'In System Settings, click ',
+    s1,
+    ', choose ',
+    s2,
+    ', turn it on. Select ',
+    s3,
+    ', click ',
+    s4,
+    ', then ',
+    s5,
+    ' again.'
+  );
+  const guideBefore = childrenOf(guide);
+
+  // 6-slot template
+  const c = [1, 2, 3, 4, 5, 6].map((n) => page.el('code', {}, `k${n}`));
+  const six = page.el('p', {}, 'Step ', c[0], ' -> ', c[1], ' -> ', c[2], ' -> ', c[3], ' -> ', c[4], ' -> ', c[5], ' done');
+  const sixBefore = childrenOf(six);
+
+  page.body.append(privacy, guide, six);
+  page.start();
+
+  assert.equal(textOf(privacy), '请确保你拥有必要权利并遵守禁止使用政策。使用受服务条款和隐私政策约束。');
+  assert.equal(childrenOf(privacy).length, privacyBefore.length);
+  childrenOf(privacy).forEach((n, i) => assert.equal(n, privacyBefore[i]));
+
+  assert.equal(textOf(guide), '在系统设置中点按 +，选择 Antigravity 并开启。选中 Antigravity，点按 –，再点按 + 重新添加。');
+  assert.equal(childrenOf(guide).length, guideBefore.length);
+  childrenOf(guide).forEach((n, i) => assert.equal(n, guideBefore[i]));
+
+  assert.equal(textOf(six), '步骤 k1 → k2 → k3 → k4 → k5 → k6 完成');
+  assert.equal(childrenOf(six).length, sixBefore.length);
+  childrenOf(six).forEach((n, i) => assert.equal(n, sixBefore[i]));
+});
+
+test('precision CONTENT rules release real Antigravity 2.35.2 UI while keeping code and user content protected', (t) => {
+  const page = setup({
+    exact: {
+      Settings: '设置',
+      Copy: '复制',
+      'Needs Input': '需要输入',
+      'This Computer': '本机',
+      'Leaving Soon': '即将下线',
+      New: '新',
+      High: '高',
+      Max: '最高',
+      Orchestrator: '编排器',
+      'Default (Gemini Pro)': '默认（Gemini Pro）',
+      'No Model Selected': '未选择模型',
+      Conflict: '冲突',
+      Staged: '已暂存',
+      'Binary file not shown': '不显示二进制文件',
+      Before: '修改前',
+      After: '修改后',
+      'Not available': '不可用',
+      'Leave a comment': '添加评论',
+      'Edit comment': '编辑评论',
+      'Selected element preview': '所选元素预览',
+      'Outside of Project': '项目外',
+      'Unsent draft': '未发送草稿',
+      now: '刚刚',
+      'Image rendering blocked (strict mode enabled)': '已阻止图片渲染（已启用严格模式）',
+      'Alt text:': '替代文本：',
+      'Image URL:': '图片网址：',
+      'Preview unavailable': '预览不可用',
+      'Suggested plugin:': '推荐插件：',
+      "The suggested plugin isn't in the marketplace.": '推荐的插件不在市场中。',
+      'Markdown view mode': 'Markdown 视图模式',
+      'Summarizing call…': '生成通话摘要中…',
+      'Loading logs...': '加载日志中…',
+      'Cloning locally…': '克隆到本地中…',
+      'Expand message': '展开消息',
+      'Commented on:': '评论于：',
+      'You said': '你说',
+    },
+    patterns: [
+      ['^Select model, current: (.+?)$', '选择模型，当前：$1'],
+      ['^(\\d+) models selected$', '已选 $1 个模型'],
+      ['^Line (\\d+) → (\\d+)$', '第 $1 行 → 第 $2 行'],
+      ['^(\\d+) waiting on you$', '$1 项待你处理'],
+      ['^⚠️ Failed to render Mermaid diagram: (.+?)$', '⚠️ 渲染 Mermaid 图表失败：$1'],
+      ['^Checked out in (.+?)$', '已检出至 $1'],
+      ['^Edit side question title: (.+?)$', '编辑旁问标题：$1'],
+    ],
+  });
+  t.after(page.restore);
+
+  // 1. data-project-label: custom icon (system group) translates, folder/cloud/missing (user project) protected
+  const sysGroup = page.el(
+    'button',
+    { 'data-testid': 'project-header', 'data-project-label': 'Needs Input', 'data-project-icon': 'custom' },
+    page.el('span', {}, 'Needs Input')
+  );
+  const sysLocation = page.el(
+    'button',
+    { 'data-testid': 'project-header', 'data-project-label': 'This Computer', 'data-project-icon': 'custom' },
+    page.el('span', {}, 'This Computer')
+  );
+  const userProject = page.el(
+    'button',
+    { 'data-testid': 'project-header', 'data-project-label': 'Settings', 'data-project-icon': 'folder' },
+    page.el('span', {}, 'Settings')
+  );
+
+  // 2. model-selector-item / custom-item / trigger / orchestrator-picker-row
+  const modelItem = page.el(
+    'div',
+    { 'data-testid': 'model-selector-item', role: 'menuitem', 'data-model-label': 'Settings' },
+    page.el(
+      'span',
+      { class: 'flex items-center gap-1.5 min-w-0' },
+      page.el('span', { class: 'truncate text-sm text-left' }, 'Settings'),
+      page.el('div', { class: 'bg-secondary opacity-70 flex items-center gap-1 rounded-full px-1.5 text-sm' }, page.el('span', {}, 'Leaving Soon'))
+    )
+  );
+  const customModelItem = page.el(
+    'div',
+    { 'data-testid': 'model-selector-custom-item', role: 'menuitem', 'data-model-label': 'Copy' },
+    page.el(
+      'span',
+      { class: 'flex items-center gap-1.5 min-w-0' },
+      page.el('span', { class: 'truncate text-sm text-left' }, 'Copy'),
+      page.el('div', { class: 'bg-secondary rounded-full px-1.5 text-sm' }, 'New')
+    )
+  );
+  const triggerConcrete = page.el(
+    'button',
+    {
+      'data-testid': 'model-selector-trigger',
+      'data-model-label': 'Copy High',
+      'aria-label': 'Select model, current: Copy High',
+    },
+    page.el('span', { class: 'min-w-0' }, 'Copy', page.el('span', { class: 'opacity-70' }, ' ', 'High'))
+  );
+  const triggerOrch = page.el(
+    'button',
+    {
+      'data-testid': 'model-selector-trigger',
+      'data-model-label': 'Orchestrator Default (Gemini Pro)',
+      'aria-label': 'Select model, current: Orchestrator Default (Gemini Pro)',
+    },
+    page.el('span', { class: 'min-w-0' }, 'Orchestrator', page.el('span', { class: 'opacity-70' }, ' ', 'Default (Gemini Pro)'))
+  );
+  const triggerMulti = page.el(
+    'button',
+    { 'data-testid': 'model-selector-trigger', 'data-model-label': '3 models selected' },
+    page.el('span', {}, '3 models selected')
+  );
+  const orchRow = page.el(
+    'div',
+    { 'data-testid': 'orchestrator-picker-row', 'data-model-base': 'Copy' },
+    page.el('span', { class: 'truncate text-left' }, 'Copy'),
+    page.el('span', { class: 'shrink-0 opacity-70' }, 'Max')
+  );
+
+  // 3. data-file-uri narrowed: review wrapper, FileTitle, code-line, comment rows, log_line, changed-file-row
+  const fileTitleDir = page.el('div', { style: 'direction:rtl' }, page.el('span', {}, 'Settings'));
+  const fileTitleBadge = page.el('span', { 'data-testid': 'file-title-badge' }, 'Conflict');
+  const fileTitle = page.el(
+    'div',
+    { 'data-file-uri': 'file:///Settings/a.ts', role: 'button' },
+    page.el('span', { 'data-testid': 'file-title-name' }, 'Settings'),
+    fileTitleDir,
+    fileTitleBadge
+  );
+  const gutterDiff = page.el('span', { 'data-testid': 'code-gutter-diff', title: 'Line 10 → 12' }, '12');
+  const diffCodeContent = page.el('div', { class: 'line-content' }, page.el('span', { 'data-line-tokens': '' }, page.el('span', {}, 'Settings')), page.el('span', {}, 'Copy'));
+  const codeLine = page.el('div', { class: 'code-line group', 'data-file-uri': 'file:///a.ts' }, gutterDiff, page.el('button', { 'aria-label': 'Copy' }), diffCodeContent);
+  const nonTextDiff = page.el('div', { 'data-testid': 'non-text-diff-message' }, 'Binary file not shown');
+  const imgDiff = page.el('div', { 'data-testid': 'image-diff-view' }, page.el('div', {}, 'Before'), page.el('div', {}, 'After'), page.el('div', {}, 'Not available'));
+  const commentEditable = page.el('div', { contenteditable: 'true', 'aria-placeholder': 'Leave a comment' }, page.el('p', {}, 'Settings'));
+  const commentBox = page.el('div', { 'data-testid': 'comment-box-row', 'data-file-uri': 'file:///a.ts', 'data-line-number': '10' }, commentEditable);
+  const commentImg = page.el('img', { 'data-testid': 'comment-cropped-screenshot', alt: 'Selected element preview' });
+  const commentUserText = page.el('div', { 'data-testid': 'comment-card-text' }, 'Settings');
+  const commentThread = page.el('div', { 'data-testid': 'comment-thread-row', 'data-file-uri': 'file:///a.ts', 'data-line-number': '10' }, commentImg, commentUserText);
+  const reviewWrapper = page.el('div', { 'data-file-uri': 'file:///a.ts', 'data-group-key': 'g1' }, fileTitle, codeLine, nonTextDiff, imgDiff, commentBox, commentThread);
+  const logLine = page.el('div', { 'data-file-uri': 'file:///run.log', 'data-line-number': '1', 'data-line-start': '1' }, page.el('span', {}, '1'), page.el('span', {}, 'Settings'));
+  const changedFileRow = page.el('div', { 'data-testid': 'changed-file-row', 'data-file-uri': 'file:///a.ts' }, page.el('span', {}, 'Settings'));
+
+  // 4. conversation-row-sidebar / history
+  const convTitle = page.el('span', { class: 'truncate inline-block' }, 'Settings');
+  const convStandalone = page.el('span', { class: 'min-w-0 truncate' }, 'Outside of Project');
+  const convDraft = page.el('span', { role: 'img', 'aria-label': 'Unsent draft', title: 'Unsent draft', 'data-testid': 'conversation-row-draft' });
+  const convAttention = page.el('span', { role: 'img', 'aria-label': '2 waiting on you', 'data-testid': 'attention-count' }, '2');
+  const convTime = page.el('span', { 'data-screenshot-volatile': 'true' }, 'now');
+  const convRow = page.el(
+    'div',
+    { 'data-testid': 'conversation-row-history', 'data-subtext': 'Outside of Project' },
+    page.el('a', { 'aria-label': 'Settings' }),
+    page.el('div', {}, page.el('div', {}, page.el('div', {}, convTitle), page.el('span', {}, page.el('svg'), convStandalone))),
+    page.el('span', {}, convDraft, convAttention, convTime)
+  );
+  const convProjectSub = page.el('span', { class: 'min-w-0 truncate' }, 'Settings');
+  const convRowProject = page.el(
+    'div',
+    { 'data-testid': 'conversation-row-sidebar', 'data-subtext': 'Settings' },
+    page.el('div', {}, page.el('div', {}, page.el('span', {}, convProjectSub)))
+  );
+
+  // 5. data-markdown-root internal cards
+  const blockedImgCard = page.el(
+    'div',
+    { class: 'my-2 rounded bg-muted px-3 py-2 text-base border border-border' },
+    page.el(
+      'div',
+      { class: 'flex items-start gap-2' },
+      page.el(
+        'div',
+        { class: 'flex flex-col gap-1' },
+        page.el('span', { class: 'opacity-70 text-sm' }, 'Image rendering blocked (strict mode enabled)'),
+        page.el('span', { class: 'italic opacity-50 text-sm' }, page.el('span', { class: 'opacity-70' }, 'Alt text:'), ' ', 'Settings'),
+        page.el('div', { class: 'flex items-center gap-1' }, page.el('span', { class: 'italic opacity-50 text-sm', title: 'Copy' }, page.el('span', { class: 'opacity-70' }, 'Image URL:'), ' ', 'Copy'))
+      )
+    )
+  );
+  const mermaidErrBanner = page.el('div', { class: 'box-border mb-2 whitespace-pre-line' }, '⚠️ Failed to render Mermaid diagram: ', 'syntax');
+  const mermaidRaw = page.el('div', { class: 'whitespace-pre-wrap' }, page.el('code', {}, 'Settings'));
+  const mermaidBox = page.el('div', { class: 'mermaid-wrapper relative my-4' }, mermaidErrBanner, mermaidRaw);
+  const previewUnavailable = page.el('span', { class: 'text-base' }, 'Preview unavailable');
+  const pluginFallback = page.el('span', { 'data-testid': 'plugin-card-fallback' }, 'Suggested plugin:', ' ', page.el('code', {}, 'Settings'));
+  const pluginUnavailable = page.el('div', { 'data-testid': 'plugin-suggestion-card-unavailable' }, "The suggested plugin isn't in the marketplace.");
+  const mdViewToggle = page.el('div', { 'data-testid': 'code-block-preview-toggle', role: 'radiogroup', 'aria-label': 'Markdown view mode' });
+  const mdProse = page.el('p', {}, 'Settings');
+  const mdRoot = page.el('div', { 'data-markdown-root': '' }, mdProse, blockedImgCard, mermaidBox, previewUnavailable, pluginFallback, pluginUnavailable, mdViewToggle);
+
+  // 6. P1/P2 fixes
+  const voiceSummary = page.el(
+    'span',
+    { 'data-testid': 'voice-transcript-summary' },
+    page.el('span', { 'data-testid': 'voice-transcript-summary-lead' }, 'Settings'),
+    page.el('span', { 'data-testid': 'voice-transcript-summary-point' }, 'Copy'),
+    page.el('span', { 'data-testid': 'voice-transcript-summary-pending' }, 'Summarizing call…')
+  );
+  const sidecarLogs = page.el('div', { 'data-testid': 'sidecar-logs-content' }, page.el('p', {}, 'Loading logs...'), page.el('pre', {}, 'Settings'));
+  const remoteProj = page.el(
+    'div',
+    { 'data-project-name': 'Settings' },
+    page.el('span', { class: 'flex flex-col' }, page.el('span', { class: 'truncate' }, 'Settings'), page.el('span', { class: 'truncate text-sm text-muted-foreground' }, 'Cloning locally…'))
+  );
+  const branchOpt = page.el(
+    'div',
+    { 'data-testid': 'branch-option' },
+    page.el('span', { class: 'flex flex-col' }, page.el('span', { class: 'truncate' }, 'Copy'), page.el('span', { class: 'truncate text-sm text-muted-foreground' }, 'Checked out in main'))
+  );
+  const userMsgContent = page.el(
+    'div',
+    { 'data-testid': 'user-message-content', 'aria-label': 'Expand message' },
+    page.el('div', { class: 'flex items-center gap-2 flex-wrap' }, page.el('span', { class: 'text-secondary-foreground' }, 'Commented on: ')),
+    page.el('p', {}, 'Settings')
+  );
+  const userMsgBubble = page.el('div', { 'data-testid': 'user-message-bubble' }, userMsgContent);
+  const pendingWrapper = page.el('div', { 'data-testid': 'pending-user-messages' }, page.el('h5', { class: 'sr-only' }, 'You said'), userMsgBubble);
+  const closedUserMsg = page.el('div', { translate: 'no' }, page.el('div', { 'data-testid': 'user-message-content', 'aria-label': 'Expand message' }, 'Settings'));
+  const sideQ = page.el('span', { 'data-testid': 'side-question-tab-header-name', role: 'button', 'aria-label': 'Edit side question title: Foo' }, page.el('span', {}, 'Settings'));
+
+  page.body.append(
+    sysGroup,
+    sysLocation,
+    userProject,
+    modelItem,
+    customModelItem,
+    triggerConcrete,
+    triggerOrch,
+    triggerMulti,
+    orchRow,
+    reviewWrapper,
+    logLine,
+    changedFileRow,
+    convRow,
+    convRowProject,
+    mdRoot,
+    voiceSummary,
+    sidecarLogs,
+    remoteProj,
+    branchOpt,
+    pendingWrapper,
+    closedUserMsg,
+    sideQ
+  );
+  page.start();
+
+  // Assertions: 1. data-project-label
+  assert.equal(textOf(sysGroup), '需要输入');
+  assert.equal(textOf(sysLocation), '本机');
+  assert.equal(textOf(userProject), 'Settings');
+
+  // Assertions: 2. model selector & orchestrator picker
+  assert.equal(textOf(modelItem), 'Settings即将下线');
+  assert.equal(textOf(customModelItem), 'Copy新');
+  assert.equal(triggerConcrete.getAttribute('aria-label'), '选择模型，当前：Copy High');
+  assert.equal(textOf(triggerConcrete), 'Copy 高');
+  assert.equal(triggerOrch.getAttribute('aria-label'), '选择模型，当前：Orchestrator Default (Gemini Pro)');
+  assert.equal(textOf(triggerOrch), '编排器 默认（Gemini Pro）');
+  assert.equal(textOf(triggerMulti), '已选 3 个模型');
+  assert.equal(textOf(orchRow), 'Copy最高');
+
+  // Assertions: 3. data-file-uri narrowed
+  assert.equal(textOf(fileTitle), 'SettingsSettings冲突');
+  assert.equal(gutterDiff.getAttribute('title'), '第 10 行 → 第 12 行');
+  assert.equal(textOf(diffCodeContent), 'SettingsCopy');
+  assert.equal(codeLine.firstChild.nextSibling.getAttribute('aria-label'), '复制');
+  assert.equal(textOf(nonTextDiff), '不显示二进制文件');
+  assert.equal(textOf(imgDiff), '修改前修改后不可用');
+  assert.equal(commentEditable.getAttribute('aria-placeholder'), '添加评论');
+  assert.equal(textOf(commentEditable), 'Settings');
+  assert.equal(commentImg.getAttribute('alt'), '所选元素预览');
+  assert.equal(textOf(commentUserText), 'Settings');
+  assert.equal(textOf(logLine), '1Settings');
+  assert.equal(textOf(changedFileRow), 'Settings');
+
+  // Assertions: 4. conversation rows
+  assert.equal(convRow.firstChild.getAttribute('aria-label'), 'Settings');
+  assert.equal(textOf(convTitle), 'Settings');
+  assert.equal(textOf(convStandalone), '项目外');
+  assert.equal(convDraft.getAttribute('aria-label'), '未发送草稿');
+  assert.equal(convDraft.getAttribute('title'), '未发送草稿');
+  assert.equal(convAttention.getAttribute('aria-label'), '2 项待你处理');
+  assert.equal(textOf(convTime), '刚刚');
+  assert.equal(textOf(convProjectSub), 'Settings');
+
+  // Assertions: 5. data-markdown-root internal cards
+  assert.equal(textOf(mdProse), 'Settings');
+  assert.equal(textOf(blockedImgCard), '已阻止图片渲染（已启用严格模式）替代文本： Settings图片网址： Copy');
+  assert.equal(textOf(mermaidErrBanner), '⚠️ 渲染 Mermaid 图表失败：syntax');
+  assert.equal(textOf(mermaidRaw), 'Settings');
+  assert.equal(textOf(previewUnavailable), '预览不可用');
+  assert.equal(textOf(pluginFallback), '推荐插件： Settings');
+  assert.equal(textOf(pluginUnavailable), '推荐的插件不在市场中。');
+  assert.equal(mdViewToggle.getAttribute('aria-label'), 'Markdown 视图模式');
+
+  // Assertions: 6. P1/P2 fixes
+  assert.equal(textOf(voiceSummary), 'SettingsCopy生成通话摘要中…');
+  assert.equal(textOf(sidecarLogs), '加载日志中…Settings');
+  assert.equal(textOf(remoteProj), 'Settings克隆到本地中…');
+  assert.equal(textOf(branchOpt), 'Copy已检出至 main');
+  assert.equal(textOf(pendingWrapper.firstChild), '你说');
+  assert.equal(userMsgContent.getAttribute('aria-label'), '展开消息');
+  assert.equal(textOf(userMsgContent), '评论于： Settings');
+  assert.equal(closedUserMsg.firstChild.getAttribute('aria-label'), 'Expand message');
+  assert.equal(sideQ.getAttribute('aria-label'), '编辑旁问标题：Foo');
+  assert.equal(textOf(sideQ), 'Settings');
+
+  // Assertions: 7. modeOf / walk / onRecords equivalence on dynamic mutations
+  assert.equal(page.translator.modeOf(userMsgContent), 1);
+  assert.equal(page.translator.modeOf(triggerConcrete), 1);
+  assert.equal(page.translator.modeOf(triggerOrch), 2);
+  assert.equal(page.translator.modeOf(diffCodeContent), 1);
+  assert.equal(page.translator.modeOf(diffCodeContent.firstChild), 0);
+  assert.equal(page.translator.modeOf(fileTitleBadge), 2);
+  assert.equal(page.translator.modeOf(sysGroup), 2);
+  assert.equal(page.translator.modeOf(userProject), 1);
+
+  // Dynamic attribute & child mutations through MutationObserver (onRecords cache path)
+  userMsgContent.setAttribute('aria-label', 'Expand message');
+  triggerConcrete.setAttribute('aria-label', 'Select model, current: NewModel Max');
+  commentEditable.setAttribute('aria-placeholder', 'Edit comment');
+  const dynamicBadge = page.el('span', { 'data-testid': 'file-title-badge' }, 'Staged');
+  fileTitle.append(dynamicBadge);
+  const dynamicCode = page.el('span', {}, 'Settings');
+  diffCodeContent.append(dynamicCode);
+  page.settle();
+  assert.equal(userMsgContent.getAttribute('aria-label'), '展开消息');
+  assert.equal(triggerConcrete.getAttribute('aria-label'), '选择模型，当前：NewModel Max');
+  assert.equal(commentEditable.getAttribute('aria-placeholder'), '编辑评论');
+  assert.equal(textOf(dynamicBadge), '已暂存');
+  assert.equal(textOf(dynamicCode), 'Settings');
+});
+
+test('Electron preload IPC helpers translate context menus and notifications safely without mutating inputs', () => {
+  const tr = l10nFactory({
+    exact: {
+      Copy: '复制',
+      'Open in Side Panel': '在侧边栏中打开',
+      'Pin This Conversation': '置顶此对话',
+      'Action requires your attention': '有操作需要处理',
+      'Agent finished': '代理已完成',
+      'The agent has a question for you:': '代理有一个问题需要确认：',
+      'The agent has questions for you:': '代理有几个问题需要确认：',
+      'Click to respond to the questions.': '点击回答问题。',
+      'Where should it run?': '在哪里运行？',
+    },
+    patterns: [
+      ['^Command: (.+)$', '命令：$1'],
+      ['^URL: (.+)$', '网址：$1'],
+      ['^Stop (.+?)\\?$', '确定停止 $1？'],
+    ],
+  });
+
+  const menu = Object.freeze([
+    Object.freeze({ id: 'cmi-0', label: 'Copy', type: 'normal', accelerator: 'CmdOrCtrl+C', sublabel: 'Pin This Conversation', toolTip: 'Open in Side Panel' }),
+    Object.freeze({ id: 'cmi-1', type: 'separator', label: 'Copy' }),
+    Object.freeze({
+      id: 'cmi-2',
+      label: 'Open in Side Panel',
+      type: 'submenu',
+      submenu: Object.freeze([Object.freeze({ id: 'cmi-2-sub-0', label: 'Pin This Conversation', checked: true, disabled: false }), Object.freeze({ id: 'cmi-2-sub-1', label: 'Unknown Item' })]),
+    }),
+  ]);
+  const outMenu = tr.translateMenu(menu);
+  assert.notEqual(outMenu, menu);
+  assert.deepEqual(outMenu, [
+    { id: 'cmi-0', label: '复制', type: 'normal', accelerator: 'CmdOrCtrl+C', sublabel: '置顶此对话', toolTip: '在侧边栏中打开' },
+    { id: 'cmi-1', type: 'separator', label: 'Copy' },
+    {
+      id: 'cmi-2',
+      label: '在侧边栏中打开',
+      type: 'submenu',
+      submenu: [
+        { id: 'cmi-2-sub-0', label: '置顶此对话', checked: true, disabled: false },
+        { id: 'cmi-2-sub-1', label: 'Unknown Item' },
+      ],
+    },
+  ]);
+  // Original frozen input untouched.
+  assert.equal(menu[0].label, 'Copy');
+  // Shared non-cyclic DAG items are each translated cleanly.
+  const sharedItem = { id: 'dag', label: 'Copy' };
+  const dagOut = tr.translateMenu([sharedItem, sharedItem]);
+  assert.deepEqual(
+    dagOut.map((x) => x.label),
+    ['复制', '复制']
+  );
+  // 3-branch cyclic submenu terminates in O(1) without exponential blowup or throwing.
+  const cyclic = { id: 'cyc', label: 'Copy' };
+  cyclic.submenu = [cyclic, cyclic, cyclic];
+  const cycStart = process.hrtime.bigint();
+  const cycOut = tr.translateMenu([cyclic]);
+  const cycMs = Number(process.hrtime.bigint() - cycStart) / 1e6;
+  assert.ok(cycMs < 50, `cyclic submenu took ${cycMs} ms`);
+  assert.equal(cycOut[0].label, '复制');
+  assert.equal(cycOut[0].submenu.length, 3);
+  assert.equal(cycOut[0].submenu[0], cyclic);
+  // Hostile getter passes through original array without throwing.
+  const hostile = [{ get label() { throw new Error('boom'); } }];
+  assert.equal(tr.translateMenu(hostile), hostile);
+
+  const notif = Object.freeze({
+    id: 'n-1',
+    title: 'Action requires your attention',
+    body: 'URL: https://example.com',
+    silent: false,
+    payload: { cascadeId: 'abc', type: 'permission' },
+  });
+  const outNotif = tr.translateNotification(notif);
+  assert.notEqual(outNotif, notif);
+  assert.deepEqual(outNotif, {
+    id: 'n-1',
+    title: '有操作需要处理',
+    body: '网址：https://example.com',
+    silent: false,
+    payload: { cascadeId: 'abc', type: 'permission' },
+  });
+  assert.equal(notif.title, 'Action requires your attention');
+
+  // Under a question title the body is the agent's own question: it stays as the agent wrote it,
+  // even when the word list has it. Only the client's sentence for an empty question is translated.
+  assert.deepEqual(tr.translateNotification({ id: 'q1', title: 'The agent has a question for you:', body: 'Where should it run?' }), {
+    id: 'q1',
+    title: '代理有一个问题需要确认：',
+    body: 'Where should it run?',
+  });
+  assert.equal(tr.translateNotification({ id: 'q2', title: 'The agent has questions for you:', body: 'Stop the server?' }).body, 'Stop the server?');
+  assert.equal(tr.translateNotification({ id: 'q3', title: 'The agent has questions for you:', body: 'Click to respond to the questions.' }).body, '点击回答问题。');
+  // The same texts under another title are the client's own and are translated.
+  assert.equal(tr.translateNotification({ id: 'p1', title: 'Requesting your permission:', body: 'Stop the server?' }).body, '确定停止 the server？');
+});
+
+test('patchL10n wraps unique Electron IPC call sites even when contextBridge globals are frozen and non-configurable', () => {
+  const dict = {
+    exact: { Copy: '复制', 'More options': '更多选项', 'Agent finished': '代理已完成' },
+    patterns: [['^Command: (.+)$', '命令：$1']],
+  };
+  // Mirror Antigravity 2.35.2 main.js exact call shapes (pgb + CRd).
+  const clientScript = [
+    'function runMenu(items){return window.electronNative?.showContextMenu?.(items);}',
+    'class NotifSvc{constructor(){this.bridge=window.nativeNotifications;}send(a){return this.bridge.send({...a,silent:false});}}',
+    'globalThis.__runMenu=runMenu;globalThis.__NotifSvc=NotifSvc;',
+  ].join('\n');
+
+  const patched = patchL10n(clientScript, dict);
+  assert.equal(patched.ok, true);
+
+  const seenMenus = [];
+  const seenNotifs = [];
+  const frozenNative = Object.freeze({
+    showContextMenu: Object.freeze((items) => {
+      seenMenus.push(items);
+      return Promise.resolve(items[0].id);
+    }),
+  });
+  const frozenNotif = Object.freeze({
+    send: Object.freeze((opts) => {
+      seenNotifs.push(opts);
+      return Promise.resolve();
+    }),
+  });
+
+  const page = fakePage();
+  const win = {};
+  // Exact Electron contextBridge.exposeInMainWorld descriptors: non-writable, non-configurable, frozen.
+  Object.defineProperty(win, 'electronNative', { value: frozenNative, writable: false, configurable: false, enumerable: true });
+  Object.defineProperty(win, 'nativeNotifications', { value: frozenNotif, writable: false, configurable: false, enumerable: true });
+  page.document.defaultView = win;
+
+  const ctx = vm.createContext({ window: win, document: page.document, MutationObserver: page.MutationObserver, console });
+  assert.doesNotThrow(() => new vm.Script(patched.source).runInContext(ctx));
+
+  // Frozen globals remain intact, yet IPC calls are intercepted cleanly via source call hooks!
+  assert.equal(win.electronNative, frozenNative);
+  assert.equal(win.nativeNotifications, frozenNotif);
+  ctx.__runMenu([{ id: 'm1', label: 'Copy', submenu: [{ id: 'm2', label: 'More options' }] }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(seenMenus)), [[{ id: 'm1', label: '复制', submenu: [{ id: 'm2', label: '更多选项' }] }]]);
+
+  const svc = new ctx.__NotifSvc();
+  svc.send({ id: 'n1', title: 'Agent finished', body: 'Command: ls -la', payload: { cascadeId: 'c1' } });
+  assert.deepEqual(JSON.parse(JSON.stringify(seenNotifs)), [
+    { id: 'n1', title: '代理已完成', body: '命令：ls -la', silent: false, payload: { cascadeId: 'c1' } },
+  ]);
+
+  // Ambiguous (duplicated) anchors are silently skipped without breaking DOM translation.
+  const dup = 'window.electronNative?.showContextMenu?.(a);window.electronNative?.showContextMenu?.(b);';
+  const dupRes = patchL10n(dup, dict);
+  assert.equal(dupRes.ok, true);
+  assert.ok(dupRes.source.startsWith(dup));
+});
+
 test('a failure stops the translator after a few times and never reaches the page', (t) => {
   const page = setup();
   t.after(page.restore);
@@ -902,14 +1514,19 @@ test('the word list of agy-flags is a word list', () => {
     'Output',
     'Cache',
     'Thinking',
+    'Thinking:',
     'Response (incl. tool calls)',
+    'Response (incl. tool calls):',
     'Generations',
+    'Generations:',
+    'Turn',
     'Turn ($0.0048)',
     'Grand Total ($0.2241)',
     'Cumulative Total ($0.1990)',
     'Pricing is based on public API pricing',
     'Turn: 944/4 $0.0048',
     'Tot: 94.8K/745 $0.224',
+    '· Tot: 765.8K/124.0K $7.15',
     'Cost summary: Turn: 25.6K/4 $0.103 · Tot: 25.6K/4 $0.103',
   ]) {
     assert.ok(lookup(text), `no entry for the cost text "${text}"`);
@@ -956,12 +1573,167 @@ test('shipped inline templates work end-to-end on real DOM without mutating node
   const code = page.el('code', {}, 'mailto:');
   const span = page.el('span', {}, 'Always open', ' ', code, ' links without asking');
   const before = childrenOf(span);
-  page.body.append(span);
+
+  // 4-slot cloud privacy disclosure (<a> x 4)
+  const privacy = page.el(
+    'p',
+    {},
+    'Avoid uploading highly sensitive data and verify actions taken by your agent. Make sure you have the ',
+    page.el('a', {}, 'necessary rights'),
+    " to any content or files that you upload, including content of minors. Don't generate content that infringes on others' rights, including content that deceives, harasses, or harms. When using Antigravity, you must comply with Google's ",
+    page.el('a', {}, 'Prohibited Use Policy'),
+    '. Your use is subject to the ',
+    page.el('a', {}, 'Google Antigravity Terms of Service'),
+    ' and ',
+    page.el('a', {}, 'Google Privacy Policy'),
+    '.'
+  );
+  const privacyBefore = childrenOf(privacy);
+
+  // 5-slot macOS permission guide (<strong> x 5)
+  const macGuide = page.el(
+    'p',
+    {},
+    'In System Settings, click ',
+    page.el('strong', {}, '+'),
+    ', choose ',
+    page.el('strong', {}, 'Antigravity'),
+    ', then turn it on. Already on? Select ',
+    page.el('strong', {}, 'Antigravity'),
+    ', click ',
+    page.el('strong', {}, '–'),
+    ', then click ',
+    page.el('strong', {}, '+'),
+    ' and add it again.'
+  );
+  const macGuideBefore = childrenOf(macGuide);
+
+  // M4+Gzc permission approval buttons (<strong> slot)
+  const permDl = page.el('button', {}, 'Yes, allow downloads from ', page.el('strong', {}, 'example.com'), ' for this run');
+  const permDlBefore = childrenOf(permDl);
+  const permRule = page.el('button', {}, "Yes, save rule for '", page.el('strong', {}, 'npm test'), "' globally");
+  const permRuleBefore = childrenOf(permRule);
+
+  // Model selector item with G5 "Leaving Soon" badge (DOM blindspot + dictionary end-to-end)
+  const modelItem = page.el(
+    'div',
+    { 'data-testid': 'model-selector-item', role: 'menuitem', 'data-model-label': 'Gemini 4' },
+    page.el(
+      'span',
+      { class: 'flex items-center gap-1.5 min-w-0' },
+      page.el('span', { class: 'truncate text-sm text-left' }, 'Gemini 4'),
+      page.el('div', { class: 'bg-secondary opacity-70 flex items-center gap-1 rounded-full px-1.5 text-sm' }, page.el('span', {}, 'Leaving Soon'))
+    )
+  );
+
+  page.body.append(span, privacy, macGuide, permDl, permRule, modelItem);
   page.start();
   assert.ok(textOf(span).includes('mailto:'));
   assert.ok(/[\u4e00-\u9fff]/.test(textOf(span)));
   assert.ok(!/Always open|links without asking/.test(textOf(span)));
   assert.deepEqual(childrenOf(span), before);
+
+  assert.ok(/请勿上传高度敏感数据/.test(textOf(privacy)));
+  assert.ok(!/Avoid uploading|Your use is subject/.test(textOf(privacy)));
+  childrenOf(privacy).forEach((n, i) => assert.equal(n, privacyBefore[i]));
+
+  assert.equal(textOf(macGuide), '在「系统设置」中点击 +，选择 Antigravity，然后开启。已开启？选中 Antigravity，点击 –，再点击 + 重新添加。');
+  childrenOf(macGuide).forEach((n, i) => assert.equal(n, macGuideBefore[i]));
+
+  assert.equal(textOf(permDl), '允许本次运行从 example.com 下载');
+  childrenOf(permDl).forEach((n, i) => assert.equal(n, permDlBefore[i]));
+  assert.equal(textOf(permRule), '为「npm test」保存全局规则');
+  childrenOf(permRule).forEach((n, i) => assert.equal(n, permRuleBefore[i]));
+
+  assert.equal(textOf(modelItem), 'Gemini 4即将下线');
+});
+
+test('shipped dictionary covers tier-B cloud, backend, IPC, long skill, and anti-half-translation regressions', () => {
+  const list = loadDictionary(WORD_LIST);
+  assert.ok(list);
+  const tr = l10nFactory(list.data);
+  const { lookup } = tr;
+
+  // Screenshot #1: model badge & deprecation date (without half-translating marketing copy)
+  assert.equal(lookup('Leaving Soon'), '即将下线');
+  assert.equal(lookup('New'), '新');
+  assert.equal(lookup('Leaving on Nov 30.'), '将于 11 月 30 日下线');
+  assert.equal(lookup('The original Gemini 4 model for advanced workflows. Leaving on Nov 30.'), null);
+
+  // Screenshot #2: cloud-delivered quota groups, headers, and refresh countdowns
+  assert.equal(lookup('Gemini Models'), 'Gemini 模型');
+  assert.equal(lookup('Claude and GPT models'), 'Claude 与 GPT 模型');
+  assert.equal(lookup('Weekly Limit Remaining'), '每周剩余限额');
+  assert.equal(lookup('Five Hour Limit Remaining'), '5 小时剩余限额');
+  assert.equal(
+    lookup('You have used some of your weekly limit, it will fully refresh in 5 days, 22 hours.'),
+    '每周限额已用部分，将于 5 天 22 小时后完全刷新。'
+  );
+  assert.equal(
+    lookup('You have used some of your 5-hour limit, it will fully refresh in 4 hours, 34 minutes.'),
+    '5 小时限额已用部分，将于 4 小时 34 分钟后完全刷新。'
+  );
+  assert.equal(
+    lookup('You have reached your weekly limit, it will fully refresh in less than a minute.'),
+    '已达每周限额，将于不到 1 分钟后完全刷新。'
+  );
+
+  // Screenshot #3: Swarm Worker tab header & subagent source label
+  assert.equal(lookup('Swarm Worker (extractor)'), 'Swarm 工作代理（extractor）');
+  assert.equal(lookup('Open Subagent: Swarm Worker (extractor)'), '打开子代理：Swarm 工作代理（extractor）');
+
+  // 630-char built-in plugin skill description (> 600 chars) & system slash commands
+  const pluginSkill =
+    "How to manage and create plugins — namespaced bundles of skills, agents, rules, MCP servers and hooks that install, enable and disable as a single unit. Use this skill when the user wants to enable, disable, install or uninstall a plugin, when they want to create a new plugin, or when a new customization should be packaged into a plugin rather than left loose. Also triggered by the /plugin slash command. Don't use for the underlying customization system itself — discovery roots, loading priority, or authoring a standalone skill, agent, rule, hook or MCP server outside a plugin; see the customizations guide skill for those.";
+  assert.ok(pluginSkill.length === 630);
+  assert.ok(lookup(pluginSkill), 'expected 630-char built-in plugin skill description to translate');
+  for (const cmd of [
+    'Run until the specified goal is completely finished.',
+    'Plan carefully before executing a task.',
+    'Run an instruction on a recurring schedule or as a one-time timer.',
+    'Invoke a browser agent for web tasks.',
+    'Invoke a computer-use agent to operate apps on this Mac.',
+  ]) {
+    assert.ok(lookup(cmd), `expected system slash command description "${cmd}" to translate`);
+  }
+
+  // Native Electron IPC context menu & notification items (5 newly added)
+  const translatedMenu = tr.translateMenu([
+    { id: '1', label: 'Copy Image Address' },
+    { id: '2', label: 'Copy Link Address' },
+    { id: '3', label: 'Pin Entire Folder' },
+    { id: '4', label: 'Unpin Folder' },
+  ]);
+  assert.deepEqual(
+    translatedMenu.map((m) => m.label),
+    ['复制图片地址', '复制链接地址', '置顶整个文件夹', '取消置顶文件夹']
+  );
+  assert.deepEqual(tr.translateNotification({ id: 'u1', title: 'Requesting your permission to open URL:', body: 'URL: https://example.com/path' }), {
+    id: 'u1',
+    title: '请求打开网址权限：',
+    body: '网址：https://example.com/path',
+  });
+
+  // Key anti-half-translation and terminology regressions
+  assert.equal(lookup('You can now use the new feature'), null);
+  assert.equal(lookup('Upgrade to get unlimited access to all premium models'), null);
+  assert.equal(lookup('Execute notebook cells'), '运行 Notebook 单元格');
+  assert.equal(lookup('Copy transcript'), '复制转写内容');
+  assert.equal(lookup('Running command'), '运行命令中');
+  assert.equal(lookup('No branches found'), '未找到分支');
+  assert.equal(lookup('Could not load the app view: timeout'), '无法加载应用视图：timeout');
+  assert.equal(lookup('Open Mermaid diagram preview'), '打开 Mermaid 图表预览');
+  assert.equal(lookup('Open locally'), '在本地打开');
+  assert.equal(lookup('Running browser action'), '运行浏览器操作中');
+  assert.equal(lookup('Waiting for download approval'), '等待下载审批');
+  assert.equal(lookup('Matches system denylist.'), '命中系统黑名单。');
+  assert.equal(lookup('John Doe, from Acme Corp'), 'John Doe，来自 Acme Corp');
+  assert.equal(lookup('5m'), '5 分钟');
+  assert.ok(!/weekdays/.test(lookup('Every 2 hours on weekdays') || 'weekdays'));
+  assert.ok(!/1h 20m/.test(lookup('Running for 1h 20m') || '1h 20m'));
+  assert.ok(!/Applies to messages/.test(lookup('Select model, current: Gemini 4. Applies to messages sent after this turn') || 'Applies to messages'));
+  assert.ok(!/approval to run/.test(lookup('Waiting for approval to run: npm test') || 'approval to run'));
+  assert.ok(!/agents/.test(lookup('Running · 2/4 agents') || 'agents'));
 });
 
 test('the word list of agy-flags is fast on a long text that it does not have', () => {
