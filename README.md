@@ -59,7 +59,9 @@ Antigravity 桌面版缺少中文界面、上下文余量提示与费用明细�
 | | Teamwork 子代理不强制用 Flash | 让 `/teamwork` 启动的子代理跟随主对话模型，不再强制降级为 Flash（标记为未实测） |
 | | 项目的 GitHub 权限 | 在项目设置中配置 GitHub 令牌，并限制代理允许执行的 GitHub 操作 |
 | | 鼓励代理用交互小部件 | 提示代理在适合可视化展示时，直接在对话内生成可交互的 HTML 小部件 |
-| | 精简默认准则模板 | 覆盖模型配置中 `guidelines` 模板的前置段落（保留代码阅读与代码质量子段），减少系统提示词占用 |
+| | 精简默认准则模板 | 从系统提示词的准则段删去「不得绕过权限和沙盒」「不得破解验证码」两条规则，约 1K 字符（Gemini 4 Hydrogen 还删去「保留无关注释」一条，它独有的代码阅读、代码质量等段保留） |
+| | 不让代理推荐插件 | 去掉系统提示词里的插件推荐列表和插件搜索工具，约 6.9K 字符；代理不再停下来推荐插件，也不能替你搜插件市场 |
+| | 不让代理推荐斜杠命令 | 去掉系统提示词里让代理推荐斜杠命令的一段，约 1.9K 字符；斜杠命令本身照常能用 |
 | **用量和费用** | 回复用量 | 在每条回复下方增加 `$` 按钮，点击查看本轮输入、缓存命中与输出 Token 数 |
 | **插件市场** | 插件市场排序和分类 | 为插件市场增加分类筛选，并按热门程度排序 |
 | | 插件使用人数 | 在插件卡片上显示当前使用人数 |
@@ -174,7 +176,7 @@ Antigravity ──HTTP──▶ agy-plus (127.0.0.1:47931 / 47932) ──HTTPS�
    - 显示 `warning: page-not-changed`：说明客户端更新后前端代码结构发生了变化，设置页暂时无法注入。此时可直接手动编辑 `~/Library/Application Support/agy-plus/config.json`（保存后自动热加载，改完重启客户端即可）：
      - `enabled`：总开关（`true` / `false`）
      - `flags`：实验开关字典（如 `{"enable-developer-mode": true}`）
-     - `features`：内置增强功能（`costPrices`、`uiChinese`、`chineseTitles`、`guidelinesOverride`）
+     - `features`：内置增强功能（`costPrices`、`uiChinese`、`chineseTitles`、`guidelinesOverride`、`slashCommandsOverride`）
      - `templates`：模型模板覆盖规则数组
      - `disabledSkills`：关闭的内置技能目录名数组（如 `["antigravity_guide"]`）
      - `pageLanguage`：AGY Plus 页的语言（`auto` 跟随系统、`zh`、`en`），也可在该页右上角切换

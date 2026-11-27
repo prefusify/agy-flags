@@ -6,7 +6,7 @@ import { API_PREFIX } from '../src/api.mjs';
 import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
 import { TITLE_NEW } from '../src/forward.mjs';
-import { BUILTIN_GUIDELINES_TEMPLATE } from '../src/patch.mjs';
+import { BUILTIN_GUIDELINES_TEMPLATE, BUILTIN_SLASH_COMMANDS_TEMPLATE } from '../src/patch.mjs';
 import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, titleRequest, waitFor } from './helpers.mjs';
 
 /**
@@ -161,7 +161,7 @@ const PART_OK = { ok: true, reason: null };
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
 
-const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false };
+const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false, slashCommandsOverride: false };
 
 test('the variables are set only after every listener is up', async (t) => {
   const runner = fakeRunner();
@@ -1040,6 +1040,27 @@ test('Chinese titles are off while agy-plus is off', async (t) => {
 
 // ---- template overrides & builtin skills --------------------------------------------
 
+/**
+ * A running daemon whose upstreams answer fetchAvailableModels with `payload()` and every
+ * other request with an empty flag list.
+ */
+async function setupWithModels(t, payload) {
+  const upstream = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(req.url.includes(':fetchAvailableModels') ? payload() : { flags: [] }));
+    });
+  });
+  const upPort = await listen(upstream);
+  t.after(() => close(upstream));
+  const ctx = await setupRunning(t, { start: false });
+  const cfg = JSON.parse(fs.readFileSync(files.config(), 'utf8'));
+  fs.writeFileSync(files.config(), JSON.stringify({ ...cfg, upstreams: { cloudcode: `http://127.0.0.1:${upPort}`, aicode: `http://127.0.0.1:${upPort}` } }));
+  ctx.handle = await ctx.start();
+  return ctx;
+}
+
 test('guidelinesOverride rewrites fetchAvailableModels, needs a restart, and warns on marker drift', async (t) => {
   const key = 'template__system_prompts__guidelines';
   const goodText = `${BUILTIN_GUIDELINES_TEMPLATE.match.start}\n- rule\n${BUILTIN_GUIDELINES_TEMPLATE.match.end} true }}\n<code_quality/>`;
@@ -1049,21 +1070,7 @@ test('guidelinesOverride rewrites fetchAvailableModels, needs a restart, and war
       m2: { displayName: 'Two', modelExperiments: { experiments: {} } },
     },
   };
-  const customUpstream = http.createServer((req, res) => {
-    req.resume();
-    req.on('end', () => {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      if (req.url.includes(':fetchAvailableModels')) res.end(JSON.stringify(modelPayload));
-      else res.end(JSON.stringify({ flags: [] }));
-    });
-  });
-  const upPort = await listen(customUpstream);
-  t.after(() => close(customUpstream));
-
-  const ctx = await setupRunning(t, { start: false });
-  const cfg = JSON.parse(fs.readFileSync(files.config(), 'utf8'));
-  fs.writeFileSync(files.config(), JSON.stringify({ ...cfg, upstreams: { cloudcode: `http://127.0.0.1:${upPort}`, aicode: `http://127.0.0.1:${upPort}` } }));
-  ctx.handle = await ctx.start();
+  const ctx = await setupWithModels(t, () => modelPayload);
 
   // Turn guidelinesOverride on: needs a client restart.
   assert.equal((await ctx.post('features', { changes: { guidelinesOverride: true } })).status, 200);
@@ -1091,6 +1098,21 @@ test('guidelinesOverride rewrites fetchAvailableModels, needs a restart, and war
   state = await ctx.state();
   assert.equal(state.templates.missing, 1);
   assert.deepEqual(state.warnings, [{ code: 'templates-markers-missing', detail: '1' }]);
+});
+
+test('slashCommandsOverride empties the slash commands section of every model and needs a restart', async (t) => {
+  const key = 'template__system_prompts__slash_commands';
+  const ctx = await setupWithModels(t, () => ({ models: { m1: { displayName: 'One', modelExperiments: { experiments: {} } } } }));
+
+  assert.equal((await ctx.post('features', { changes: { slashCommandsOverride: true } })).status, 200);
+  const state = await ctx.state();
+  assert.equal(state.features.slashCommandsOverride, true);
+  assert.equal(state.pendingRestart, true);
+  assert.equal(state.pendingReason, 'flags-changed');
+  assert.equal(state.templates.activeCount, 1);
+
+  const res = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' }));
+  assert.equal(res.models.m1.modelExperiments.experiments[key].stringValue, BUILTIN_SLASH_COMMANDS_TEMPLATE.replace_with);
 });
 
 test('builtin skills can be toggled via the API and are restored when agy-plus is turned off', async (t) => {

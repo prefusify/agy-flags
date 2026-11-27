@@ -209,24 +209,36 @@ export function settingsPageFactory(React, options) {
     return own(state.overrides, name) ? state.overrides[name] === true : serverBool(server, name) === true;
   }
 
+  /**
+   * Is a boolean flag off for the client: an override says so, else the server sends false.
+   * A flag the server leaves out is not known to be off: the client has defaults of its own.
+   */
+  function flagOff(state, server, name) {
+    return own(state.overrides, name) ? state.overrides[name] === false : serverBool(server, name) === false;
+  }
+
   const list = (value) => (Array.isArray(value) ? value : []);
 
   /**
-   * One entry of the catalog: is it on?
+   * One entry of the catalog: is it on? Its `flags` are turned on and its `flagsOff` turned off.
    * `on`: everything it needs is on. `partial`: a part of it is on. `serverOnly`: it is on
-   * because the server turns it on, not because of a choice made here.
+   * because of what the server sends, not because of a choice made here.
    */
   function groupState(group, state, server) {
     const flags = list(group.flags);
+    const flagsOff = list(group.flagsOff);
     const flagsOn = flags.filter((name) => flagOn(state, server, name));
+    const offDone = flagsOff.filter((name) => flagOff(state, server, name));
     const feature = group.feature ? state.features && state.features[group.feature] === true : null;
     const needed = list(group.requires).every((name) => flagOn(state, server, name));
-    const ownOn = flagsOn.length === flags.length && feature !== false && (flags.length > 0 || feature === true);
+    const allDone = flagsOn.length === flags.length && offDone.length === flagsOff.length;
+    const ownOn = allDone && feature !== false && (flags.length + flagsOff.length > 0 || feature === true);
     const on = ownOn && needed;
+    const noChoice = flags.every((name) => state.overrides[name] !== true) && flagsOff.every((name) => state.overrides[name] !== false);
     return {
       on,
-      partial: !on && (flagsOn.length > 0 || feature === true),
-      serverOnly: on && feature === null && flags.every((name) => state.overrides[name] !== true),
+      partial: !on && (flagsOn.length > 0 || offDone.length > 0 || feature === true),
+      serverOnly: on && feature === null && noChoice,
     };
   }
 
@@ -249,8 +261,9 @@ export function settingsPageFactory(React, options) {
     const flags = {};
     // What it needs belongs to another entry: it is turned on with it, and stays on after it.
     if (turnOn) for (const name of list(group.requires)) if (!flagOn(state, server, name)) flags[name] = true;
-    // Off means "back to what the server sends", not "forced off".
+    // Off means "back to what the server sends", not forced the other way.
     for (const name of list(group.flags)) flags[name] = turnOn ? true : null;
+    for (const name of list(group.flagsOff)) flags[name] = turnOn ? false : null;
     if (!group.feature) return { path: 'flags', body: { changes: flags } };
     const body = { changes: { [group.feature]: turnOn } };
     if (Object.keys(flags).length > 0) body.flags = flags;

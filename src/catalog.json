@@ -1,5 +1,5 @@
 {
-  "note": "The features of the AGY Plus page in Antigravity's settings: those that were found worth turning on. 'sections' are the headings of the page, in their order; 'section' of a group names the heading it stands under. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-plus adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-plus itself that no flag of the client stands for (config.features). 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. 'risk' is asked about before the feature is turned on, and 'riskLabel' is shown next to its name. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
+  "note": "The features of the AGY Plus page in Antigravity's settings: those that were found worth turning on. 'sections' are the headings of the page, in their order; 'section' of a group names the heading it stands under. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-plus adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-plus itself that no flag of the client stands for (config.features). 'flagsOff' are flags that it turns off while it is on; turned off, they go back to what the server sends. 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. 'risk' is asked about before the feature is turned on, and 'riskLabel' is shown next to its name. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
   "sections": [
     {
       "id": "interface",
@@ -443,22 +443,64 @@
       "feature": "guidelinesOverride",
       "requires": [],
       "status": "templates",
-      "tested": "2.34.0",
+      "tested": "2.36.0",
       "riskLabel": {
         "zh": "改动模型模板",
         "en": "changes model template"
       },
       "risk": {
-        "zh": "本工具会在模型配置响应中用空注释模板覆盖 guidelines 的前置段落，保留后续代码阅读等模板段。",
-        "en": "agy-plus replaces the leading section of the guidelines template in the model configuration response with an empty template comment and keeps the remaining sections."
+        "zh": "本工具会改写模型配置里的准则模板：所有模型删去这两条，Gemini 4 Hydrogen 还删去「保留无关注释」一条，它独有的代码阅读、代码质量等段保留。",
+        "en": "agy-plus rewrites the guidelines template in the model configuration: every model loses these two rules, Gemini 4 Hydrogen also loses the rule to keep unrelated comments, and its own code-reading and code-quality sections stay."
       },
       "title": {
         "zh": "精简默认准则模板",
         "en": "Compact guidelines template"
       },
       "description": {
-        "zh": "覆盖模型配置中 guidelines 模板的前置段落（保留代码阅读与代码质量子段），减少系统提示词占用，开关后需重启。",
-        "en": "Replaces the leading section of the per-model guidelines template while keeping the code-reading and code-quality sections; needs a restart."
+        "zh": "从系统提示词的准则段删去「不得绕过权限和沙盒」「不得破解验证码」两条规则。",
+        "en": "Removes the two guideline rules against bypassing permission checks or sandboxes and against solving CAPTCHAs from the system prompt."
+      }
+    },
+    {
+      "id": "marketplace-search-off",
+      "section": "agents",
+      "flags": [],
+      "flagsOff": [
+        "enable-marketplace-search-tool"
+      ],
+      "tested": "2.36.0",
+      "title": {
+        "zh": "不让代理推荐插件",
+        "en": "No plugin suggestions from the agent"
+      },
+      "description": {
+        "zh": "去掉系统提示词里的插件推荐和插件搜索工具，代理不再停下来推荐插件，也不能替你搜插件市场。",
+        "en": "Removes the featured plugins and the plugin search tool from the system prompt: the agent no longer stops to suggest plugins and cannot search the marketplace for you."
+      }
+    },
+    {
+      "id": "slash-commands-override",
+      "section": "agents",
+      "flags": [],
+      "feature": "slashCommandsOverride",
+      "requires": [],
+      "status": "templates",
+      "tested": "2.36.0",
+      "riskLabel": {
+        "zh": "改动模型模板",
+        "en": "changes model template"
+      },
+      "risk": {
+        "zh": "本工具会在模型配置里放一个空的斜杠命令模板，替换客户端自带的那一段。",
+        "en": "agy-plus puts an empty slash commands template into the model configuration in place of the section built into the client."
+      },
+      "title": {
+        "zh": "不让代理推荐斜杠命令",
+        "en": "No slash command suggestions from the agent"
+      },
+      "description": {
+        "zh": "去掉系统提示词里让代理推荐斜杠命令的一段，斜杠命令本身照常能用。",
+        "en": "Removes the system prompt section that tells the agent to recommend slash commands; the commands themselves still work."
       }
     },
     {

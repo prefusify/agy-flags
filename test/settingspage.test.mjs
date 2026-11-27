@@ -173,6 +173,27 @@ test('the change for a switch: its flags, and what it needs when it goes on', ()
   assert.deepEqual(helpers.changeFor(costs, false, state, SERVER), { path: 'features', body: { changes: { costPrices: false } } });
 });
 
+test('an entry can turn flags off: it is on while they are off, and turned off they go back to the server', () => {
+  const quiet = { id: 'quiet', section: 'b', flags: [], flagsOff: ['q1'], tested: null, title: { zh: '安静', en: 'Quiet' } };
+  const state = (overrides) => makeState({ overrides });
+  const serverOn = { version: 2, flags: { q1: { type: 'boolValue', value: true } } };
+  const serverOff = { version: 3, flags: { q1: { type: 'boolValue', value: false } } };
+  assert.deepEqual(helpers.groupState(quiet, state({}), serverOn), { on: false, partial: false, serverOnly: false });
+  assert.deepEqual(helpers.groupState(quiet, state({ q1: false }), serverOn), { on: true, partial: false, serverOnly: false });
+  // A flag the server leaves out can be on by a default of the client: it is not known to be off.
+  assert.deepEqual(helpers.groupState(quiet, state({}), SERVER), { on: false, partial: false, serverOnly: false });
+  // The server turns it off: there is nothing to choose here.
+  assert.deepEqual(helpers.groupState(quiet, state({}), serverOff), { on: true, partial: false, serverOnly: true });
+  assert.deepEqual(helpers.groupState(quiet, state({ q1: true }), serverOff), { on: false, partial: false, serverOnly: false });
+  assert.deepEqual(helpers.changeFor(quiet, true, state({}), serverOn), { path: 'flags', body: { changes: { q1: false } } });
+  assert.deepEqual(helpers.changeFor(quiet, false, state({ q1: false }), serverOn), { path: 'flags', body: { changes: { q1: null } } });
+  // Both kinds in one entry: it is on only when every flag is the way the entry wants it.
+  const mixed = { ...quiet, flags: ['p1'] };
+  assert.deepEqual(helpers.groupState(mixed, state({ q1: false }), serverOn), { on: false, partial: true, serverOnly: false });
+  assert.deepEqual(helpers.groupState(mixed, state({ q1: false, p1: true }), serverOn), { on: true, partial: false, serverOnly: false });
+  assert.deepEqual(helpers.changeFor(mixed, true, state({}), serverOn), { path: 'flags', body: { changes: { p1: true, q1: false } } });
+});
+
 test('the problems of a feature that is on', () => {
   const [, , zh, costs] = CATALOG.groups;
   assert.deepEqual(helpers.groupProblems(zh, makeState()), []);
@@ -205,7 +226,12 @@ test('the shipped catalog puts every feature under a heading', () => {
   const ids = catalog.sections.map((section) => section.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const section of catalog.sections) assert.ok(section.title.zh && section.title.en, section.id);
-  for (const group of catalog.groups) assert.ok(ids.includes(group.section), `${group.id} has no heading`);
+  for (const group of catalog.groups) {
+    assert.ok(ids.includes(group.section), `${group.id} has no heading`);
+    const flags = [...(group.flags || []), ...(group.flagsOff || [])];
+    assert.ok(flags.length > 0 || group.feature, `${group.id} changes nothing`);
+    assert.equal(new Set(flags).size, flags.length, `${group.id} names a flag twice`);
+  }
   const sections = helpers.sectionsOf(catalog);
   assert.deepEqual(sections.map((section) => section.id), ids);
   assert.equal(sections.reduce((n, section) => n + section.groups.length, 0), catalog.groups.length);

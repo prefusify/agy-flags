@@ -59,7 +59,9 @@ The settings page also organizes curated experiment flags that have been tested 
 | | Teamwork subagents not forced to Flash | Prevents `/teamwork` subagents from being forced onto Flash so they can match the main model (marked untested) |
 | | GitHub permissions per project | Lets you configure a GitHub token and scope allowed GitHub actions per project |
 | | Encourage interactive widgets | Prompts the agent to render interactive HTML widgets inline when a visual helps |
-| | Compact guidelines template | Replaces the leading section of the per-model `guidelines` template while keeping the code-reading and code-quality sections |
+| | Compact guidelines template | Removes the two guideline rules against bypassing permission checks or sandboxes and against solving CAPTCHAs from the system prompt, about 1K characters (Gemini 4 Hydrogen also loses the rule to keep unrelated comments and keeps its own code-reading and code-quality sections) |
+| | No plugin suggestions from the agent | Removes the featured plugins list and the plugin search tool from the system prompt, about 6.9K characters; the agent no longer stops to suggest plugins and cannot search the marketplace for you |
+| | No slash command suggestions from the agent | Removes the system prompt section that tells the agent to recommend slash commands, about 1.9K characters; the commands themselves still work |
 | **Usage and costs** | Token usage per reply | Adds a `$` button below each reply showing input, cache read, and output tokens |
 | **Plugin marketplace** | Plugin ranking and categories | Adds category filters and popularity sorting to the plugin marketplace |
 | | Plugin user counts | Shows active user counts on marketplace plugin cards |
@@ -174,7 +176,7 @@ Because your auth tokens and conversation traffic pass through the local forward
    - `warning: page-not-changed`: A client update changed the shape of `main.js` so the UI page couldn't be injected. You can still configure everything by editing `~/Library/Application Support/agy-plus/config.json` (auto-reloaded on save, then restart Antigravity):
      - `enabled`: Master switch (`true` / `false`)
      - `flags`: Flag overrides (e.g. `{"enable-developer-mode": true}`)
-     - `features`: Built-in enhancements (`costPrices`, `uiChinese`, `chineseTitles`, `guidelinesOverride`)
+     - `features`: Built-in enhancements (`costPrices`, `uiChinese`, `chineseTitles`, `guidelinesOverride`, `slashCommandsOverride`)
      - `templates`: Per-model template override rules
      - `disabledSkills`: Disabled builtin skill folder names (e.g. `["antigravity_guide"]`)
      - `pageLanguage`: Language of the AGY Plus page (`auto` follows the system, `zh`, `en`); also switchable at the top right of that page

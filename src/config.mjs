@@ -12,7 +12,7 @@ import { isValidSkillName } from './skills.mjs';
 export const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   flags: {},
-  features: { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false },
+  features: { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false, slashCommandsOverride: false },
   templates: [],
   disabledSkills: [],
   pageLanguage: 'auto',
@@ -49,7 +49,7 @@ export function ensureDataDir() {
  * Features of agy-plus itself that no flag of the client stands for. They are kept apart
  * from `flags`, because everything in `flags` is sent to the client.
  */
-export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles', 'guidelinesOverride']);
+export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles', 'guidelinesOverride', 'slashCommandsOverride']);
 
 /** The language of the AGY Plus page: `auto` follows the language of the system. */
 export const PAGE_LANGUAGES = Object.freeze(['auto', 'zh', 'en']);

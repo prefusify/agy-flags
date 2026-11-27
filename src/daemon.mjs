@@ -27,7 +27,7 @@ import { findUiBundle } from './bundle.mjs';
 import { allOurEnv, applyEnv, clearEnv, launchctlRunner, ourEnv, ourUiEnv, readEnv } from './env.mjs';
 import { PING_PATH, createForwarder } from './forward.mjs';
 import { loadDictionary } from './l10n.mjs';
-import { MODELS_KIND, effectiveTemplates, isValidFlagName } from './patch.mjs';
+import { BUILTIN_TEMPLATES, MODELS_KIND, effectiveTemplates, isValidFlagName } from './patch.mjs';
 import { createPeerCheck } from './peer.mjs';
 import { createPriceStore } from './prices.mjs';
 import { createSkillManager, isValidSkillName } from './skills.mjs';
@@ -360,14 +360,14 @@ export async function startDaemon({
   const pricesOn = () => pageFeatureOn(PART_COSTS);
   const titlesOn = () => config.enabled && config.features.chineseTitles === true;
   const activeTemplates = () =>
-    config.enabled ? effectiveTemplates({ guidelinesOverride: config.features.guidelinesOverride, templates: config.templates }) : [];
+    config.enabled ? effectiveTemplates({ features: config.features, templates: config.templates }) : [];
   // A feature of agy-plus that changes the page. The client loads its page when it starts.
   const pageFeatures = new Set(pageGroups.map((group) => group.feature).filter(Boolean));
   /** Does the running client need a restart for the step from `before` to `after`? */
   const restartNeeded = (before, after) =>
     JSON.stringify(before.flags) !== JSON.stringify(after.flags) ||
     JSON.stringify(before.templates || []) !== JSON.stringify(after.templates || []) ||
-    before.features.guidelinesOverride !== after.features.guidelinesOverride ||
+    Object.keys(BUILTIN_TEMPLATES).some((name) => before.features[name] !== after.features[name]) ||
     FEATURE_NAMES.some((name) => pageFeatures.has(name) && before.features[name] !== after.features[name]);
 
   // ---- prices & builtin skills --------------------------------------------------------

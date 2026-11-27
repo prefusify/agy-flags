@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   BUILTIN_GUIDELINES_TEMPLATE,
+  BUILTIN_SLASH_COMMANDS_TEMPLATE,
   applyTemplateTarget,
   effectiveTemplates,
   isValidFlagName,
@@ -223,7 +224,7 @@ test('built-in guidelines template patches multi-profile fetchAvailableModels re
   models['odd-nonstring'] = { modelExperiments: { experiments: { [key]: { stringValue: 123 } } } };
 
   const payload = { models, defaultAgentModelId: 'good-0' };
-  const targets = effectiveTemplates({ guidelinesOverride: true, templates: [] });
+  const targets = effectiveTemplates({ features: { guidelinesOverride: true }, templates: [] });
   assert.equal(targets.length, 1);
   const stats = patchModelTemplates(payload, targets);
   assert.deepEqual(stats, { profiles: 43, changed: 7, inserted: 35, missing: 1 });
@@ -236,5 +237,38 @@ test('built-in guidelines template patches multi-profile fetchAvailableModels re
 
   // A custom rule for the same path overrides the built-in rule instead of running both.
   const custom = { path: BUILTIN_GUIDELINES_TEMPLATE.path, action: 'set_value', replace_with: 'CUSTOM' };
-  assert.deepEqual(effectiveTemplates({ guidelinesOverride: true, templates: [custom] }), [custom]);
+  assert.deepEqual(effectiveTemplates({ features: { guidelinesOverride: true }, templates: [custom] }), [custom]);
+});
+
+test('each built-in template rule runs only while its feature is on, before the custom rules', () => {
+  const custom = { path: 'models/*/modelExperiments/experiments/template__other/stringValue', action: 'set_value', replace_with: 'X' };
+  assert.deepEqual(effectiveTemplates({ features: {}, templates: [custom] }), [custom]);
+  assert.deepEqual(effectiveTemplates({ features: { guidelinesOverride: false, slashCommandsOverride: 'yes' } }), []);
+  assert.deepEqual(effectiveTemplates({ features: { slashCommandsOverride: true }, templates: [custom] }), [BUILTIN_SLASH_COMMANDS_TEMPLATE, custom]);
+  assert.deepEqual(effectiveTemplates({ features: { guidelinesOverride: true, slashCommandsOverride: true } }), [
+    BUILTIN_GUIDELINES_TEMPLATE,
+    BUILTIN_SLASH_COMMANDS_TEMPLATE,
+  ]);
+  assert.deepEqual(effectiveTemplates(), []);
+  // Every built-in rule passes the checks a custom rule has to pass.
+  for (const target of [BUILTIN_GUIDELINES_TEMPLATE, BUILTIN_SLASH_COMMANDS_TEMPLATE]) assert.deepEqual(normalizeTemplateTarget(target), target);
+});
+
+test('the built-in slash commands rule empties the section for every model, with or without the template', () => {
+  const key = 'template__system_prompts__slash_commands';
+  const payload = {
+    models: {
+      sent: { modelExperiments: { experiments: { [key]: { stringValue: 'Slash commands are user-facing shortcuts…' } } } },
+      absent: { modelExperiments: { experiments: { other: { stringValue: 'x' } } } },
+      bare: { displayName: 'No experiments' },
+    },
+  };
+  const stats = patchModelTemplates(payload, effectiveTemplates({ features: { slashCommandsOverride: true } }));
+  assert.deepEqual(stats, { profiles: 3, changed: 1, inserted: 2, missing: 0 });
+  for (const id of ['sent', 'absent', 'bare']) {
+    assert.equal(payload.models[id].modelExperiments.experiments[key].stringValue, BUILTIN_SLASH_COMMANDS_TEMPLATE.replace_with, id);
+  }
+  assert.equal(payload.models.absent.modelExperiments.experiments.other.stringValue, 'x');
+  // The empty value is a template comment: an empty string could fall back to the compiled-in section.
+  assert.match(BUILTIN_SLASH_COMMANDS_TEMPLATE.replace_with, /^\{\{-? \/\*.*\*\/ -?\}\}$/);
 });

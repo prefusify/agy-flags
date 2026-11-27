@@ -173,7 +173,16 @@ export function modelDisplayNames(data) {
 export const TEMPLATE_ACTIONS = Object.freeze(['section_override', 'set_value', 'drop_field']);
 export const TEMPLATE_WHEN_ABSENT = Object.freeze(['skip', 'insert']);
 
-/** Built-in override for the leading section of the per-model guidelines template. */
+// A Go template comment renders to nothing. An empty string would not do: the language server
+// can treat it as absent and fall back to the template compiled into it.
+const EMPTY_TEMPLATE = '{{- /* local template override */ -}}';
+
+/**
+ * Built-in override for the leading section of the per-model guidelines template: the rules
+ * against bypassing access controls and against solving CAPTCHAs (and, in the Gemini 4
+ * Hydrogen template, the one about keeping comments). Models without the template get the
+ * empty one, so the compiled-in default with the same rules is not used either.
+ */
 export const BUILTIN_GUIDELINES_TEMPLATE = Object.freeze({
   path: 'models/*/modelExperiments/experiments/template__system_prompts__guidelines/stringValue',
   action: 'section_override',
@@ -181,8 +190,22 @@ export const BUILTIN_GUIDELINES_TEMPLATE = Object.freeze({
     start: 'Follow these behavioral guidelines at all times:',
     end: '{{- if and $includeECR',
   }),
-  replace_with: '{{- /* local template override */ -}}',
+  replace_with: EMPTY_TEMPLATE,
   when_absent: 'insert',
+});
+
+/** Built-in override that empties the section telling the model to recommend slash commands. */
+export const BUILTIN_SLASH_COMMANDS_TEMPLATE = Object.freeze({
+  path: 'models/*/modelExperiments/experiments/template__system_prompts__slash_commands/stringValue',
+  action: 'set_value',
+  replace_with: EMPTY_TEMPLATE,
+  when_absent: 'insert',
+});
+
+/** The built-in template rules, each under the feature of agy-plus (config.features) that turns it on. */
+export const BUILTIN_TEMPLATES = Object.freeze({
+  guidelinesOverride: BUILTIN_GUIDELINES_TEMPLATE,
+  slashCommandsOverride: BUILTIN_SLASH_COMMANDS_TEMPLATE,
 });
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -327,10 +350,15 @@ export function patchModelTemplates(data, templates) {
   return { profiles, changed, inserted, missing };
 }
 
-/** Combine the built-in guidelines target (when on) with custom targets from `config.json`. */
-export function effectiveTemplates({ guidelinesOverride = false, templates = [] } = {}) {
+/**
+ * The built-in rules of the features that are on, then the custom rules from `config.json`.
+ * A custom rule for the same path replaces the built-in one instead of running after it.
+ */
+export function effectiveTemplates({ features = {}, templates = [] } = {}) {
   const custom = Array.isArray(templates) ? templates.map(normalizeTemplateTarget).filter(Boolean) : [];
-  if (!guidelinesOverride) return custom;
-  const hasSamePath = custom.some((target) => target.path === BUILTIN_GUIDELINES_TEMPLATE.path);
-  return hasSamePath ? custom : [BUILTIN_GUIDELINES_TEMPLATE, ...custom];
+  const customPaths = new Set(custom.map((target) => target.path));
+  const builtin = Object.entries(BUILTIN_TEMPLATES)
+    .filter(([feature, target]) => features?.[feature] === true && !customPaths.has(target.path))
+    .map(([, target]) => target);
+  return [...builtin, ...custom];
 }
