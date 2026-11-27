@@ -16,7 +16,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import zlib from 'node:zlib';
-import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, summarizeFlags } from './patch.mjs';
+import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, patchModelTemplates, summarizeFlags } from './patch.mjs';
 
 export const PING_PATH = '/__agy_plus_ping';
 
@@ -137,6 +137,7 @@ export function createForwarder({
   name,
   upstream,
   getFlags,
+  getTemplates = () => [],
   wantModelNames = () => false,
   wantChineseTitles = () => false,
   onConfig = () => {},
@@ -296,9 +297,14 @@ export function createForwarder({
           const data = JSON.parse(decodeBody(raw, upRes.headers['content-encoding']).toString('utf8'));
           let result;
           if (kind === MODELS_KIND) {
-            // The model list is only read: nothing is written into it.
             result = { applied: [], skipped: [] };
             if (wantModelNames()) report.names = modelDisplayNames(data);
+            const activeTemplates = getTemplates() || [];
+            if (activeTemplates.length > 0) {
+              const tpl = patchModelTemplates(data, activeTemplates);
+              report.templates = tpl;
+              if (tpl.changed > 0 || tpl.inserted > 0) result.applied.push('templates');
+            }
           } else {
             report.server = summarizeFlags(kind, data);
             result = patchFlagConfig(kind, data, getFlags() || {});
@@ -330,8 +336,9 @@ export function createForwarder({
       const status = upRes.statusCode || 502;
       const respHeaders = withoutHopByHop(upRes.headers);
       upRes.on('error', fail);
-      // The model list is buffered only while its display names are wanted.
-      const wanted = kind !== MODELS_KIND || wantModelNames();
+      // The model list is buffered only while its display names or template overrides are active.
+      const templates = ours && kind === MODELS_KIND ? getTemplates() || [] : [];
+      const wanted = kind !== MODELS_KIND || wantModelNames() || templates.length > 0;
       if (ours && kind && status === 200 && wanted) {
         patchAndSend(upRes, status, respHeaders);
         return;

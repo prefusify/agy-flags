@@ -59,13 +59,15 @@ The settings page also organizes curated experiment flags that have been tested 
 | | Teamwork subagents not forced to Flash | Prevents `/teamwork` subagents from being forced onto Flash so they can match the main model (marked untested) |
 | | GitHub permissions per project | Lets you configure a GitHub token and scope allowed GitHub actions per project |
 | | Encourage interactive widgets | Prompts the agent to render interactive HTML widgets inline when a visual helps |
+| | Compact guidelines template | Replaces the leading section of the per-model `guidelines` template while keeping the code-reading and code-quality sections |
 | **Usage and costs** | Token usage per reply | Adds a `$` button below each reply showing input, cache read, and output tokens |
 | **Plugin marketplace** | Plugin ranking and categories | Adds category filters and popularity sorting to the plugin marketplace |
 | | Plugin user counts | Shows active user counts on marketplace plugin cards |
 | **Computer use** | Computer use | Lets the agent delegate macOS app control to a subagent (restart twice after enabling, then grant Accessibility & Screen Recording permissions) |
 | | Computer use: take over the screen | Allows the computer-use subagent to control mouse, keyboard, and full screen after confirmation (touching the Mac stops it immediately) |
 
-> Need a flag that isn't in the curated list? You can add arbitrary boolean flags under `"flags"` in `config.json` (e.g. `"some-flag": true`).
+> - **Builtin skills toggles**: The settings page also lists builtin skill folders under `~/.gemini/antigravity/builtin/skills` (such as `antigravity_guide`) so you can turn individual skills off to save prompt context; turning off the master switch or uninstalling restores them automatically from backup.
+> - **Advanced configuration**: Arbitrary boolean flags can be added under `"flags"` in `config.json`, and custom per-model template overrides can be declared under `"templates"` (`section_override`, `set_value`, `drop_field`, and `when_absent: "insert"`).
 
 ---
 
@@ -113,7 +115,8 @@ node bin/agy-plus.mjs install
 | Command | Description |
 | --- | --- |
 | `agy-plus status` | Displays daemon health, environment variables, client routing state, and active flag overrides |
-| `agy-plus uninstall [--restart-client] [--purge]` | Uninstalls `agy-plus`; optionally restarts Antigravity and deletes config/logs |
+| `agy-plus skills [list \| off \| on]` | Lists or toggles builtin skill folders (defaults to `antigravity_guide` when no name is given) |
+| `agy-plus uninstall [--restart-client] [--purge]` | Uninstalls `agy-plus` (restoring any backed-up builtin skills); optionally restarts Antigravity and deletes config/logs |
 | `agy-plus daemon` | Runs the daemon in the foreground |
 
 ---
@@ -141,7 +144,7 @@ Antigravity ──HTTP──▶ agy-plus (127.0.0.1:47931 / 47932) ──HTTPS�
 ```
 
 - Once its local ports are listening, the daemon sets those variables in your macOS login session via `launchctl setenv`.
-- In `listExperiments` and `fetchConfig` responses, only your selected boolean flags are overridden; all other fields stay untouched. If rewriting ever fails, the original response passes through unchanged.
+- In `listExperiments` and `fetchConfig` responses, only your selected boolean flags are overridden; when template overrides are enabled, `fetchAvailableModels` responses have the declared template targets applied; all other fields stay untouched. If rewriting ever fails, the original response passes through unchanged.
 - Every other request (including chat streams) is piped straight through without buffering or logging.
 
 ### 2. Settings Page & UI Script Injection (Port 47933)
@@ -171,7 +174,9 @@ Because your auth tokens and conversation traffic pass through the local forward
    - `warning: page-not-changed`: A client update changed the shape of `main.js` so the UI page couldn't be injected. You can still configure everything by editing `~/Library/Application Support/agy-plus/config.json` (auto-reloaded on save, then restart Antigravity):
      - `enabled`: Master switch (`true` / `false`)
      - `flags`: Flag overrides (e.g. `{"enable-developer-mode": true}`)
-     - `features`: Built-in enhancements (`costPrices`, `uiChinese`, `chineseTitles`)
+     - `features`: Built-in enhancements (`costPrices`, `uiChinese`, `chineseTitles`, `guidelinesOverride`)
+     - `templates`: Per-model template override rules
+     - `disabledSkills`: Disabled builtin skill folder names (e.g. `["antigravity_guide"]`)
      - `pageLanguage`: Language of the AGY Plus page (`auto` follows the system, `zh`, `en`); also switchable at the top right of that page
 </details>
 
@@ -214,6 +219,7 @@ All runtime data lives in `~/Library/Application Support/agy-plus/`:
 | `config.json` | Your flag overrides, feature toggles, ports, and upstream URLs (editable by hand; auto-reloads) |
 | `state.json` | Last seen server flag snapshot and model display names |
 | `prices.json` | Cached price list from `models.dev` |
+| `skills-backup/` | Backup folder for disabled builtin skills |
 | `daemon.log` | Daemon event log |
 | `app/` & `runtime/` | Installed program copy and standalone Node.js runtime |
 
@@ -227,7 +233,7 @@ npm test
 
 The test suite runs completely isolated in memory and temporary folders — it never calls `launchctl`, touches your real settings directory, or makes network requests.
 
-- **Forwarding & rewriting**: [`src/forward.mjs`](src/forward.mjs) (HTTP proxy & title prompt rewrite), [`src/patch.mjs`](src/patch.mjs) (flag response patching), [`src/daemon.mjs`](src/daemon.mjs) (daemon lifecycle)
+- **Forwarding & rewriting**: [`src/forward.mjs`](src/forward.mjs) (HTTP proxy & title prompt rewrite), [`src/patch.mjs`](src/patch.mjs) (flag & per-model template patching), [`src/skills.mjs`](src/skills.mjs) (builtin skill folder manager), [`src/daemon.mjs`](src/daemon.mjs) (daemon lifecycle)
 - **UI injection & Settings page**: [`src/bundle.mjs`](src/bundle.mjs) (reads embedded UI assets from the language server binary), [`src/uipatch.mjs`](src/uipatch.mjs) (context indicator & cost repricer), [`src/settingspage.mjs`](src/settingspage.mjs) (`AGY Plus` settings page), [`src/uiserver.mjs`](src/uiserver.mjs) (asset server & settings API)
 - **Localization & catalog**: [`src/l10n.mjs`](src/l10n.mjs) & [`src/l10n/zh-CN.json`](src/l10n/zh-CN.json) (Chinese translator & string table), [`src/catalog.json`](src/catalog.json) (curated feature catalog), [`tools/l10n-candidates.mjs`](tools/l10n-candidates.mjs) (scans updated client bundles for untranslated strings)
 

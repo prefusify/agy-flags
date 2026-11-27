@@ -33,6 +33,10 @@ async function setup(t, { failDownload = false, peerCheck, catalogFile = path.jo
         calls.push(['setFeatures', changes, flags]);
         return { ok: true };
       },
+      setSkills: async (changes) => {
+        calls.push(['setSkills', changes]);
+        return { ok: true };
+      },
       refreshPrices: async () => {
         calls.push(['refreshPrices']);
         return failDownload ? { ok: false, error: 'download-failed', detail: 'offline' } : { ok: true };
@@ -185,6 +189,7 @@ test('each change calls its action, and a refusal comes back with its own status
   assert.equal((await post('flags.json', { changes: { busy: true } })).status, 409);
   assert.equal((await post('features.json', { changes: { costPrices: true }, flags: { 'enable-cost-accumulator': true } })).status, 200);
   assert.equal((await post('features.json', { changes: { costPrices: false } })).status, 200);
+  assert.equal((await post('skills.json', { changes: { antigravity_guide: false } })).status, 200);
   assert.equal((await post('enabled.json', { enabled: false })).status, 200);
   assert.equal((await post('prices-refresh.json', {})).status, 200);
   const restart = await post('restart-client.json', {});
@@ -196,6 +201,7 @@ test('each change calls its action, and a refusal comes back with its own status
     ['setFlags', { busy: true }],
     ['setFeatures', { costPrices: true }, { 'enable-cost-accumulator': true }],
     ['setFeatures', { costPrices: false }, undefined],
+    ['setSkills', { antigravity_guide: false }],
     ['setEnabled', false],
     ['refreshPrices'],
     ['restartClient'],

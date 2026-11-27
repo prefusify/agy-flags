@@ -243,6 +243,16 @@ remove_by_hand() {
     if [ "$(launchctl getenv "$name" 2>/dev/null || true)" = "$value" ]; then launchctl unsetenv "$name" || true; fi
   done
   rm -f "$PLIST"
+  local builtin_dir="${AGY_BUILTIN_DIR:-$HOME/.gemini/antigravity/builtin}"
+  if [ -d "$DATA_DIR/skills-backup" ] && [ -d "$builtin_dir" ]; then
+    mkdir -p "$builtin_dir/skills"
+    local sk
+    for sk in "$DATA_DIR/skills-backup"/*; do
+      [ -d "$sk" ] || continue
+      [ -d "$builtin_dir/skills/$(basename "$sk")" ] || cp -a "$sk" "$builtin_dir/skills/$(basename "$sk")" 2>/dev/null || true
+    done
+    rm -rf "$DATA_DIR/skills-backup"
+  fi
   rm -rf "$DATA_DIR/app"
   if [ "$1" = "purge" ]; then rm -rf "$DATA_DIR"; fi
 }

@@ -6,6 +6,7 @@ import { API_PREFIX } from '../src/api.mjs';
 import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
 import { TITLE_NEW } from '../src/forward.mjs';
+import { BUILTIN_GUIDELINES_TEMPLATE } from '../src/patch.mjs';
 import { close, fakeApp, fakePageScript, fakeRunner, freePorts, listen, request, sleep, tempHome, titleRequest, waitFor } from './helpers.mjs';
 
 /**
@@ -112,10 +113,21 @@ async function setup(
   // A word list of our own too.
   const l10nFile = `${home}/words.json`;
   fs.writeFileSync(l10nFile, JSON.stringify({ exact: { 'New Conversation': '新建对话' }, patterns: [] }));
-  const ctx = { home, runner, client, logs, upstream, ports: { cloudcode, aicode, devui }, handles: [] };
+  const builtinDir = `${home}/builtin`;
+  const ctx = { home, builtinDir, runner, client, logs, upstream, ports: { cloudcode, aicode, devui }, handles: [] };
   ctx.start = async (extra = {}) => {
     // Every caller counts as a program of the user here. peer.test.mjs tests the real lookup.
-    const handle = await startDaemon({ runner, client, log: (m) => logs.push(m), pollMs: 20, catalogFile, l10nFile, peerCheck: async () => true, ...extra });
+    const handle = await startDaemon({
+      runner,
+      client,
+      log: (m) => logs.push(m),
+      pollMs: 20,
+      catalogFile,
+      l10nFile,
+      builtinDir,
+      peerCheck: async () => true,
+      ...extra,
+    });
     if (handle.status === 'running') ctx.handles.push(handle);
     return handle;
   };
@@ -149,7 +161,7 @@ const PART_OK = { ok: true, reason: null };
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
 
-const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false };
+const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false };
 
 test('the variables are set only after every listener is up', async (t) => {
   const runner = fakeRunner();
@@ -1024,4 +1036,106 @@ test('Chinese titles are off while agy-plus is off', async (t) => {
   assert.equal((await ctx.state()).enabled, false);
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body: titleRequest() });
   assert.equal(ctx.upstream.modelBodies.at(-1).includes(TITLE_NEW), false);
+});
+
+// ---- template overrides & builtin skills --------------------------------------------
+
+test('guidelinesOverride rewrites fetchAvailableModels, needs a restart, and warns on marker drift', async (t) => {
+  const key = 'template__system_prompts__guidelines';
+  const goodText = `${BUILTIN_GUIDELINES_TEMPLATE.match.start}\n- rule\n${BUILTIN_GUIDELINES_TEMPLATE.match.end} true }}\n<code_quality/>`;
+  let modelPayload = {
+    models: {
+      m1: { displayName: 'One', modelExperiments: { experiments: { [key]: { stringValue: goodText } } } },
+      m2: { displayName: 'Two', modelExperiments: { experiments: {} } },
+    },
+  };
+  const customUpstream = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (req.url.includes(':fetchAvailableModels')) res.end(JSON.stringify(modelPayload));
+      else res.end(JSON.stringify({ flags: [] }));
+    });
+  });
+  const upPort = await listen(customUpstream);
+  t.after(() => close(customUpstream));
+
+  const ctx = await setupRunning(t, { start: false });
+  const cfg = JSON.parse(fs.readFileSync(files.config(), 'utf8'));
+  fs.writeFileSync(files.config(), JSON.stringify({ ...cfg, upstreams: { cloudcode: `http://127.0.0.1:${upPort}`, aicode: `http://127.0.0.1:${upPort}` } }));
+  ctx.handle = await ctx.start();
+
+  // Turn guidelinesOverride on: needs a client restart.
+  assert.equal((await ctx.post('features', { changes: { guidelinesOverride: true } })).status, 200);
+  let state = await ctx.state();
+  assert.equal(state.features.guidelinesOverride, true);
+  assert.equal(state.pendingRestart, true);
+  assert.equal(state.pendingReason, 'flags-changed');
+
+  const res = parse(await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' }));
+  assert.equal(
+    res.models.m1.modelExperiments.experiments[key].stringValue,
+    `${BUILTIN_GUIDELINES_TEMPLATE.replace_with}${BUILTIN_GUIDELINES_TEMPLATE.match.end} true }}\n<code_quality/>`
+  );
+  assert.equal(res.models.m2.modelExperiments.experiments[key].stringValue, BUILTIN_GUIDELINES_TEMPLATE.replace_with);
+  state = await ctx.state();
+  assert.deepEqual(
+    { profiles: state.templates.profiles, changed: state.templates.changed, inserted: state.templates.inserted, missing: state.templates.missing },
+    { profiles: 2, changed: 1, inserted: 1, missing: 0 }
+  );
+  assert.deepEqual(state.warnings, []);
+
+  // Upstream wording drift raises templates-markers-missing.
+  modelPayload = { models: { m1: { modelExperiments: { experiments: { [key]: { stringValue: 'drifted wording' } } } } } };
+  await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  state = await ctx.state();
+  assert.equal(state.templates.missing, 1);
+  assert.deepEqual(state.warnings, [{ code: 'templates-markers-missing', detail: '1' }]);
+});
+
+test('builtin skills can be toggled via the API and are restored when agy-plus is turned off', async (t) => {
+  const ctx = await setupRunning(t);
+  const skillsDir = `${ctx.builtinDir}/skills`;
+  fs.mkdirSync(`${skillsDir}/antigravity_guide`, { recursive: true });
+  fs.writeFileSync(`${skillsDir}/antigravity_guide/SKILL.md`, '---\nname: antigravity_guide\ndescription: Guide\n---\n');
+  fs.writeFileSync(`${ctx.builtinDir}/.checksum`, 'sum1\n');
+
+  let state = await ctx.state();
+  assert.equal(state.skills.items.length, 1);
+  assert.equal(state.skills.items[0].enabled, true);
+
+  // Disable antigravity_guide via POST /__agy_plus/skills.json.
+  assert.equal((await ctx.post('skills', { changes: { antigravity_guide: false } })).status, 200);
+  assert.equal(fs.existsSync(`${skillsDir}/antigravity_guide`), false);
+  assert.equal(fs.existsSync(`${files.skillsBackup()}/antigravity_guide/SKILL.md`), true);
+  state = await ctx.state();
+  assert.deepEqual(state.skills.disabled, ['antigravity_guide']);
+  assert.equal(state.skills.items[0].enabled, false);
+
+  // Reject invalid skill requests.
+  for (const bad of [{}, { changes: {} }, { changes: { '../x': false } }, { changes: { antigravity_guide: 'no' } }]) {
+    assert.equal((await ctx.post('skills', bad)).status, 400);
+  }
+
+  // Turning agy-plus off restores the folder while keeping the user's choice for when it is turned back on.
+  await ctx.post('enabled', { enabled: false });
+  assert.equal(fs.existsSync(`${skillsDir}/antigravity_guide/SKILL.md`), true);
+  await ctx.post('enabled', { enabled: true });
+  assert.equal(fs.existsSync(`${skillsDir}/antigravity_guide`), false);
+
+  // Re-enabling restores it permanently.
+  assert.equal((await ctx.post('skills', { changes: { antigravity_guide: true } })).status, 200);
+  assert.equal(fs.existsSync(`${skillsDir}/antigravity_guide/SKILL.md`), true);
+  assert.deepEqual(loadConfig().disabledSkills, []);
+});
+
+test('getBundle reads language_server.real when language_server is a wrapper script', async (t) => {
+  const ctx = await setup(t, { start: false });
+  const binDir = `${ctx.home}/Fake.app/Contents/Resources/bin`;
+  fs.renameSync(`${binDir}/language_server`, `${binDir}/language_server.real`);
+  fs.writeFileSync(`${binDir}/language_server`, '#!/bin/bash\nexec "$(dirname "$0")/language_server.real" "$@"\n');
+  ctx.handle = await ctx.start();
+  const script = await ctx.script();
+  assert.ok(script.includes(SETTINGS_MARK));
+  assert.deepEqual((await ctx.handle.getState()).warnings, []);
 });

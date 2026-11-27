@@ -7,7 +7,7 @@ import { allOurEnv, applyEnv, clearEnv, ourEnv, ourUiEnv, readEnv } from '../src
 import { buildPlist } from '../src/launchd.mjs';
 import { fakeRunner, tempHome } from './helpers.mjs';
 
-const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false };
+const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false };
 
 function useTempHome(t) {
   const home = tempHome();
@@ -160,16 +160,33 @@ test('the login item definition is valid and escapes its strings', (t) => {
 });
 
 test('features of agy-plus are kept apart from the flags, and only known ones are kept', () => {
-  assert.deepEqual(FEATURE_NAMES, ['costPrices', 'uiChinese', 'chineseTitles']);
+  assert.deepEqual(FEATURE_NAMES, ['costPrices', 'uiChinese', 'chineseTitles', 'guidelinesOverride']);
   assert.deepEqual(normalizeConfig({ features: { costPrices: true, other: true } }).features, { ...NO_FEATURES, costPrices: true });
-  assert.deepEqual(normalizeConfig({ features: { uiChinese: true, chineseTitles: true } }).features, {
+  assert.deepEqual(normalizeConfig({ features: { uiChinese: true, chineseTitles: true, guidelinesOverride: true } }).features, {
     ...NO_FEATURES,
     uiChinese: true,
     chineseTitles: true,
+    guidelinesOverride: true,
   });
   for (const odd of [{ costPrices: 'yes' }, { costPrices: 1 }, { uiChinese: 'true' }, null, 'x', []]) {
     assert.deepEqual(normalizeConfig({ features: odd }).features, NO_FEATURES);
   }
   // A feature is not a flag: it is never part of what is sent to the client.
-  assert.deepEqual(normalizeConfig({ features: { costPrices: true } }).flags, {});
+  assert.deepEqual(normalizeConfig({ features: { costPrices: true, guidelinesOverride: true } }).flags, {});
+});
+
+test('templates and disabledSkills are normalized and invalid entries dropped', () => {
+  const validTpl = {
+    path: 'models/*/modelExperiments/experiments/tpl/stringValue',
+    action: 'section_override',
+    match: { start: 'A', end: 'B' },
+    replace_with: 'C',
+    when_absent: 'insert',
+  };
+  const cfg = normalizeConfig({
+    templates: [validTpl, { path: 'bad/path' }, { path: validTpl.path, action: 'section_override', match: { start: '', end: 'B' } }, null],
+    disabledSkills: ['antigravity_guide', 'antigravity_guide', '../bad', '.checksum', 'automation'],
+  });
+  assert.deepEqual(cfg.templates, [validTpl]);
+  assert.deepEqual(cfg.disabledSkills, ['antigravity_guide', 'automation']);
 });

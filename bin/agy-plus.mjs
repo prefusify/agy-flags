@@ -16,6 +16,7 @@ Usage: agy-plus <command>
       --restart-client    also restart Antigravity when it still runs through agy-plus
       --purge             also delete the settings in the data directory
   status                Show what is running and what is changed
+  skills [list|off|on]  List or toggle builtin skill folders (default target: antigravity_guide)
   daemon                Run in the foreground (this is what the login item runs)
   help, --version
 
@@ -184,10 +185,11 @@ async function cmdInstall() {
 async function cmdUninstall(args) {
   requireMac();
   const launchd = await import('../src/launchd.mjs');
-  const { loadConfig } = await import('../src/config.mjs');
+  const { loadConfig, files } = await import('../src/config.mjs');
   const env = await import('../src/env.mjs');
   const client = await import('../src/client.mjs');
   const { computePending } = await import('../src/daemon.mjs');
+  const { createSkillManager } = await import('../src/skills.mjs');
   const config = loadConfig();
   const desired = env.allOurEnv(config.ports);
 
@@ -195,8 +197,10 @@ async function cmdUninstall(args) {
   if (!stopped.ok) fail(`could not stop the login item: ${stopped.stderr}`);
   // The daemon clears its variables when it stops. Do it again in case it was not running.
   const cleared = await env.clearEnv(env.launchctlRunner(), desired);
+  const restored = createSkillManager({ backupDir: files.skillsBackup() }).restoreAll();
   launchd.removeFiles({ purge: args.includes('--purge') });
   console.log(stopped.wasLoaded ? 'Stopped agy-plus and removed the login item.' : 'The login item was not loaded; files removed.');
+  if (restored.restored.length > 0) console.log(`Restored builtin skills: ${restored.restored.join(', ')}`);
   for (const [name, result] of Object.entries(cleared)) {
     if (result === 'foreign') console.log(`Note: ${name} is set by another program and was left as it is.`);
     if (result === 'error') console.log(`Warning: could not clear ${name}. Run: launchctl unsetenv ${name}`);
@@ -265,6 +269,20 @@ async function cmdStatus() {
   const names = Object.keys(state.overrides);
   console.log(`overrides:      ${names.length}`);
   for (const name of names) console.log(`  ${name} = ${state.overrides[name]}`);
+  const activeFeatures = Object.entries(state.features || {})
+    .filter(([, on]) => on)
+    .map(([name]) => name);
+  if (activeFeatures.length > 0) console.log(`features:       ${activeFeatures.join(', ')}`);
+  if (state.templates && state.templates.activeCount > 0) {
+    const t = state.templates;
+    const summary = t.seenAt
+      ? `, last: profiles=${t.profiles} override=${t.changed} inserted=${t.inserted} markers_missing=${t.missing}`
+      : '';
+    console.log(`templates:      ${t.activeCount} active (${t.customCount} custom)${summary}`);
+  }
+  if (state.skills && Array.isArray(state.skills.disabled) && state.skills.disabled.length > 0) {
+    console.log(`skills off:     ${state.skills.disabled.join(', ')}`);
+  }
   const by = state.traffic?.byClient;
   if (by) {
     console.log(`requests:       desktop app ${by.desktop}; passed through unchanged: agy command line ${by.cli}, other ${by.other}`);
@@ -274,6 +292,51 @@ async function cmdStatus() {
   }
   if (state.pendingRestart) console.log(`pending:        restart Antigravity to apply (${state.pendingReason})`);
   for (const w of state.warnings) console.log(`warning:        ${w.code} ${w.detail}`);
+}
+
+async function cmdSkills(args) {
+  const { loadConfig, saveConfig, files } = await import('../src/config.mjs');
+  const { DEFAULT_SKILL_TARGETS, createSkillManager, isValidSkillName } = await import('../src/skills.mjs');
+  const [action = 'list', ...rest] = args;
+  const config = loadConfig();
+  const manager = createSkillManager({ backupDir: files.skillsBackup() });
+
+  if (action === 'list') {
+    const view = manager.status(config.disabledSkills);
+    console.log(`builtin dir:    ${view.builtinDir}`);
+    console.log(`backup dir:     ${files.skillsBackup()}`);
+    console.log(`checksum:       ${view.checksumPresent ? 'present' : view.available ? 'MISSING' : 'n/a'}`);
+    const enabled = view.items.filter((item) => item.enabled).map((item) => item.name);
+    const disabled = view.items.filter((item) => !item.enabled).map((item) => item.name);
+    console.log(`enabled:        ${enabled.length > 0 ? enabled.join(' ') : '(none)'}`);
+    console.log(`disabled:       ${disabled.length > 0 ? disabled.join(' ') : '(none)'}`);
+    return;
+  }
+
+  if (action !== 'off' && action !== 'on') {
+    fail('usage: agy-plus skills [list | off [name ...] | on [--all | name ...]]');
+  }
+  const allFlag = action === 'on' && rest.includes('--all');
+  const targets = allFlag ? [] : rest.length > 0 ? rest : [...DEFAULT_SKILL_TARGETS];
+  for (const name of targets) {
+    if (!isValidSkillName(name)) fail(`invalid skill name: ${name}`);
+  }
+  const disabled = new Set(config.disabledSkills);
+  if (action === 'off') {
+    for (const name of targets) disabled.add(name);
+  } else if (allFlag) {
+    disabled.clear();
+  } else {
+    for (const name of targets) disabled.delete(name);
+  }
+  const next = { ...config, disabledSkills: [...disabled] };
+  saveConfig(next);
+  const out = manager.reconcile(next.enabled ? next.disabledSkills : []);
+  if (out.moved.length > 0) console.log(`moved to backup: ${out.moved.join(', ')}`);
+  if (out.restored.length > 0) console.log(`restored: ${out.restored.join(', ')}`);
+  if (out.moved.length === 0 && out.restored.length === 0) {
+    console.log(`saved disabledSkills: ${next.disabledSkills.length > 0 ? next.disabledSkills.join(', ') : '(none)'}`);
+  }
 }
 
 const [command = 'help', ...args] = process.argv.slice(2);
@@ -289,6 +352,9 @@ switch (command) {
     break;
   case 'status':
     await cmdStatus();
+    break;
+  case 'skills':
+    await cmdSkills(args);
     break;
   case '--version':
   case '-v':

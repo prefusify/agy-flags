@@ -72,7 +72,11 @@ export function settingsPageFactory(React, options) {
       notRewritten: '{time}，没有改写',
       aboutOthers: '其他程序',
       othersLine: '命令行 agy 的请求 {cli} 个，其他来源 {other} 个，全部原样放行。',
+      aboutTemplates: '自定义模板',
+      aboutTemplatesLine: 'config.json 中已配置 {n} 条规则',
       aboutVersion: 'agy-plus',
+      skillsSection: '内置技能',
+      skillsDesc: '关闭不需要的内置技能目录，避免加载进系统提示词；新对话或重启后生效。',
       language: '页面语言',
       languageAuto: '跟随系统',
       footer:
@@ -80,6 +84,7 @@ export function settingsPageFactory(React, options) {
       pageScriptFail: '没能改动 Antigravity 的界面（{reason}），这一项暂时不起作用。',
       l10nMissing: '词条表读不出来，界面仍是英文，请重新安装本工具。',
       titlesChanged: '客户端改了起标题的写法，标题暂时还是英文。',
+      templatesMissing: '最近一次模型列表中有 {count} 个条目的模板标记对不上，对应条目未改写。',
       pricesError: '价格表更新失败（{error}），先用上一份。',
       pricesErrorNone: '价格表下载失败（{error}），一小时后自动再试。',
       pricesRefresh: '重试',
@@ -99,6 +104,8 @@ export function settingsPageFactory(React, options) {
         'page-unavailable': '找不到客户端自带的界面文件（{detail}），需要改界面的功能不会生效。',
         'page-not-changed': '界面脚本有一处没有改成（{detail}），对应的功能不会生效。客户端的版本可能变了，需要更新本工具。',
         'titles-not-changed': '最近一个标题请求没有改写：客户端起标题的指令写法变了。需要更新本工具。',
+        'templates-markers-missing': '最近一次模型列表中有 {detail} 个条目的模板标记对不上，已原样保留。客户端模板可能变了，请更新本工具或检查 config.json 里的 templates。',
+        'skills-checksum-missing': '未找到 builtin/.checksum，Antigravity 下次启动时会重新生成内置技能目录。',
       },
     },
     en: {
@@ -138,7 +145,11 @@ export function settingsPageFactory(React, options) {
       notRewritten: '{time}, not rewritten',
       aboutOthers: 'Other programs',
       othersLine: '{cli} requests from the agy command line and {other} from other senders, all passed through unchanged.',
+      aboutTemplates: 'Custom templates',
+      aboutTemplatesLine: '{n} rules in config.json',
       aboutVersion: 'agy-plus',
+      skillsSection: 'Builtin skills',
+      skillsDesc: 'Turn off builtin skill folders you do not need so they are not loaded into prompts; takes effect in new conversations or after a restart.',
       language: 'Page language',
       languageAuto: 'System',
       footer:
@@ -146,6 +157,7 @@ export function settingsPageFactory(React, options) {
       pageScriptFail: 'The Antigravity page could not be changed ({reason}), so this does not work for now.',
       l10nMissing: 'The word list cannot be read, so the page stays in English; install agy-plus again.',
       titlesChanged: 'The client now asks for titles differently, so titles are English for now.',
+      templatesMissing: '{count} model entries in the last model list did not match the template markers and were left unchanged.',
       pricesError: 'The price list could not be updated ({error}); the last one is still used.',
       pricesErrorNone: 'The price list could not be downloaded ({error}); it is tried again in an hour.',
       pricesRefresh: 'Retry',
@@ -165,6 +177,8 @@ export function settingsPageFactory(React, options) {
         'page-unavailable': 'The page files of the client were not found ({detail}), so features that change the page have no effect.',
         'page-not-changed': 'One change of the page script could not be made ({detail}), so its feature has no effect. The client version may have changed; update agy-plus.',
         'titles-not-changed': 'The last title request was not changed: the client words its title instruction differently now. Update agy-plus.',
+        'templates-markers-missing': '{detail} model entries in the last model list did not match the template markers and were left as sent. Update agy-plus or check templates in config.json.',
+        'skills-checksum-missing': 'builtin/.checksum is missing, so Antigravity will recreate all builtin skill folders on its next start.',
       },
     },
   };
@@ -226,6 +240,7 @@ export function settingsPageFactory(React, options) {
     }
     if (group.status === 'l10n' && !(state.l10n && state.l10n.ready)) out.push(['l10nMissing', {}]);
     if (group.status === 'titles' && state.titles && state.titles.changed > 0) out.push(['titlesChanged', {}]);
+    if (group.status === 'templates' && state.templates && state.templates.missing > 0) out.push(['templatesMissing', { count: state.templates.missing }]);
     return out;
   }
 
@@ -306,7 +321,8 @@ export function settingsPageFactory(React, options) {
         ? h(
             'div',
             { className: 'flex flex-col gap-1' },
-            h('div', { className: 'flex items-center justify-between' }, h('div', { className: 'flex items-center gap-1.5' }, h('h3', { className: 'm-0 font-medium' }, props.title)))
+            h('div', { className: 'flex items-center justify-between' }, h('div', { className: 'flex items-center gap-1.5' }, h('h3', { className: 'm-0 font-medium' }, props.title))),
+            props.description ? h('span', { className: 'text-sm text-muted-foreground' }, props.description) : null
           )
         : null,
       h('div', null, props.children)
@@ -648,6 +664,8 @@ export function settingsPageFactory(React, options) {
     const others = (by.cli || 0) + (by.other || 0);
     const client = state.client || {};
     const app = state.app || {};
+    const skillItems = list(state.skills && state.skills.items);
+    const customTemplates = (state.templates && state.templates.customCount) || 0;
 
     return h(
       Frame,
@@ -669,6 +687,33 @@ export function settingsPageFactory(React, options) {
       ...sectionsOf(catalog).map((section) =>
         h(Section, { key: section.id || 'other', title: section.title ? pick(section.title) : t('other') }, h(Card, null, section.groups.map(featureRow)))
       ),
+      skillItems.length > 0
+        ? h(
+            Section,
+            { key: 'skills', title: t('skillsSection'), description: t('skillsDesc') },
+            h(
+              Card,
+              null,
+              skillItems.map((skill) =>
+                h(Row, {
+                  key: skill.name,
+                  label: skill.name,
+                  description: pick(skill.description),
+                  disabled: !state.enabled,
+                  right: h(Switch, {
+                    checked: skill.enabled !== false,
+                    label: skill.name,
+                    disabled: !state.enabled,
+                    onChange: (turnOn) => {
+                      setAsking(null);
+                      act('skills', { changes: { [skill.name]: turnOn } });
+                    },
+                  }),
+                })
+              )
+            )
+          )
+        : null,
       h(
         Section,
         { title: t('about') },
@@ -691,6 +736,7 @@ export function settingsPageFactory(React, options) {
                   : t('notRewritten', { time: timeOf(lastRewrite.at) })
             ),
           }),
+          customTemplates > 0 ? h(Row, { label: t('aboutTemplates'), right: h(Value, null, t('aboutTemplatesLine', { n: customTemplates })) }) : null,
           others > 0 ? h(Row, { label: t('aboutOthers'), description: t('othersLine', { cli: by.cli || 0, other: by.other || 0 }) }) : null,
           h(Row, { label: t('aboutVersion'), right: h(Value, null, state.version || '') }),
           h(Row, {

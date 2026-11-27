@@ -59,13 +59,15 @@ Antigravity 桌面版缺少中文界面、上下文余量提示与费用明细�
 | | Teamwork 子代理不强制用 Flash | 让 `/teamwork` 启动的子代理跟随主对话模型，不再强制降级为 Flash（标记为未实测） |
 | | 项目的 GitHub 权限 | 在项目设置中配置 GitHub 令牌，并限制代理允许执行的 GitHub 操作 |
 | | 鼓励代理用交互小部件 | 提示代理在适合可视化展示时，直接在对话内生成可交互的 HTML 小部件 |
+| | 精简默认准则模板 | 覆盖模型配置中 `guidelines` 模板的前置段落（保留代码阅读与代码质量子段），减少系统提示词占用 |
 | **用量和费用** | 回复用量 | 在每条回复下方增加 `$` 按钮，点击查看本轮输入、缓存命中与输出 Token 数 |
 | **插件市场** | 插件市场排序和分类 | 为插件市场增加分类筛选，并按热门程度排序 |
 | | 插件使用人数 | 在插件卡片上显示当前使用人数 |
 | **电脑操作** | 电脑操作 (Computer Use) | 允许代理派子代理操作当前 Mac 上的桌面应用（首次启用需重启两次并授予辅助功能与录屏权限） |
 | | 电脑操作：接管屏幕 | 允许子代理在征得确认后接管鼠标、键盘与整个屏幕（工作期间触碰电脑即自动停止） |
 
-> 精选列表之外的其他实验开关，也可以手动写入配置文件 `config.json` 的 `flags` 字段中（例如 `"some-flag": true`）。
+> - **内置技能管理**：设置页底部还列出了 `~/.gemini/antigravity/builtin/skills` 下的内置技能目录（如 `antigravity_guide`），可单独关闭以减少系统提示词占用；关闭总开关或卸载时会自动从备份恢复。
+> - **高级自定义配置**：精选列表之外的实验开关可写入 `config.json` 的 `flags` 字段；模型响应模板规则可写入 `templates` 数组（支持 `section_override`、`set_value`、`drop_field` 与 `when_absent: "insert"`）。
 
 ---
 
@@ -113,7 +115,8 @@ node bin/agy-plus.mjs install
 | 命令 | 作用 |
 | --- | --- |
 | `agy-plus status` | 查看后台进程、环境变量、客户端连接及已修改开关的状态 |
-| `agy-plus uninstall [--restart-client] [--purge]` | 卸载工具；可选顺带重启客户端或清除全部配置文件与日志 |
+| `agy-plus skills [list \| off \| on]` | 查看或开关内置技能目录（未指定名称时默认操作 `antigravity_guide`） |
+| `agy-plus uninstall [--restart-client] [--purge]` | 卸载工具（自动恢复已备份的内置技能）；可选顺带重启客户端或清除全部配置与日志 |
 | `agy-plus daemon` | 在前台运行守护进程（用于调试） |
 
 ---
@@ -141,7 +144,7 @@ Antigravity ──HTTP──▶ agy-plus (127.0.0.1:47931 / 47932) ──HTTPS�
 ```
 
 - 守护进程启动本地端口后，通过 `launchctl setenv` 将上述环境变量注入当前 macOS 登录会话。
-- 转发层仅在收到 `listExperiments` 与 `fetchConfig` 响应时覆盖你选中的布尔开关，其余字段原样保留；若开启了「中文对话标题」，则仅识别起标题请求并替换语言指令句。
+- 转发层仅在收到 `listExperiments` 与 `fetchConfig` 响应时覆盖你选中的布尔开关；若开启了模板覆盖或配置了 `templates`，则在 `fetchAvailableModels` 响应中按规则改写对应模型模板字段；若开启了「中文对话标题」，则仅识别起标题请求并替换语言指令句。
 - 其他所有请求（包括日常对话流）均以流式原样透传，不落盘、不写日志。
 
 ### 2. 原生设置页与前端注入（端口 47933）
@@ -171,7 +174,9 @@ Antigravity ──HTTP──▶ agy-plus (127.0.0.1:47931 / 47932) ──HTTPS�
    - 显示 `warning: page-not-changed`：说明客户端更新后前端代码结构发生了变化，设置页暂时无法注入。此时可直接手动编辑 `~/Library/Application Support/agy-plus/config.json`（保存后自动热加载，改完重启客户端即可）：
      - `enabled`：总开关（`true` / `false`）
      - `flags`：实验开关字典（如 `{"enable-developer-mode": true}`）
-     - `features`：内置增强功能（`costPrices`、`uiChinese`、`chineseTitles`）
+     - `features`：内置增强功能（`costPrices`、`uiChinese`、`chineseTitles`、`guidelinesOverride`）
+     - `templates`：模型模板覆盖规则数组
+     - `disabledSkills`：关闭的内置技能目录名数组（如 `["antigravity_guide"]`）
      - `pageLanguage`：AGY Plus 页的语言（`auto` 跟随系统、`zh`、`en`），也可在该页右上角切换
 </details>
 
@@ -214,6 +219,7 @@ unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 | `config.json` | 已修改的开关、功能项、端口与上游地址（支持手动编辑并自动重载） |
 | `state.json` | 最近一次观测到的服务端开关快照与模型显示名称 |
 | `prices.json` | 从 `models.dev` 缓存的公开价格表 |
+| `skills-backup/` | 已关闭的内置技能备份目录 |
 | `daemon.log` | 守护进程运行日志 |
 | `app/` 与 `runtime/` | 安装时复制的程序代码与独立 Node.js 运行时 |
 
@@ -227,7 +233,7 @@ npm test
 
 测试套件完全在沙盒内存与临时目录中运行，不会调用 `launchctl`、不修改真实配置目录，也不访问外部网络。
 
-- **核心转发与改写**：[`src/forward.mjs`](src/forward.mjs)（HTTP 转发与标题请求改写）、[`src/patch.mjs`](src/patch.mjs)（实验开关响应改写）、[`src/daemon.mjs`](src/daemon.mjs)（常驻进程）
+- **核心转发与改写**：[`src/forward.mjs`](src/forward.mjs)（HTTP 转发与标题请求改写）、[`src/patch.mjs`](src/patch.mjs)（实验开关与模型模板改写）、[`src/skills.mjs`](src/skills.mjs)（内置技能目录管理）、[`src/daemon.mjs`](src/daemon.mjs)（常驻进程）
 - **界面注入与设置页**：[`src/bundle.mjs`](src/bundle.mjs)（提取内置前端资源）、[`src/uipatch.mjs`](src/uipatch.mjs)（指示器与费用重算注入）、[`src/settingspage.mjs`](src/settingspage.mjs)（AGY Plus 设置页）、[`src/uiserver.mjs`](src/uiserver.mjs)（静态资源与接口服务）
 - **汉化与功能目录**：[`src/l10n.mjs`](src/l10n.mjs) & [`src/l10n/zh-CN.json`](src/l10n/zh-CN.json)（界面汉化与词条表）、[`src/catalog.json`](src/catalog.json)（精选功能清单，欢迎提交实测反馈）、[`tools/l10n-candidates.mjs`](tools/l10n-candidates.mjs)（扫描客户端新版本未翻译词条）
 

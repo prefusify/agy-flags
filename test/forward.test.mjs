@@ -424,6 +424,70 @@ test('the names of the model list are reported only while somebody wants them, a
   assert.equal(reports.length, 1);
 });
 
+test('model templates are rewritten for the desktop app only, and gzip headers are updated', async (t) => {
+  const key = 'template__system_prompts__guidelines';
+  const modelData = {
+    models: {
+      m1: { displayName: 'One', modelExperiments: { experiments: { [key]: { stringValue: 'HEAD: old TAIL: keep' } } } },
+      m2: { displayName: 'Two', modelExperiments: { experiments: {} } },
+    },
+  };
+  const zipped = zlib.gzipSync(JSON.stringify(modelData));
+  const upstream = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json', 'content-encoding': 'gzip', 'content-length': zipped.length });
+      res.end(zipped);
+    });
+  });
+  const upstreamPort = await listen(upstream);
+  let active = [
+    {
+      path: `models/*/modelExperiments/experiments/${key}/stringValue`,
+      action: 'section_override',
+      match: { start: 'HEAD:', end: 'TAIL:' },
+      replace_with: 'NEW ',
+      when_absent: 'insert',
+    },
+  ];
+  const reports = [];
+  const forwarder = createForwarder({
+    name: 'cloudcode',
+    upstream: `http://127.0.0.1:${upstreamPort}`,
+    getFlags: () => ({}),
+    getTemplates: () => active,
+    onConfig: (report) => reports.push(report),
+  });
+  const port = await listen(forwarder);
+  t.after(async () => {
+    await close(forwarder);
+    await close(upstream);
+  });
+
+  // CLI traffic goes through byte-for-byte untouched.
+  const cliRes = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}', as: 'cli' });
+  assert.ok(cliRes.body.equals(zipped));
+  assert.equal(cliRes.headers['content-encoding'], 'gzip');
+  assert.equal(reports.length, 0);
+
+  // Desktop app response is decoded, rewritten, and sent with plain content-length.
+  const deskRes = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  assert.equal(deskRes.headers['content-encoding'], undefined);
+  assert.equal(Number(deskRes.headers['content-length']), deskRes.body.length);
+  const parsed = JSON.parse(deskRes.body.toString('utf8'));
+  assert.equal(parsed.models.m1.modelExperiments.experiments[key].stringValue, 'NEW TAIL: keep');
+  assert.equal(parsed.models.m2.modelExperiments.experiments[key].stringValue, 'NEW ');
+  assert.equal(reports.length, 1);
+  assert.deepEqual(reports[0].templates, { profiles: 2, changed: 1, inserted: 1, missing: 0 });
+  assert.deepEqual(reports[0].applied, ['templates']);
+
+  // When a template rule matches nothing and inserts nothing, original bytes go out untouched.
+  active = [{ path: 'models/*/modelExperiments/experiments/absent_key/stringValue', action: 'drop_field' }];
+  const untouched = await request({ port, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
+  assert.ok(untouched.body.equals(zipped));
+  assert.equal(untouched.headers['content-encoding'], 'gzip');
+});
+
 // ---- titles of conversations --------------------------------------------------------
 
 test('the title request asks for a Chinese title, and only the one sentence changes', () => {

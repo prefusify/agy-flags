@@ -437,6 +437,31 @@
       }
     },
     {
+      "id": "guidelines-override",
+      "section": "agents",
+      "flags": [],
+      "feature": "guidelinesOverride",
+      "requires": [],
+      "status": "templates",
+      "tested": "2.34.0",
+      "riskLabel": {
+        "zh": "改动模型模板",
+        "en": "changes model template"
+      },
+      "risk": {
+        "zh": "本工具会在模型配置响应中用空注释模板覆盖 guidelines 的前置段落，保留后续代码阅读等模板段。",
+        "en": "agy-plus replaces the leading section of the guidelines template in the model configuration response with an empty template comment and keeps the remaining sections."
+      },
+      "title": {
+        "zh": "精简默认准则模板",
+        "en": "Compact guidelines template"
+      },
+      "description": {
+        "zh": "覆盖模型配置中 guidelines 模板的前置段落（保留代码阅读与代码质量子段），减少系统提示词占用，开关后需重启。",
+        "en": "Replaces the leading section of the per-model guidelines template while keeping the code-reading and code-quality sections; needs a restart."
+      }
+    },
+    {
       "id": "marketplace-ranking",
       "section": "marketplace",
       "flags": [

@@ -27,9 +27,10 @@ import { findUiBundle } from './bundle.mjs';
 import { allOurEnv, applyEnv, clearEnv, launchctlRunner, ourEnv, ourUiEnv, readEnv } from './env.mjs';
 import { PING_PATH, createForwarder } from './forward.mjs';
 import { loadDictionary } from './l10n.mjs';
-import { MODELS_KIND, isValidFlagName } from './patch.mjs';
+import { MODELS_KIND, effectiveTemplates, isValidFlagName } from './patch.mjs';
 import { createPeerCheck } from './peer.mjs';
 import { createPriceStore } from './prices.mjs';
+import { createSkillManager, isValidSkillName } from './skills.mjs';
 import { PART_COSTS, PART_INDICATOR, PART_L10N, PART_SETTINGS } from './uipatch.mjs';
 import { createUiServer } from './uiserver.mjs';
 
@@ -207,6 +208,7 @@ export async function startDaemon({
   envCheckMs = 60_000,
   catalogFile = CATALOG_FILE,
   l10nFile = L10N_FILE,
+  builtinDir,
   unrecognizedGraceMs = 150_000,
   fetchPriceList,
   priceCheckMs = 30 * 60_000,
@@ -246,6 +248,8 @@ export async function startDaemon({
   // Title requests of the desktop app: how many were changed, and how many could not be
   // changed because the client words its instruction differently now.
   const titles = { rewritten: 0, rewrittenAt: null, changed: 0, changedAt: null, skipped: 0 };
+  const templates = { seenAt: null, profiles: 0, changed: 0, inserted: 0, missing: 0 };
+  const skills = createSkillManager({ ...(builtinDir ? { builtinDir } : {}), backupDir: files.skillsBackup(), log });
   // The word list for the Chinese interface. It is a file of agy-plus itself.
   const dictionary = loadDictionary(l10nFile);
   if (!dictionary) log('word list for the Chinese interface: cannot be read');
@@ -279,11 +283,22 @@ export async function startDaemon({
         saveState({ serverFlags, serverSeenAt, modelNames });
       }
     }
-    const signature = JSON.stringify([entry.ok, entry.applied, entry.skipped, entry.error]);
+    if (isModels && report.ok && report.templates) {
+      templates.seenAt = report.at;
+      templates.profiles = report.templates.profiles;
+      templates.changed = report.templates.changed;
+      templates.inserted = report.templates.inserted;
+      templates.missing = report.templates.missing;
+    }
+    const signature = JSON.stringify([entry.ok, entry.applied, entry.skipped, entry.error, report.templates || null]);
     if (signature !== lastSignature[slot]) {
       lastSignature[slot] = signature;
+      const tplNote = report.templates
+        ? `, templates profiles=${report.templates.profiles} override=${report.templates.changed} inserted=${report.templates.inserted} markers_missing=${report.templates.missing}`
+        : '';
       log(
         `${report.upstream} ${report.kind}: ${entry.ok ? 'ok' : 'NOT PATCHED'}, applied ${entry.applied.length}` +
+          tplNote +
           (entry.skipped.length ? `, skipped ${entry.skipped.map((s) => s.name).join(' ')}` : '') +
           (entry.error ? `, ${entry.error}` : '')
       );
@@ -344,25 +359,34 @@ export async function startDaemon({
   const pageFeatureOn = (patch) => config.enabled && pageGroups.some((group) => group.patch === patch && groupOn(group));
   const pricesOn = () => pageFeatureOn(PART_COSTS);
   const titlesOn = () => config.enabled && config.features.chineseTitles === true;
+  const activeTemplates = () =>
+    config.enabled ? effectiveTemplates({ guidelinesOverride: config.features.guidelinesOverride, templates: config.templates }) : [];
   // A feature of agy-plus that changes the page. The client loads its page when it starts.
   const pageFeatures = new Set(pageGroups.map((group) => group.feature).filter(Boolean));
   /** Does the running client need a restart for the step from `before` to `after`? */
   const restartNeeded = (before, after) =>
     JSON.stringify(before.flags) !== JSON.stringify(after.flags) ||
+    JSON.stringify(before.templates || []) !== JSON.stringify(after.templates || []) ||
+    before.features.guidelinesOverride !== after.features.guidelinesOverride ||
     FEATURE_NAMES.some((name) => pageFeatures.has(name) && before.features[name] !== after.features[name]);
 
-  // ---- prices -------------------------------------------------------------------------
+  // ---- prices & builtin skills --------------------------------------------------------
 
   const prices = createPriceStore({ file: files.prices(), log, ...(fetchPriceList ? { fetchList: fetchPriceList } : {}) });
   /** The price list is downloaded only while the feature that uses it is on. */
   function syncPrices() {
     if (!stopped && pricesOn()) prices.refreshIfStale();
   }
+  function syncSkills() {
+    if (!stopped) skills.reconcile(config.enabled ? config.disabledSkills : []);
+  }
 
   let bundle = null;
   /** The page archive of the installed language server. Found again when that program changes. */
   function getBundle() {
-    const file = path.join(config.appPath, 'Contents', 'Resources', 'bin', 'language_server');
+    const binDir = path.join(config.appPath, 'Contents', 'Resources', 'bin');
+    const real = path.join(binDir, 'language_server.real');
+    const file = fs.existsSync(real) ? real : path.join(binDir, 'language_server');
     const stat = fs.statSync(file);
     if (!bundle || bundle.file !== file || bundle.size !== stat.size || bundle.mtimeMs !== stat.mtimeMs) {
       bundle = null;
@@ -405,6 +429,7 @@ export async function startDaemon({
       name,
       upstream: config.upstreams[name],
       getFlags,
+      getTemplates: activeTemplates,
       wantModelNames: pricesOn,
       wantChineseTitles: titlesOn,
       onConfig,
@@ -489,7 +514,9 @@ export async function startDaemon({
       return;
     }
     const enabledChanged = next.enabled !== config.enabled;
-    const flagsChanged = !same(next.flags, config.flags) || !same(next.features, config.features);
+    const templatesChanged = !same(next.templates, config.templates);
+    const skillsChanged = !same(next.disabledSkills, config.disabledSkills);
+    const flagsChanged = !same(next.flags, config.flags) || !same(next.features, config.features) || templatesChanged || skillsChanged;
     const restart = enabledChanged || restartNeeded(config, next);
     config = next;
     if (enabledChanged || flagsChanged) {
@@ -497,6 +524,7 @@ export async function startDaemon({
       if (restart) writeConfig({ ...config, flagsChangedAt: Date.now() });
     }
     if (enabledChanged) await reconcileEnv();
+    if (enabledChanged || skillsChanged) syncSkills();
     syncPrices();
   }
 
@@ -564,6 +592,14 @@ export async function startDaemon({
     if (titlesOn() && titles.changedAt !== null && titles.changedAt > (titles.rewrittenAt ?? 0)) {
       warnings.push({ code: 'titles-not-changed', detail: '' });
     }
+    const activeTpl = activeTemplates();
+    const skillView = skills.status(config.disabledSkills);
+    if (activeTpl.length > 0 && templates.seenAt !== null && templates.missing > 0) {
+      warnings.push({ code: 'templates-markers-missing', detail: String(templates.missing) });
+    }
+    if (config.enabled && config.disabledSkills.length > 0 && skillView.available && !skillView.checksumPresent) {
+      warnings.push({ code: 'skills-checksum-missing', detail: '' });
+    }
     if (traffic.lastFailure && Date.now() - traffic.lastFailure.at < 5 * 60_000) {
       warnings.push({ code: 'upstream-failed', detail: `${traffic.lastFailure.upstream}: ${traffic.lastFailure.error}` });
     }
@@ -592,6 +628,8 @@ export async function startDaemon({
       prices: prices.view(modelNames),
       l10n: { ready: dictionary !== null, words: dictionary?.count ?? 0 },
       titles: { ...titles },
+      templates: { customCount: config.templates.length, activeCount: activeTpl.length, ...templates },
+      skills: skillView,
       changedAt: config.flagsChangedAt,
       server: { version: serverVersion, count: Object.keys(merged).length, seenAt: serverSeenAt },
       lastInjection,
@@ -674,6 +712,27 @@ export async function startDaemon({
       return { ok: true };
     },
 
+    /** changes: { skillName: true (enabled) | false (disabled) }. */
+    async setSkills(changes) {
+      if (!changes || typeof changes !== 'object' || Array.isArray(changes)) return { ok: false, error: 'bad-request' };
+      const entries = Object.entries(changes);
+      if (entries.length === 0 || entries.length > 200) return { ok: false, error: 'bad-request' };
+      const disabled = new Set(config.disabledSkills);
+      for (const [name, value] of entries) {
+        if (!isValidSkillName(name)) return { ok: false, error: 'bad-name', name };
+        if (typeof value !== 'boolean') return { ok: false, error: 'bad-value', name };
+        if (value) disabled.delete(name);
+        else disabled.add(name);
+      }
+      const nextDisabled = [...disabled];
+      if (JSON.stringify(nextDisabled) !== JSON.stringify(config.disabledSkills)) {
+        writeConfig({ ...config, disabledSkills: nextDisabled });
+        log(`disabled skills changed: ${nextDisabled.join(', ') || 'none'}`);
+        syncSkills();
+      }
+      return { ok: true };
+    },
+
     /** Download the price list now. */
     async refreshPrices() {
       if (!pricesOn()) return { ok: false, error: 'feature-off' };
@@ -687,6 +746,7 @@ export async function startDaemon({
         writeConfig({ ...config, enabled, flagsChangedAt: Date.now() });
         log(`injection turned ${enabled ? 'on' : 'off'}`);
         await reconcileEnv();
+        syncSkills();
       }
       return { ok: true };
     },
@@ -781,6 +841,7 @@ export async function startDaemon({
   log(`listening: cloudcode ${ports.cloudcode}, aicode ${ports.aicode}, page files and settings page ${ports.devui}`);
 
   await reconcileEnv();
+  syncSkills();
   syncPrices();
 
   const pollTimer = setInterval(() => {
@@ -790,9 +851,10 @@ export async function startDaemon({
     mtime = now;
     reloadFromDisk().catch((err) => log(`config reload failed: ${err?.message || err}`));
   }, pollMs);
-  // Somebody may unset or change the variables while we run.
+  // Somebody may unset or change the variables while we run, or an app update may unpack builtin skills again.
   const envTimer = setInterval(() => {
     reconcileEnv();
+    syncSkills();
   }, envCheckMs);
   const priceTimer = setInterval(syncPrices, priceCheckMs);
   pollTimer.unref?.();

@@ -181,6 +181,8 @@ test('the problems of a feature that is on', () => {
   assert.deepEqual(helpers.groupProblems(zh, failed), [['pageScriptFail', { reason: 'no place' }]]);
   assert.deepEqual(helpers.groupProblems(costs, makeState({ prices: { error: 'offline', fetchedAt: null } })), [['pricesErrorNone', { error: 'offline' }]]);
   assert.deepEqual(helpers.groupProblems(costs, makeState({ prices: { error: 'offline', fetchedAt: 5 } })), [['pricesError', { error: 'offline' }]]);
+  const tplGroup = { id: 'tpl', feature: 'guidelinesOverride', status: 'templates', flags: [] };
+  assert.deepEqual(helpers.groupProblems(tplGroup, makeState({ templates: { missing: 2 } })), [['templatesMissing', { count: 2 }]]);
 });
 
 test('the page has the language chosen on it, else the language of the system', () => {
@@ -371,6 +373,39 @@ test('the page language is chosen with three buttons at the top of the page', as
   choices[2].props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(sent[0], ['/__agy_plus/page-language.json', 'POST', '{"language":"en"}']);
+});
+
+test('builtin skills are listed with switches and post to skills.json', async (t) => {
+  const sent = [];
+  const before = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    sent.push([url, init.method, init.body]);
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  t.after(() => {
+    globalThis.fetch = before;
+  });
+  const tree = shown(
+    makeState({
+      templates: { customCount: 2, missing: 0 },
+      skills: {
+        items: [
+          { name: 'antigravity_guide', enabled: true, description: { zh: '指南说明', en: 'Guide desc' } },
+          { name: 'automation', enabled: false, description: { zh: '定时说明', en: 'Auto desc' } },
+        ],
+      },
+    })
+  );
+  assert.deepEqual(headings(tree), ['界面', '代理', '其他', '内置技能', '关于']);
+  assert.match(textOf(tree), /指南说明/);
+  assert.match(textOf(tree), /已配置 2 条规则/);
+  const guideSwitch = switches(tree).find((node) => node.props['aria-label'] === 'antigravity_guide');
+  const autoSwitch = switches(tree).find((node) => node.props['aria-label'] === 'automation');
+  assert.equal(guideSwitch.props['aria-checked'], true);
+  assert.equal(autoSwitch.props['aria-checked'], false);
+  guideSwitch.props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(sent[0], ['/__agy_plus/skills.json', 'POST', '{"changes":{"antigravity_guide":false}}']);
 });
 
 test('a mistake while the page is drawn leaves a short note, not a broken window', () => {

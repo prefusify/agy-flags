@@ -6,12 +6,15 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isValidFlagName, isValidFlagValue } from './patch.mjs';
+import { isValidFlagName, isValidFlagValue, normalizeTemplateTarget } from './patch.mjs';
+import { isValidSkillName } from './skills.mjs';
 
 export const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   flags: {},
-  features: { costPrices: false, uiChinese: false, chineseTitles: false },
+  features: { costPrices: false, uiChinese: false, chineseTitles: false, guidelinesOverride: false },
+  templates: [],
+  disabledSkills: [],
   pageLanguage: 'auto',
   flagsChangedAt: 0,
   ports: { cloudcode: 47931, aicode: 47932, devui: 47933 },
@@ -46,7 +49,7 @@ export function ensureDataDir() {
  * Features of agy-plus itself that no flag of the client stands for. They are kept apart
  * from `flags`, because everything in `flags` is sent to the client.
  */
-export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles']);
+export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles', 'guidelinesOverride']);
 
 /** The language of the AGY Plus page: `auto` follows the language of the system. */
 export const PAGE_LANGUAGES = Object.freeze(['auto', 'zh', 'en']);
@@ -56,6 +59,7 @@ export const files = {
   config: () => path.join(dataDir(), 'config.json'),
   state: () => path.join(dataDir(), 'state.json'),
   log: () => path.join(dataDir(), 'daemon.log'),
+  skillsBackup: () => path.join(dataDir(), 'skills-backup'),
 };
 
 function validPort(value, fallback) {
@@ -85,10 +89,18 @@ export function normalizeConfig(raw) {
   const upstreams = input.upstreams && typeof input.upstreams === 'object' ? input.upstreams : {};
   const features = {};
   for (const name of FEATURE_NAMES) features[name] = input.features?.[name] === true;
+  const templates = Array.isArray(input.templates)
+    ? input.templates.slice(0, 100).map(normalizeTemplateTarget).filter(Boolean)
+    : [];
+  const disabledSkills = Array.isArray(input.disabledSkills)
+    ? [...new Set(input.disabledSkills.slice(0, 200).filter(isValidSkillName))]
+    : [];
   return {
     enabled: input.enabled !== false,
     flags,
     features,
+    templates,
+    disabledSkills,
     pageLanguage: PAGE_LANGUAGES.includes(input.pageLanguage) ? input.pageLanguage : 'auto',
     flagsChangedAt: Number.isFinite(input.flagsChangedAt) ? input.flagsChangedAt : 0,
     ports: {

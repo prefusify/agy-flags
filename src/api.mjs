@@ -110,6 +110,7 @@ export function createApi({ catalogFile, getState, getServerFlags, actions, peer
   const change = {
     flags: (body) => actions.setFlags(body.changes),
     features: (body) => actions.setFeatures(body.changes, body.flags),
+    skills: (body) => actions.setSkills(body.changes),
     enabled: (body) => actions.setEnabled(body.enabled),
     'page-language': (body) => actions.setPageLanguage(body.language),
     'prices-refresh': () => actions.refreshPrices(),

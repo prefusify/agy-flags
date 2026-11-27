@@ -1,9 +1,9 @@
-// Pure functions that rewrite the "experiment flag" responses Antigravity reads.
+// Pure functions that rewrite the "experiment flag" and model-list responses Antigravity reads.
 //
 // Shapes seen on the wire (Antigravity 2.34.0 and 2.35.0):
 //   POST /v1internal:listExperiments      -> { experimentIds: [...], flags: [entry, ...] }
 //   GET  /v1alpha:fetchConfig             -> { experimentConfig: { experimentFlags: [entry, ...] }, ... }
-//   POST /v1internal:fetchAvailableModels -> { models: { <id>: { displayName, ... } } }  (read only, never changed)
+//   POST /v1internal:fetchAvailableModels -> { models: { <id>: { displayName, modelExperiments, ... } } }
 //   entry = { name, [flagId], <exactly one value key> }
 //   value = { <exactly one value key> }
 // Integers travel as strings ("intValue": "300").
@@ -166,4 +166,171 @@ export function modelDisplayNames(data) {
     if (names.size >= 200) break;
   }
   return [...names];
+}
+
+// ---- per-model template overrides ---------------------------------------------------
+
+export const TEMPLATE_ACTIONS = Object.freeze(['section_override', 'set_value', 'drop_field']);
+export const TEMPLATE_WHEN_ABSENT = Object.freeze(['skip', 'insert']);
+
+/** Built-in override for the leading section of the per-model guidelines template. */
+export const BUILTIN_GUIDELINES_TEMPLATE = Object.freeze({
+  path: 'models/*/modelExperiments/experiments/template__system_prompts__guidelines/stringValue',
+  action: 'section_override',
+  match: Object.freeze({
+    start: 'Follow these behavioral guidelines at all times:',
+    end: '{{- if and $includeECR',
+  }),
+  replace_with: '{{- /* local template override */ -}}',
+  when_absent: 'insert',
+});
+
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const MAX_TEMPLATE_TEXT = 65536;
+const MAX_MARKER_TEXT = 4096;
+
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+// Split `root/<wildcard>/mid/deep/key/leaf` into its five object keys, or null when malformed.
+export function splitTemplatePath(templatePath) {
+  if (typeof templatePath !== 'string') return null;
+  const segs = templatePath.split('/');
+  if (segs.length !== 6 || segs[1] !== '*') return null;
+  for (let i = 0; i < segs.length; i += 1) {
+    if (i === 1) continue;
+    if (!NAME_RE.test(segs[i]) || UNSAFE_KEYS.has(segs[i])) return null;
+  }
+  return [segs[0], segs[2], segs[3], segs[4], segs[5]];
+}
+
+/** Validate and normalize one template target entry, or return null when invalid. */
+export function normalizeTemplateTarget(raw) {
+  if (!isPlainObject(raw)) return null;
+  if (!splitTemplatePath(raw.path)) return null;
+  const action = raw.action === undefined ? 'section_override' : raw.action;
+  if (!TEMPLATE_ACTIONS.includes(action)) return null;
+  const whenAbsent = action === 'drop_field' ? 'skip' : raw.when_absent === undefined ? 'skip' : raw.when_absent;
+  if (!TEMPLATE_WHEN_ABSENT.includes(whenAbsent)) return null;
+
+  const out = { path: raw.path, action };
+  if (action === 'section_override') {
+    if (!isPlainObject(raw.match)) return null;
+    const { start, end } = raw.match;
+    if (typeof start !== 'string' || start.length === 0 || start.length > MAX_MARKER_TEXT) return null;
+    if (typeof end !== 'string' || end.length === 0 || end.length > MAX_MARKER_TEXT) return null;
+    out.match = { start, end };
+  }
+  if (action !== 'drop_field') {
+    const body = raw.replace_with === undefined ? '' : raw.replace_with;
+    if (typeof body !== 'string' || body.length > MAX_TEMPLATE_TEXT) return null;
+    out.replace_with = body;
+  }
+  if (whenAbsent === 'insert') out.when_absent = 'insert';
+  return out;
+}
+
+/** Replace the region from `start` up to (not including) `end` with `body`. */
+export function sectionOverride(text, start, end, body) {
+  if (typeof text !== 'string' || !start || !end) return { text, matched: false };
+  const a = text.indexOf(start);
+  if (a < 0) return { text, matched: false };
+  const b = text.indexOf(end, a + start.length);
+  if (b < 0) return { text, matched: false };
+  return { text: text.slice(0, a) + body + text.slice(b), matched: true };
+}
+
+/**
+ * Apply one template target across every model entry under the wildcard root.
+ * Returns `{ changed, inserted, missing }` where `missing` counts entries that carry a
+ * string at `path` but no longer contain both markers in order.
+ */
+export function applyTemplateTarget(data, target) {
+  const parts = splitTemplatePath(target?.path);
+  if (!parts) throw new Error(`invalid template path: ${target?.path}`);
+  const [root, mid, deep, key, leaf] = parts;
+  const action = target.action || 'section_override';
+  const whenAbsent = target.when_absent || 'skip';
+  const body = typeof target.replace_with === 'string' ? target.replace_with : '';
+  const start = target.match?.start ?? '';
+  const end = target.match?.end ?? '';
+
+  let changed = 0;
+  let inserted = 0;
+  let missing = 0;
+
+  if (!isPlainObject(data)) return { changed, inserted, missing };
+  const entries = data[root];
+  if (!isPlainObject(entries)) return { changed, inserted, missing };
+
+  for (const entry of Object.values(entries)) {
+    if (!isPlainObject(entry)) continue;
+    const midBox = isPlainObject(entry[mid]) ? entry[mid] : null;
+    const deepBox = midBox && isPlainObject(midBox[deep]) ? midBox[deep] : null;
+    const current = deepBox && Object.hasOwn(deepBox, key) ? deepBox[key] : undefined;
+
+    if (action === 'drop_field') {
+      if (deepBox && Object.hasOwn(deepBox, key)) {
+        delete deepBox[key];
+        changed += 1;
+      }
+      continue;
+    }
+
+    if (isPlainObject(current) && typeof current[leaf] === 'string') {
+      const text = current[leaf];
+      if (action === 'set_value') {
+        if (text !== body) {
+          current[leaf] = body;
+          changed += 1;
+        }
+        continue;
+      }
+      const out = sectionOverride(text, start, end, body);
+      if (!out.matched) {
+        missing += 1;
+      } else if (out.text !== text) {
+        current[leaf] = out.text;
+        changed += 1;
+      }
+      continue;
+    }
+
+    if (whenAbsent === 'insert') {
+      if (!Object.hasOwn(entry, mid) || entry[mid] === undefined) entry[mid] = {};
+      if (!isPlainObject(entry[mid])) continue;
+      const container = entry[mid];
+      if (!Object.hasOwn(container, deep) || container[deep] === undefined) container[deep] = {};
+      if (!isPlainObject(container[deep])) continue;
+      container[deep][key] = { [leaf]: body };
+      inserted += 1;
+    }
+  }
+
+  return { changed, inserted, missing };
+}
+
+/** Apply a list of template targets in place to a parsed `fetchAvailableModels` payload. */
+export function patchModelTemplates(data, templates) {
+  if (!isPlainObject(data)) throw new Error('unexpected response shape');
+  const profiles = isPlainObject(data.models) ? Object.keys(data.models).length : 0;
+  let changed = 0;
+  let inserted = 0;
+  let missing = 0;
+  for (const raw of Array.isArray(templates) ? templates : []) {
+    const target = normalizeTemplateTarget(raw);
+    if (!target) continue;
+    const r = applyTemplateTarget(data, target);
+    changed += r.changed;
+    inserted += r.inserted;
+    missing += r.missing;
+  }
+  return { profiles, changed, inserted, missing };
+}
+
+/** Combine the built-in guidelines target (when on) with custom targets from `config.json`. */
+export function effectiveTemplates({ guidelinesOverride = false, templates = [] } = {}) {
+  const custom = Array.isArray(templates) ? templates.map(normalizeTemplateTarget).filter(Boolean) : [];
+  if (!guidelinesOverride) return custom;
+  const hasSamePath = custom.some((target) => target.path === BUILTIN_GUIDELINES_TEMPLATE.path);
+  return hasSamePath ? custom : [BUILTIN_GUIDELINES_TEMPLATE, ...custom];
 }
