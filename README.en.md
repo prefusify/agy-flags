@@ -81,7 +81,6 @@ curl -fsSL https://raw.githubusercontent.com/prefusify/agy-plus/main/install.sh 
 
 Once finished, **quit and reopen Antigravity**, open **Settings**, and select **AGY Plus** at the bottom of the left sidebar.
 
-- **Automatic migration from `agy-flags`**: If you previously installed `agy-flags`, the installer automatically migrates your saved `config.json`, reuses any downloaded Node.js runtime, and unloads/removes the legacy login item.
 - **Self-contained runtime**: If your Mac doesn't have Node.js 18+, the script automatically downloads the official Node.js 24.22.3 binary from `nodejs.org`, verifies its SHA-256 checksum, and stores it inside `agy-plus`'s own folder. Nothing is installed system-wide and `sudo` is never used (requires macOS 13.5+).
 - **Updating**: Re-run the install command above. It restarts the background daemon (any reply currently streaming will be interrupted).
 - **Proxy users**: If you use a proxy tool to reach Google, enable its **TUN / Enhanced mode**. The local forwarder connects directly and does not read macOS System Proxy settings.

@@ -13,8 +13,8 @@
 #      build from nodejs.org into the agy-plus data folder and checks its SHA-256 against
 #      the value written in this file. Nothing is installed system-wide and no password is asked.
 #   2. Downloads agy-plus from GitHub (or uses the folder this script is in).
-#   3. Runs "agy-plus install": migrates settings from agy-flags when present, copies the
-#      program into the data folder, and registers a login item that starts it at every login.
+#   3. Runs "agy-plus install": copies the program into the data folder and registers a
+#      login item that starts it at every login.
 #   4. Says how to reach the settings page: it is inside Antigravity, under Settings > AGY Plus,
 #      after Antigravity was restarted once.
 #
@@ -26,7 +26,6 @@ set -euo pipefail
 REPO="prefusify/agy-plus"
 BRANCH="main"
 LABEL="dev.agy-plus.daemon"
-LEGACY_LABEL="dev.agy-flags.daemon"
 MIN_NODE_MAJOR=18
 
 # The Node.js build that is downloaded when the machine has none. The checksums are the ones
@@ -38,11 +37,9 @@ NODE_MIN_MACOS_MAJOR=13
 NODE_MIN_MACOS_MINOR=5
 
 DATA_DIR="${AGY_PLUS_HOME:-$HOME/Library/Application Support/agy-plus}"
-LEGACY_DATA_DIR="$HOME/Library/Application Support/agy-flags"
 RUNTIME_DIR="$DATA_DIR/runtime"
 APP_SCRIPT="$DATA_DIR/app/bin/agy-plus.mjs"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
-LEGACY_PLIST="$HOME/Library/LaunchAgents/$LEGACY_LABEL.plist"
 WORK=""
 
 # ---- messages -------------------------------------------------------------------------
@@ -90,13 +87,6 @@ find_node() {
       return 0
     fi
   done
-  # Reuse a runtime previously downloaded by agy-flags so upgrading does not download 55 MB again.
-  if [ -z "${AGY_PLUS_HOME:-}" ] && [ ! -d "$RUNTIME_DIR" ] && [ -d "$LEGACY_DATA_DIR/runtime" ] && node_ok "$LEGACY_DATA_DIR/runtime/bin/node"; then
-    if mkdir -p "$DATA_DIR" && chmod 700 "$DATA_DIR" && mv "$LEGACY_DATA_DIR/runtime" "$RUNTIME_DIR" 2>/dev/null; then
-      printf '%s\n' "$RUNTIME_DIR/bin/node"
-      return 0
-    fi
-  fi
   return 0
 }
 
@@ -246,14 +236,13 @@ node_of_login_item() {
 # files, and clear the variables that still point at the default ports.
 remove_by_hand() {
   launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
-  launchctl bootout "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1 || true
   local pair name value
   for pair in "CLOUD_CODE_URL=http://127.0.0.1:47931" "AICODE_ENDPOINT_URL=http://127.0.0.1:47932" "AGY_DEV_UI_URL=http://127.0.0.1:47933"; do
     name="${pair%%=*}"
     value="${pair#*=}"
     if [ "$(launchctl getenv "$name" 2>/dev/null || true)" = "$value" ]; then launchctl unsetenv "$name" || true; fi
   done
-  rm -f "$PLIST" "$LEGACY_PLIST"
+  rm -f "$PLIST"
   rm -rf "$DATA_DIR/app"
   if [ "$1" = "purge" ]; then rm -rf "$DATA_DIR"; fi
 }

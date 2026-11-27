@@ -158,15 +158,11 @@ async function cmdDaemon() {
 async function cmdInstall() {
   requireMac();
   const launchd = await import('../src/launchd.mjs');
-  const { loadConfig, migrateLegacyDataDir } = await import('../src/config.mjs');
+  const { loadConfig } = await import('../src/config.mjs');
   const { ping } = await import('../src/daemon.mjs');
   const client = await import('../src/client.mjs');
-
-  const migrated = migrateLegacyDataDir();
   const config = loadConfig();
 
-  const legacy = await launchd.unloadLegacy();
-  if (!legacy.ok) fail(`could not stop the old agy-flags login item: ${legacy.stderr}`);
   const before = await launchd.unload();
   if (!before.ok) fail(`could not stop the old login item: ${before.stderr}`);
   const loaded = await launchd.load();
@@ -177,9 +173,6 @@ async function cmdInstall() {
   while (Date.now() < deadline && !(answer = await ping(config.ports.devui))) await sleep(300);
   if (!answer) {
     fail(`the daemon did not start. See the log: ${path.join(path.dirname(loaded.root), 'daemon.log')}`);
-  }
-  if (migrated || legacy.wasLoaded) {
-    console.log('Migrated settings from agy-flags and replaced the old login item.');
   }
   console.log(`agy-plus is running (pid ${answer.pid}) and starts at every login.`);
   console.log(`Program copied to: ${loaded.root}`);

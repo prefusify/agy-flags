@@ -2,17 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { parsePsLine, envFromPs } from '../src/client.mjs';
-import {
-  DEFAULT_CONFIG,
-  FEATURE_NAMES,
-  dataDir,
-  files,
-  loadConfig,
-  migrateLegacyDataDir,
-  normalizeConfig,
-  removeObsoleteFiles,
-  saveConfig,
-} from '../src/config.mjs';
+import { DEFAULT_CONFIG, FEATURE_NAMES, dataDir, files, loadConfig, normalizeConfig, removeObsoleteFiles, saveConfig } from '../src/config.mjs';
 import { allOurEnv, applyEnv, clearEnv, ourEnv, ourUiEnv, readEnv } from '../src/env.mjs';
 import { buildPlist } from '../src/launchd.mjs';
 import { fakeRunner, tempHome } from './helpers.mjs';
@@ -167,29 +157,6 @@ test('the login item definition is valid and escapes its strings', (t) => {
   if (process.platform !== 'darwin') {
     t.diagnostic('plutil check skipped: not macOS');
   }
-});
-
-test('migrateLegacyDataDir copies config, state and prices only when agy-plus has no config yet', (t) => {
-  const oldDir = tempHome();
-  const newDir = `${tempHome()}/nested`;
-  t.after(() => {
-    fs.rmSync(oldDir, { recursive: true, force: true });
-    fs.rmSync(newDir, { recursive: true, force: true });
-  });
-  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), false);
-
-  fs.writeFileSync(`${oldDir}/config.json`, '{"flags":{"x":true}}\n');
-  fs.writeFileSync(`${oldDir}/prices.json`, '{"provider":"google-vertex"}');
-  fs.writeFileSync(`${oldDir}/daemon.log`, 'old log');
-  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), true);
-  assert.equal(fs.readFileSync(`${newDir}/config.json`, 'utf8'), '{"flags":{"x":true}}\n');
-  assert.equal(fs.readFileSync(`${newDir}/prices.json`, 'utf8'), '{"provider":"google-vertex"}');
-  assert.equal(fs.existsSync(`${newDir}/daemon.log`), false);
-
-  // Never overwrites an existing agy-plus config.
-  fs.writeFileSync(`${oldDir}/config.json`, '{"flags":{"y":true}}\n');
-  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), false);
-  assert.equal(fs.readFileSync(`${newDir}/config.json`, 'utf8'), '{"flags":{"x":true}}\n');
 });
 
 test('features of agy-plus are kept apart from the flags, and only known ones are kept', () => {

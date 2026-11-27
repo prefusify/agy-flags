@@ -31,48 +31,6 @@ export function dataDir() {
   return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'agy-plus');
 }
 
-/** Data directory used before the project was renamed from agy-flags, or null when overridden. */
-export function legacyDataDir() {
-  if (process.env.AGY_PLUS_HOME) return null;
-  if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', 'agy-flags');
-  }
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'agy-flags');
-}
-
-/**
- * Copy settings and caches from a previous agy-flags installation when agy-plus has no
- * config.json of its own yet. Returns true when config.json was migrated.
- */
-export function migrateLegacyDataDir({ from = legacyDataDir(), to = dataDir() } = {}) {
-  if (!from || !to || path.resolve(from) === path.resolve(to)) return false;
-  const oldConfig = path.join(from, 'config.json');
-  const newConfig = path.join(to, 'config.json');
-  if (!fs.existsSync(oldConfig) || fs.existsSync(newConfig)) return false;
-  fs.mkdirSync(to, { recursive: true, mode: 0o700 });
-  try {
-    fs.chmodSync(to, 0o700);
-  } catch {
-    // best effort
-  }
-  let migrated = false;
-  for (const name of ['config.json', 'state.json', 'prices.json']) {
-    const src = path.join(from, name);
-    const dst = path.join(to, name);
-    if (!fs.existsSync(src) || fs.existsSync(dst)) continue;
-    try {
-      const data = fs.readFileSync(src);
-      const tmp = `${dst}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, data, { mode: 0o600 });
-      fs.renameSync(tmp, dst);
-      if (name === 'config.json') migrated = true;
-    } catch {
-      // best effort
-    }
-  }
-  return migrated;
-}
-
 export function ensureDataDir() {
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
