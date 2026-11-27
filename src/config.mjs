@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   flags: {},
   features: { costPrices: false, uiChinese: false, chineseTitles: false },
+  pageLanguage: 'auto',
   flagsChangedAt: 0,
   ports: { cloudcode: 47931, aicode: 47932, devui: 47933 },
   upstreams: {
@@ -46,6 +47,9 @@ export function ensureDataDir() {
  * from `flags`, because everything in `flags` is sent to the client.
  */
 export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseTitles']);
+
+/** The language of the AGY-flags page: `auto` follows the language of the system. */
+export const PAGE_LANGUAGES = Object.freeze(['auto', 'zh', 'en']);
 
 export const files = {
   prices: () => path.join(dataDir(), 'prices.json'),
@@ -85,6 +89,7 @@ export function normalizeConfig(raw) {
     enabled: input.enabled !== false,
     flags,
     features,
+    pageLanguage: PAGE_LANGUAGES.includes(input.pageLanguage) ? input.pageLanguage : 'auto',
     flagsChangedAt: Number.isFinite(input.flagsChangedAt) ? input.flagsChangedAt : 0,
     ports: {
       cloudcode: validPort(ports.cloudcode, DEFAULT_CONFIG.ports.cloudcode),

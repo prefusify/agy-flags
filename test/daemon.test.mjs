@@ -783,6 +783,25 @@ test('a flag that the server already turns on counts for the price feature', asy
   assert.equal(Object.hasOwn(loadConfig().flags, 'cost-on'), false);
 });
 
+test('the page language is kept in the config and needs no restart', async (t) => {
+  const ctx = await setupRunning(t);
+  let state = await ctx.state();
+  assert.equal(state.pageLanguage, 'auto');
+  const changedAt = state.changedAt;
+  assert.equal((await ctx.post('page-language', { language: 'en' })).status, 200);
+  state = await ctx.state();
+  assert.equal(state.pageLanguage, 'en');
+  assert.equal(state.changedAt, changedAt);
+  assert.equal(state.pendingRestart, false);
+  assert.equal(loadConfig().pageLanguage, 'en');
+  for (const body of [{}, { language: 'fr' }, { language: true }, { language: null }]) {
+    assert.equal((await ctx.post('page-language', body)).status, 400, JSON.stringify(body));
+  }
+  assert.equal((await ctx.state()).pageLanguage, 'en');
+  assert.equal((await ctx.post('page-language', { language: 'auto' })).status, 200);
+  assert.equal((await ctx.state()).pageLanguage, 'auto');
+});
+
 test('bad feature changes are refused and change nothing', async (t) => {
   const ctx = await setupPrices(t);
   // The daemon knows the types of the server flags after one flag response: "n" is a number.

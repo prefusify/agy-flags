@@ -34,6 +34,10 @@ test('normalizeConfig fills defaults and drops what is not valid', () => {
   assert.equal(config.enabled, false);
   assert.deepEqual(config.flags, { good: true, n: 5 });
   assert.deepEqual(config.features, NO_FEATURES);
+  assert.equal(config.pageLanguage, 'auto');
+  assert.equal(normalizeConfig({ pageLanguage: 'en' }).pageLanguage, 'en');
+  assert.equal(normalizeConfig({ pageLanguage: 'zh' }).pageLanguage, 'zh');
+  for (const odd of ['EN', 'fr', true, null, ['en']]) assert.equal(normalizeConfig({ pageLanguage: odd }).pageLanguage, 'auto');
   assert.deepEqual(config.ports, {
     cloudcode: DEFAULT_CONFIG.ports.cloudcode,
     aicode: 50000,

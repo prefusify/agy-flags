@@ -96,7 +96,7 @@ export function refusal(req) {
  * @param {string} [options.catalogFile]  JSON file served as catalog.json.
  * @param {() => Promise<object>} options.getState
  * @param {() => object} options.getServerFlags
- * @param {{ setFlags: Function, setFeatures: Function, refreshPrices: Function, setEnabled: Function, restartClient: Function }} options.actions
+ * @param {{ setFlags: Function, setFeatures: Function, refreshPrices: Function, setEnabled: Function, setPageLanguage: Function, restartClient: Function }} options.actions
  * @param {(socket: object) => Promise<boolean>} options.peerCheck  Is the caller a program of our user?
  * @returns {(req, res, pathname: string) => Promise<void>} Answers a request below API_PREFIX.
  */
@@ -111,6 +111,7 @@ export function createApi({ catalogFile, getState, getServerFlags, actions, peer
     flags: (body) => actions.setFlags(body.changes),
     features: (body) => actions.setFeatures(body.changes, body.flags),
     enabled: (body) => actions.setEnabled(body.enabled),
+    'page-language': (body) => actions.setPageLanguage(body.language),
     'prices-refresh': () => actions.refreshPrices(),
     'restart-client': () => actions.restartClient(),
   };

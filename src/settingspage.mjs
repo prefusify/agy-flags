@@ -73,6 +73,8 @@ export function settingsPageFactory(React, options) {
       aboutOthers: '其他程序',
       othersLine: '命令行 agy 的请求 {cli} 个，其他来源 {other} 个，全部原样放行。',
       aboutVersion: 'agy-flags',
+      language: '页面语言',
+      languageAuto: '跟随系统',
       footer:
         '本工具只在本机运行，不向第三方发送你的数据（「估算费用」会从 models.dev 下载公开价格表，「中文对话标题」只改起标题请求里的一句指令）。这些功能没有正式发布，可能不稳定，也可能随版本更新失效。',
       pageScriptFail: '没能改动 Antigravity 的界面（{reason}），这一项暂时不起作用。',
@@ -137,6 +139,8 @@ export function settingsPageFactory(React, options) {
       aboutOthers: 'Other programs',
       othersLine: '{cli} requests from the agy command line and {other} from other senders, all passed through unchanged.',
       aboutVersion: 'agy-flags',
+      language: 'Page language',
+      languageAuto: 'System',
       footer:
         'agy-flags runs on this machine only and sends none of your data to third parties ("Estimated costs" downloads a public price list from models.dev; "Chinese conversation titles" changes only one sentence of the title request). These features are unreleased, may be unstable, and may stop working after an update.',
       pageScriptFail: 'The Antigravity page could not be changed ({reason}), so this does not work for now.',
@@ -173,9 +177,10 @@ export function settingsPageFactory(React, options) {
     return out;
   };
 
-  /** Chinese while the interface is shown in Chinese, or on a Chinese system. */
+  /** The language chosen on the page; without a choice, Chinese on a Chinese system. */
   function pickLang(state, systemLanguage) {
-    if (state && state.features && state.features.uiChinese === true) return 'zh';
+    const chosen = state && state.pageLanguage;
+    if (chosen === 'zh' || chosen === 'en') return chosen;
     return String(systemLanguage || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
   }
 
@@ -390,7 +395,9 @@ export function settingsPageFactory(React, options) {
   function Frame(props) {
     return h(
       'div',
-      { ref: props.rootRef, className: 'w-full bg-transparent h-full overflow-y-auto', 'data-agy-flags': 'settings-page' },
+      // translate="no": the interface translation of agy-flags leaves this page alone, which is
+      // already in the language chosen on it.
+      { ref: props.rootRef, className: 'w-full bg-transparent h-full overflow-y-auto', 'data-agy-flags': 'settings-page', translate: 'no' },
       h(
         'div',
         { className: `${props.compact ? 'p-4' : 'p-6'} flex flex-col gap-4 w-full max-w-2xl mx-auto` },
@@ -405,7 +412,8 @@ export function settingsPageFactory(React, options) {
               { className: 'flex-1 flex flex-col gap-1 min-w-0 bg-transparent' },
               h('h2', { className: `${props.compact ? 'text-xl' : 'text-2xl'} m-0 font-medium truncate flex-1 text-foreground` }, 'AGY-flags'),
               props.tagline ? h('div', { className: 'text-muted-foreground bg-transparent' }, props.tagline) : null
-            )
+            ),
+            props.actions ? h('div', { role: 'group', 'aria-label': props.actionsLabel, title: props.actionsLabel, className: 'flex items-center gap-1.5 shrink-0 pt-1' }, props.actions) : null
           )
         ),
         h('div', { className: 'flex flex-col gap-8 w-full' }, props.children)
@@ -616,6 +624,25 @@ export function settingsPageFactory(React, options) {
       });
     };
 
+    // The language of this page. The names of the languages are written in their own language.
+    const languageButtons = [
+      ['auto', t('languageAuto')],
+      ['zh', '中文'],
+      ['en', 'English'],
+    ].map(([value, label]) => {
+      const chosen = (state.pageLanguage || 'auto') === value;
+      return h(
+        Button,
+        {
+          key: value,
+          variant: chosen ? 'primary' : undefined,
+          disabled: restartBusy,
+          onClick: chosen ? undefined : () => act('page-language', { language: value }),
+        },
+        label
+      );
+    });
+
     const lastRewrite = ['aicode', 'cloudcode'].map((name) => state.lastInjection && state.lastInjection[name]).filter(Boolean)[0];
     const by = (state.traffic && state.traffic.byClient) || {};
     const others = (by.cli || 0) + (by.other || 0);
@@ -624,7 +651,7 @@ export function settingsPageFactory(React, options) {
 
     return h(
       Frame,
-      { rootRef, compact: props.compact, tagline: t('tagline') },
+      { rootRef, compact: props.compact, tagline: t('tagline'), actions: languageButtons, actionsLabel: t('language') },
       notices.length > 0 ? h('div', { className: 'flex flex-col gap-2' }, notices) : null,
       h(
         Section,

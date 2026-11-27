@@ -172,6 +172,7 @@ Antigravity ──HTTP──▶ agy-flags (127.0.0.1:47931 / 47932) ──HTTPS�
      - `enabled`：总开关（`true` / `false`）
      - `flags`：实验开关字典（如 `{"enable-developer-mode": true}`）
      - `features`：内置增强功能（`costPrices`、`uiChinese`、`chineseTitles`）
+     - `pageLanguage`：AGY-flags 页的语言（`auto` 跟随系统、`zh`、`en`），也可在该页右上角切换
 </details>
 
 <details>

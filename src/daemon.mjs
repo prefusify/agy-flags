@@ -13,6 +13,7 @@ import { createApi } from './api.mjs';
 import * as realClient from './client.mjs';
 import {
   FEATURE_NAMES,
+  PAGE_LANGUAGES,
   configMtime,
   ensureDataDir,
   files,
@@ -587,6 +588,7 @@ export async function startDaemon({
       restarting,
       overrides: config.flags,
       features: { ...config.features },
+      pageLanguage: config.pageLanguage,
       prices: prices.view(modelNames),
       l10n: { ready: dictionary !== null, words: dictionary?.count ?? 0 },
       titles: { ...titles },
@@ -685,6 +687,16 @@ export async function startDaemon({
         writeConfig({ ...config, enabled, flagsChangedAt: Date.now() });
         log(`injection turned ${enabled ? 'on' : 'off'}`);
         await reconcileEnv();
+      }
+      return { ok: true };
+    },
+
+    /** The language of this page: 'auto', 'zh' or 'en'. Takes effect at once. */
+    async setPageLanguage(language) {
+      if (!PAGE_LANGUAGES.includes(language)) return { ok: false, error: 'bad-value' };
+      if (language !== config.pageLanguage) {
+        writeConfig({ ...config, pageLanguage: language });
+        log(`page language: ${language}`);
       }
       return { ok: true };
     },

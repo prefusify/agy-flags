@@ -500,6 +500,7 @@ test('code, editors, Shiki code/diff blocks, PDF text layers and drawings are ne
     page.el('div', { class: 'code-block' }, page.el('div', { class: 'code-line' }, page.el('span', {}, 'Settings'))),
     page.el('div', { 'data-testid': 'pdf-text-layer', class: 'textLayer' }, page.el('span', {}, 'Settings')),
     page.el('span', { 'data-line-tokens': '' }, page.el('span', {}, 'Settings')),
+    page.el('div', { translate: 'no' }, page.el('button', {}, 'Settings')),
   ];
   page.body.append(...closed, page.el('div', { contenteditable: 'false' }, 'Settings'));
   page.start();

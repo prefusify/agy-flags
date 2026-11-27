@@ -99,6 +99,7 @@ function makeState(change = {}) {
     enabled: true,
     overrides: {},
     features: { costPrices: false, uiChinese: true, chineseTitles: false },
+    pageLanguage: 'zh',
     pendingRestart: false,
     pendingReason: null,
     restarting: false,
@@ -182,10 +183,14 @@ test('the problems of a feature that is on', () => {
   assert.deepEqual(helpers.groupProblems(costs, makeState({ prices: { error: 'offline', fetchedAt: 5 } })), [['pricesError', { error: 'offline' }]]);
 });
 
-test('the page is Chinese with the Chinese interface or on a Chinese system', () => {
-  assert.equal(helpers.pickLang(makeState(), 'en-US'), 'zh');
-  assert.equal(helpers.pickLang(makeState({ features: { uiChinese: false } }), 'zh-CN'), 'zh');
-  assert.equal(helpers.pickLang(makeState({ features: { uiChinese: false } }), 'en-US'), 'en');
+test('the page has the language chosen on it, else the language of the system', () => {
+  // The Chinese interface of the client does not decide the language of this page.
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'auto' }), 'en-US'), 'en');
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'auto' }), 'zh-CN'), 'zh');
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'auto' }), 'zh-TW'), 'zh');
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'en' }), 'zh-CN'), 'en');
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'zh' }), 'en-US'), 'zh');
+  assert.equal(helpers.pickLang(makeState({ pageLanguage: 'fr' }), 'en-US'), 'en');
   assert.equal(helpers.pickLang(null, undefined), 'en');
   // Both languages have every text.
   const keys = (texts) => Object.keys(texts).filter((key) => key !== 'warn').sort();
@@ -340,6 +345,32 @@ test('the restart is asked about first, in the place where it was clicked', asyn
   tree = shown(makeState({ restarting: true }));
   assert.deepEqual(notices(tree), ['正在重启…正在重启…']);
   assert.ok(buttons(tree).every((node) => node.props.disabled === true));
+});
+
+test('the page language is chosen with three buttons at the top of the page', async (t) => {
+  const sent = [];
+  const before = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    sent.push([url, init.method, init.body]);
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  t.after(() => {
+    globalThis.fetch = before;
+  });
+  const tree = shown(makeState());
+  // The interface translation leaves the page alone: it is already in the chosen language.
+  assert.equal(all(tree, (node) => node.props['data-agy-flags'] === 'settings-page')[0].props.translate, 'no');
+  const group = all(tree, (node) => node.props.role === 'group')[0];
+  assert.equal(group.props['aria-label'], '页面语言');
+  // They come before every section of the page.
+  assert.deepEqual(buttons(tree).slice(0, 3).map((node) => textOf([node])), ['跟随系统', '中文', 'English']);
+  const choices = buttons([group]);
+  assert.deepEqual(choices.map((node) => textOf([node])), ['跟随系统', '中文', 'English']);
+  // The language in use is marked and cannot be clicked.
+  assert.equal(choices[1].props.onClick, undefined);
+  choices[2].props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(sent[0], ['/__agy_flags/page-language.json', 'POST', '{"language":"en"}']);
 });
 
 test('a mistake while the page is drawn leaves a short note, not a broken window', () => {

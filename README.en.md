@@ -172,6 +172,7 @@ Because your auth tokens and conversation traffic pass through the local forward
      - `enabled`: Master switch (`true` / `false`)
      - `flags`: Flag overrides (e.g. `{"enable-developer-mode": true}`)
      - `features`: Built-in enhancements (`costPrices`, `uiChinese`, `chineseTitles`)
+     - `pageLanguage`: Language of the AGY-flags page (`auto` follows the system, `zh`, `en`); also switchable at the top right of that page
 </details>
 
 <details>

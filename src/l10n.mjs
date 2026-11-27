@@ -398,6 +398,9 @@ export function l10nFactory(data, attrs) {
   function kindOf(el) {
     if (CLOSED_TAGS[el.tagName] === 1) return CLOSED;
     for (let i = 0; i < CLOSED_ATTRS.length; i++) if (el.hasAttribute(CLOSED_ATTRS[i])) return CLOSED;
+    // The web's own mark for "do not translate". The client does not use it (2.35.2); the
+    // AGY-flags page does, because it is already in the language chosen on it.
+    if (el.getAttribute('translate') === 'no') return CLOSED;
     const classes = el.classList;
     if (classes && classes.length > 0) {
       for (let i = 0; i < CLOSED_CLASSES.length; i++) if (classes.contains(CLOSED_CLASSES[i])) return CLOSED;
