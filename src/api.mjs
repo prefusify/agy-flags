@@ -3,8 +3,8 @@
 // The page is a part of Antigravity's own window (see settingspage.mjs). That window is
 // served by the language server, and the language server passes every request for a file
 // name it does not know on to the address in AGY_DEV_UI_URL: our page-file server. So the
-// page asks its own origin for /__agy_flags/<name>.json, and the request arrives here. The
-// command line of agy-flags asks the same paths directly.
+// page asks its own origin for /__agy_plus/<name>.json, and the request arrives here. The
+// command line of agy-plus asks the same paths directly.
 //
 // These requests change settings, so not everybody may send them:
 //   - The sender must be a program of the same user, also when the language server passes
@@ -22,7 +22,7 @@
 
 import fs from 'node:fs';
 
-export const API_PREFIX = '/__agy_flags/';
+export const API_PREFIX = '/__agy_plus/';
 
 const MAX_BODY_BYTES = 64 * 1024;
 

@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { parsePsLine, envFromPs } from '../src/client.mjs';
-import { DEFAULT_CONFIG, FEATURE_NAMES, dataDir, files, loadConfig, normalizeConfig, removeObsoleteFiles, saveConfig } from '../src/config.mjs';
+import {
+  DEFAULT_CONFIG,
+  FEATURE_NAMES,
+  dataDir,
+  files,
+  loadConfig,
+  migrateLegacyDataDir,
+  normalizeConfig,
+  removeObsoleteFiles,
+  saveConfig,
+} from '../src/config.mjs';
 import { allOurEnv, applyEnv, clearEnv, ourEnv, ourUiEnv, readEnv } from '../src/env.mjs';
 import { buildPlist } from '../src/launchd.mjs';
 import { fakeRunner, tempHome } from './helpers.mjs';
@@ -11,11 +21,11 @@ const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false 
 
 function useTempHome(t) {
   const home = tempHome();
-  const before = process.env.AGY_FLAGS_HOME;
-  process.env.AGY_FLAGS_HOME = home;
+  const before = process.env.AGY_PLUS_HOME;
+  process.env.AGY_PLUS_HOME = home;
   t.after(() => {
-    if (before === undefined) delete process.env.AGY_FLAGS_HOME;
-    else process.env.AGY_FLAGS_HOME = before;
+    if (before === undefined) delete process.env.AGY_PLUS_HOME;
+    else process.env.AGY_PLUS_HOME = before;
     fs.rmSync(home, { recursive: true, force: true });
   });
   return home;
@@ -148,18 +158,41 @@ test('ps output is parsed', () => {
 });
 
 test('the login item definition is valid and escapes its strings', (t) => {
-  const plist = buildPlist({ node: '/opt/a&b/node', script: '/x/<y>/agy-flags.mjs', errorLog: '/tmp/err.log', home: '' });
+  const plist = buildPlist({ node: '/opt/a&b/node', script: '/x/<y>/agy-plus.mjs', errorLog: '/tmp/err.log', home: '' });
   assert.match(plist, /<string>\/opt\/a&amp;b\/node<\/string>/);
-  assert.match(plist, /<string>\/x\/&lt;y&gt;\/agy-flags\.mjs<\/string>/);
+  assert.match(plist, /<string>\/x\/&lt;y&gt;\/agy-plus\.mjs<\/string>/);
   assert.match(plist, /<key>SuccessfulExit<\/key>\s*<false\/>/);
-  assert.ok(!plist.includes('AGY_FLAGS_HOME'));
+  assert.ok(!plist.includes('AGY_PLUS_HOME'));
   assert.ok(buildPlist({ node: 'n', script: 's', errorLog: 'e', home: '/h' }).includes('<string>/h</string>'));
   if (process.platform !== 'darwin') {
     t.diagnostic('plutil check skipped: not macOS');
   }
 });
 
-test('features of agy-flags are kept apart from the flags, and only known ones are kept', () => {
+test('migrateLegacyDataDir copies config, state and prices only when agy-plus has no config yet', (t) => {
+  const oldDir = tempHome();
+  const newDir = `${tempHome()}/nested`;
+  t.after(() => {
+    fs.rmSync(oldDir, { recursive: true, force: true });
+    fs.rmSync(newDir, { recursive: true, force: true });
+  });
+  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), false);
+
+  fs.writeFileSync(`${oldDir}/config.json`, '{"flags":{"x":true}}\n');
+  fs.writeFileSync(`${oldDir}/prices.json`, '{"provider":"google-vertex"}');
+  fs.writeFileSync(`${oldDir}/daemon.log`, 'old log');
+  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), true);
+  assert.equal(fs.readFileSync(`${newDir}/config.json`, 'utf8'), '{"flags":{"x":true}}\n');
+  assert.equal(fs.readFileSync(`${newDir}/prices.json`, 'utf8'), '{"provider":"google-vertex"}');
+  assert.equal(fs.existsSync(`${newDir}/daemon.log`), false);
+
+  // Never overwrites an existing agy-plus config.
+  fs.writeFileSync(`${oldDir}/config.json`, '{"flags":{"y":true}}\n');
+  assert.equal(migrateLegacyDataDir({ from: oldDir, to: newDir }), false);
+  assert.equal(fs.readFileSync(`${newDir}/config.json`, 'utf8'), '{"flags":{"x":true}}\n');
+});
+
+test('features of agy-plus are kept apart from the flags, and only known ones are kept', () => {
   assert.deepEqual(FEATURE_NAMES, ['costPrices', 'uiChinese', 'chineseTitles']);
   assert.deepEqual(normalizeConfig({ features: { costPrices: true, other: true } }).features, { ...NO_FEATURES, costPrices: true });
   assert.deepEqual(normalizeConfig({ features: { uiChinese: true, chineseTitles: true } }).features, {

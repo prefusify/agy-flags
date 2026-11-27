@@ -463,7 +463,7 @@ test('the two changes do not depend on each other', () => {
   const noIndicator = patchMainJs(costScript().replace(INDICATOR_ANCHOR, ''), { prices: TABLE });
   assert.equal(noIndicator.ok, false);
   assert.equal(noIndicator.parts[PART_COSTS].ok, true);
-  assert.ok(noIndicator.source.includes('__agyFlagsCost'));
+  assert.ok(noIndicator.source.includes('__agyPlusCost'));
 
   // Nothing asked for: nothing changes.
   assert.deepEqual(patchMainJs(both, { indicator: false }), { ok: true, source: both, parts: {} });

@@ -1,17 +1,17 @@
-// Serves Antigravity's own page files, with the changes of agy-flags in the page script.
+// Serves Antigravity's own page files, with the changes of agy-plus in the page script.
 //
 // The language server has a development switch: with AGY_DEV_UI_URL set, it takes its page
 // files (index.html, main.js, style sheets, icons, sounds) from that address instead of from
 // the archive inside its own program. This server is that address. Every file comes
 // unchanged out of the archive of the installed language server, except main.js: the page
-// of agy-flags is added to the settings in it, and the change of each page feature that is
+// of agy-plus is added to the settings in it, and the change of each page feature that is
 // on is made in it (see uipatch.mjs).
 //
 // A change that cannot be made safely is left out; without any, the original script is served. A file the
 // archive does not have gives 404. Nothing here reads or forwards conversation traffic:
 // the page talks to the language server directly, not to this server.
 //
-// The language server also passes on the requests of the settings page of agy-flags. They
+// The language server also passes on the requests of the settings page of agy-plus. They
 // are answered by api.mjs.
 
 import http from 'node:http';
@@ -131,10 +131,10 @@ export function createUiServer({
       });
       res.end(req.method === 'HEAD' ? undefined : body);
     };
-    const text = (status, message) => send(status, 'text/plain; charset=utf-8', Buffer.from(`agy-flags: ${message}\n`));
+    const text = (status, message) => send(status, 'text/plain; charset=utf-8', Buffer.from(`agy-plus: ${message}\n`));
 
     if (pathname === PING_PATH) {
-      send(200, 'application/json', Buffer.from(JSON.stringify({ app: 'agy-flags', role: 'devui', ...identity() })));
+      send(200, 'application/json', Buffer.from(JSON.stringify({ app: 'agy-plus', role: 'devui', ...identity() })));
       return;
     }
     if (pathname.startsWith(API_PREFIX)) {
@@ -173,7 +173,7 @@ export function createUiServer({
       if (res.headersSent) res.destroy();
       else {
         res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
-        res.end('agy-flags: internal error\n');
+        res.end('agy-plus: internal error\n');
       }
     });
   });

@@ -72,8 +72,8 @@ async function setup(
   } = {}
 ) {
   const home = tempHome();
-  const before = process.env.AGY_FLAGS_HOME;
-  process.env.AGY_FLAGS_HOME = home;
+  const before = process.env.AGY_PLUS_HOME;
+  process.env.AGY_PLUS_HOME = home;
   const upstream = fakeUpstream(upstreamFlags);
   const upstreamPort = await listen(upstream);
   const [cloudcode, aicode, devui] = await freePorts(3);
@@ -127,8 +127,8 @@ async function setup(
   t.after(async () => {
     for (const handle of ctx.handles) await handle.stop();
     await close(upstream);
-    if (before === undefined) delete process.env.AGY_FLAGS_HOME;
-    else process.env.AGY_FLAGS_HOME = before;
+    if (before === undefined) delete process.env.AGY_PLUS_HOME;
+    else process.env.AGY_PLUS_HOME = before;
     fs.rmSync(home, { recursive: true, force: true });
   });
   if (start) ctx.handle = await ctx.start();
@@ -144,7 +144,7 @@ const pageVar = (ports) => ({ AGY_DEV_UI_URL: `http://127.0.0.1:${ports.devui}` 
 const all = (ports) => ({ ...ours(ports), ...pageVar(ports) });
 
 /** The mark of the settings page in a page script. */
-const SETTINGS_MARK = '{screen:"AGY-flags"}';
+const SETTINGS_MARK = '{screen:"AGY Plus"}';
 const PART_OK = { ok: true, reason: null };
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
@@ -306,7 +306,7 @@ test('a page variable set by another program is not overwritten, and rewriting s
 test('a port taken by another program stops the start and removes stale variables', async (t) => {
   const ctx = await setup(t, { start: false });
   Object.assign(ctx.runner.vars, all(ctx.ports));
-  const squatter = http.createServer((req, res) => res.end('not agy-flags'));
+  const squatter = http.createServer((req, res) => res.end('not agy-plus'));
   await listen(squatter, ctx.ports.aicode);
   t.after(() => close(squatter));
   await assert.rejects(ctx.start(), (err) => err.code === 'PORT_IN_USE' && err.port === ctx.ports.aicode);
@@ -706,7 +706,7 @@ test('the price feature is off at first: no download, and the costs are left alo
   const ctx = await setupPrices(t);
   await sleep(60);
   assert.equal(ctx.downloads.count, 0);
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusCost'), false);
   const state = await ctx.state();
   assert.deepEqual(state.features, NO_FEATURES);
   assert.equal(state.prices.fetchedAt, null);
@@ -732,7 +732,7 @@ test('turning the price feature on downloads the list and fills in the costs', a
   assert.equal(Object.keys(saved.flags).includes('costPrices'), false);
 
   const script = await ctx.script();
-  assert.ok(script.includes('__agyFlagsCost'));
+  assert.ok(script.includes('__agyPlusCost'));
   assert.ok(script.includes('{"gemini-4-neon":[3,15,0.15]}'));
   // The indicator is another feature, and it is off.
   assert.ok(script.includes('contextUsageIndicator:void 0,'));
@@ -753,24 +753,24 @@ test('the price feature needs the flag of the other group', async (t) => {
   await ctx.post('features', { changes: { costPrices: true } });
   await sleep(60);
   assert.equal(ctx.downloads.count, 0);
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusCost'), false);
 
   // The flag comes: now it works.
   await ctx.post('flags', { changes: { 'cost-on': true } });
   await waitFor(() => ctx.downloads.count === 1);
   await waitFor(async () => (await ctx.state()).prices.fetchedAt);
-  assert.ok((await ctx.script()).includes('__agyFlagsCost'));
+  assert.ok((await ctx.script()).includes('__agyPlusCost'));
 
   // The flag goes: the feature stops, and the flag of the other group is not touched by it.
   await ctx.post('flags', { changes: { 'cost-on': null } });
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusCost'), false);
   assert.deepEqual(loadConfig().features, { ...NO_FEATURES, costPrices: true });
 
   // Turning the feature off leaves the flag as it is.
   await ctx.post('flags', { changes: { 'cost-on': true } });
   await ctx.post('features', { changes: { costPrices: false } });
   assert.equal(loadConfig().flags['cost-on'], true);
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusCost'), false);
   // None of this touches the variables.
   assert.deepEqual(ctx.runner.vars, all(ctx.ports));
 });
@@ -860,7 +860,7 @@ test('a download that fails leaves the script without the costs, with a warning,
   ctx.downloads.fail = true;
   await ctx.post('features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
   await waitFor(async () => (await ctx.state()).prices.error);
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusCost'), false);
   let state = await ctx.state();
   assert.equal(state.prices.error, 'offline');
   assert.equal(state.prices.fetchedAt, null);
@@ -872,7 +872,7 @@ test('a download that fails leaves the script without the costs, with a warning,
 
   ctx.downloads.fail = false;
   assert.equal((await ctx.post('prices-refresh', {})).status, 200);
-  assert.ok((await ctx.script()).includes('__agyFlagsCost'));
+  assert.ok((await ctx.script()).includes('__agyPlusCost'));
   state = await ctx.state();
   assert.equal(state.prices.error, null);
   assert.deepEqual(state.warnings, []);
@@ -887,7 +887,7 @@ test('the script waits a short time for the first download of the prices', async
   const pending = request({ port: ctx.ports.devui, path: '/main.js' });
   await sleep(50);
   release();
-  assert.ok((await pending).body.toString('utf8').includes('__agyFlagsCost'));
+  assert.ok((await pending).body.toString('utf8').includes('__agyPlusCost'));
 });
 
 test('the indicator and the costs can be on together, and each has its own status', async (t) => {
@@ -896,12 +896,12 @@ test('the indicator and the costs can be on together, and each has its own statu
   await waitFor(async () => (await ctx.state()).prices.fetchedAt);
   const script = await ctx.script();
   assert.ok(script.includes('contextUsageIndicator:(()=>'));
-  assert.ok(script.includes('__agyFlagsCost'));
+  assert.ok(script.includes('__agyPlusCost'));
   assert.deepEqual((await ctx.state()).page.script.parts, { settingsPage: PART_OK, contextUsageIndicator: PART_OK, costPrices: PART_OK });
   // The costs go off: the indicator stays.
   await ctx.post('features', { changes: { costPrices: false } });
   const without = await ctx.script();
-  assert.equal(without.includes('__agyFlagsCost'), false);
+  assert.equal(without.includes('__agyPlusCost'), false);
   assert.ok(without.includes('contextUsageIndicator:(()=>'));
 });
 
@@ -921,11 +921,11 @@ test('the Chinese interface changes the page script, and the client needs a rest
   let state = await ctx.state();
   assert.deepEqual(state.l10n, { ready: true, words: 1 });
   assert.equal(state.pendingRestart, false);
-  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusL10n'), false);
 
   assert.equal((await ctx.post('features', { changes: { uiChinese: true } })).status, 200);
   const script = await ctx.script();
-  assert.ok(script.includes('__agyFlagsL10n'));
+  assert.ok(script.includes('__agyPlusL10n'));
   assert.ok(script.includes('新建对话'));
   state = await ctx.state();
   assert.deepEqual(state.features, { ...NO_FEATURES, uiChinese: true });
@@ -937,7 +937,7 @@ test('the Chinese interface changes the page script, and the client needs a rest
 
   await ctx.post('features', { changes: { uiChinese: false } });
   const without = await ctx.script();
-  assert.equal(without.includes('__agyFlagsL10n'), false);
+  assert.equal(without.includes('__agyPlusL10n'), false);
   assert.ok(without.includes(SETTINGS_MARK));
 });
 
@@ -947,7 +947,7 @@ test('a word list that cannot be read leaves the page as it is, with a warning',
   assert.ok(ctx.logs.some((line) => line.includes('word list')));
   assert.deepEqual((await ctx.state()).l10n, { ready: false, words: 0 });
   await ctx.post('features', { changes: { uiChinese: true } });
-  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+  assert.equal((await ctx.script()).includes('__agyPlusL10n'), false);
   assert.deepEqual((await ctx.state()).warnings, [{ code: 'page-not-changed', detail: 'the word list cannot be read' }]);
 });
 
@@ -1017,7 +1017,7 @@ test('Chinese titles turned on in the config file need no restart either', async
   assert.ok(ctx.upstream.modelBodies.at(-1).includes(TITLE_NEW));
 });
 
-test('Chinese titles are off while agy-flags is off', async (t) => {
+test('Chinese titles are off while agy-plus is off', async (t) => {
   const ctx = await setupRunning(t);
   await ctx.post('features', { changes: { chineseTitles: true } });
   await ctx.post('enabled', { enabled: false });

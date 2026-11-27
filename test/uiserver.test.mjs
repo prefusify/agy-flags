@@ -94,7 +94,7 @@ test('a missing program gives an error answer, not a crash', async (t) => {
 test('the ping path is answered locally', async (t) => {
   const { port } = await setup(t);
   const res = await request({ port, path: PING_PATH });
-  assert.deepEqual(JSON.parse(res.body.toString('utf8')), { app: 'agy-flags', role: 'devui', pid: 9 });
+  assert.deepEqual(JSON.parse(res.body.toString('utf8')), { app: 'agy-plus', role: 'devui', pid: 9 });
 });
 
 const COST_PLACE = 'q.costSummary!==void 0&&(r.costSummary=q.costSummary);';
@@ -106,7 +106,7 @@ test('the costs are filled in with the price table, and a new table gives a new 
   const { port, scripts } = await setup(t, { script: costScript(), getPrices: () => prices });
   const first = (await request({ port, path: '/main.js' })).body.toString('utf8');
   assert.ok(first.includes('contextUsageIndicator:(()=>'));
-  assert.ok(first.includes('__agyFlagsCost'));
+  assert.ok(first.includes('__agyPlusCost'));
   assert.ok(first.includes('{"gemini-4-neon":[3,15,0.15]}'));
   assert.equal(scripts.length, 1);
   assert.deepEqual(scripts[0].parts, { contextUsageIndicator: { ok: true, reason: null }, costPrices: { ok: true, reason: null } });
@@ -125,7 +125,7 @@ test('the costs are filled in with the price table, and a new table gives a new 
   // The feature goes off: the costs are left alone again.
   prices = false;
   const third = (await request({ port, path: '/main.js' })).body.toString('utf8');
-  assert.equal(third.includes('__agyFlagsCost'), false);
+  assert.equal(third.includes('__agyPlusCost'), false);
   assert.ok(third.includes('contextUsageIndicator:(()=>'));
   assert.deepEqual(Object.keys(scripts[2].parts), ['contextUsageIndicator']);
 });
@@ -134,7 +134,7 @@ test('the costs alone, without the indicator', async (t) => {
   const original = costScript();
   const { port, scripts } = await setup(t, { script: original, wantIndicator: () => false, getPrices: () => PRICES });
   const body = (await request({ port, path: '/main.js' })).body.toString('utf8');
-  assert.ok(body.includes('__agyFlagsCost'));
+  assert.ok(body.includes('__agyPlusCost'));
   assert.ok(body.includes('contextUsageIndicator:void 0,'));
   assert.deepEqual(scripts[0].parts, { costPrices: { ok: true, reason: null } });
 });
@@ -171,7 +171,7 @@ test('without a price list the script is served without the costs, and says so',
   assert.equal(waited, 1);
   // The list arrives: the next request gets the costs.
   prices = PRICES;
-  assert.ok((await request({ port, path: '/main.js' })).body.toString('utf8').includes('__agyFlagsCost'));
+  assert.ok((await request({ port, path: '/main.js' })).body.toString('utf8').includes('__agyPlusCost'));
   assert.equal(scripts[1].patched, true);
 });
 
@@ -183,7 +183,7 @@ test('the Chinese interface: the translator goes at the end of the script, and a
   const { port, scripts } = await setup(t, { script: original, wantIndicator: () => false, getL10n: () => words });
   const first = (await request({ port, path: '/main.js' })).body.toString('utf8');
   assert.ok(first.startsWith(original));
-  assert.ok(first.includes('__agyFlagsL10n'));
+  assert.ok(first.includes('__agyPlusL10n'));
   assert.ok(first.includes('新建对话'));
   // The indicator is another feature, and it is off.
   assert.ok(first.includes('contextUsageIndicator:void 0,'));
@@ -213,7 +213,7 @@ test('the Chinese interface and the indicator together', async (t) => {
   const { port, scripts } = await setup(t, { getL10n: () => WORDS });
   const body = (await request({ port, path: '/main.js' })).body.toString('utf8');
   assert.ok(body.includes('contextUsageIndicator:(()=>'));
-  assert.ok(body.includes('__agyFlagsL10n'));
+  assert.ok(body.includes('__agyPlusL10n'));
   assert.deepEqual(scripts[0].parts, { contextUsageIndicator: { ok: true, reason: null }, l10n: { ok: true, reason: null } });
 });
 
@@ -232,7 +232,7 @@ function fakeApi() {
   return { api, seen };
 }
 
-const SETTINGS_MARK = '{screen:"AGY-flags"}';
+const SETTINGS_MARK = '{screen:"AGY Plus"}';
 
 test('with the requests of the settings page, the page script gets the page', async (t) => {
   const { api } = fakeApi();
@@ -273,7 +273,7 @@ test('the requests of the settings page go to their handler, whatever the method
   assert.equal((await request({ port, path: `${API_PREFIX}boom.json` })).status, 500);
   assert.equal((await request({ port, path: '/jetbox.css' })).status, 200);
   // The path of the page files next to it is still a page file.
-  assert.equal((await request({ port, path: '/__agy_flags.json' })).status, 404);
+  assert.equal((await request({ port, path: '/__agy_plus.json' })).status, 404);
   assert.equal(seen.length, 5);
 });
 
@@ -303,8 +303,8 @@ test('the settings page and the page features do not depend on each other', asyn
   const { port, scripts } = await setup(t, { script: costScript(fakePageScript({ anchor: '' })), api, getPrices: () => PRICES, getL10n: () => WORDS });
   const body = (await request({ port, path: '/main.js' })).body.toString('utf8');
   assert.ok(body.includes(SETTINGS_MARK));
-  assert.ok(body.includes('__agyFlagsCost'));
-  assert.ok(body.includes('__agyFlagsL10n'));
+  assert.ok(body.includes('__agyPlusCost'));
+  assert.ok(body.includes('__agyPlusL10n'));
   assert.deepEqual(Object.keys(scripts[0].parts), ['settingsPage', 'contextUsageIndicator', 'costPrices', 'l10n']);
   assert.deepEqual(
     Object.values(scripts[0].parts).map((part) => part.ok),

@@ -1,17 +1,17 @@
 // Who sent a request that arrived on one of our local ports?
 //
-// The settings page of agy-flags lives inside the Antigravity window, and its requests reach
+// The settings page of agy-plus lives inside the Antigravity window, and its requests reach
 // us through the language server (see api.mjs). Nothing secret can travel with them: the
 // language server takes its page files from a plain address, and every file we serve there
 // can be read by any program on this machine. So the sender is not asked for a secret. It is
 // looked up instead: a request is answered only when it comes from a program that runs as
-// the same user as agy-flags.
+// the same user as agy-plus.
 //
 // lsof gives the answer. Without root rights it lists only the processes of the user who
 // runs it, so a connection that it lists belongs to that user. There are two cases:
 //
 //   - The program on the other end of the connection accepts no connections itself. Then it
-//     is the sender (the command line of agy-flags, for example), and it is one of ours.
+//     is the sender (the command line of agy-plus, for example), and it is one of ours.
 //
 //   - The program on the other end accepts connections itself: it may pass on the request of
 //     somebody else. The language server does exactly that, for anybody who can reach its

@@ -8,12 +8,12 @@
 // A second, separate change fills in the cost column of the cost summary. The client gets
 // that summary from its language server, and on 2.35.1 the language server has no price
 // list: every price is 0. One call is put around the single place where the summary enters
-// the page state. It computes the costs from a price list that agy-flags provides.
+// the page state. It computes the costs from a price list that agy-plus provides.
 //
 // A third change adds a translator to the end of the script (see l10n.mjs). It shows the
 // text of the page in Chinese.
 //
-// A fourth change adds the page of agy-flags to the settings of the client (see
+// A fourth change adds the page of agy-plus to the settings of the client (see
 // settingspage.mjs).
 //
 // The changes do not depend on each other. Nothing else in the script changes.
@@ -223,7 +223,7 @@ export function indicatorFactory(React, useConversationState) {
       );
       box.setAttribute('role', 'dialog');
       box.setAttribute('aria-label', 'Context window usage');
-      box.dataset.agyFlags = 'context-usage-popover';
+      box.dataset.agyPlus = 'context-usage-popover';
       document.body.append(box);
       boxRef.current = box;
       const place = () => {
@@ -273,7 +273,7 @@ export function indicatorFactory(React, useConversationState) {
         'aria-label': tip,
         'aria-expanded': open,
         'data-testid': 'context-usage-indicator-trigger',
-        'data-agy-flags': 'context-usage-indicator',
+        'data-agy-plus': 'context-usage-indicator',
         className:
           'flex cursor-pointer items-center h-7 gap-1.5 rounded-full px-2 text-xs text-secondary-foreground select-none outline-none hover:bg-muted transition-colors',
         style: { background: 'transparent', border: 'none' },
@@ -309,7 +309,7 @@ export function indicatorFactory(React, useConversationState) {
     }
     componentDidCatch(error) {
       try {
-        console.error('[agy-flags] the context usage indicator failed and is hidden:', error);
+        console.error('[agy-plus] the context usage indicator failed and is hidden:', error);
       } catch {
         // nothing else to do
       }
@@ -558,7 +558,7 @@ export function costRepricerFactory(table) {
       return reprice(summary);
     } catch (error) {
       try {
-        console.error('[agy-flags] the costs were not filled in:', error);
+        console.error('[agy-plus] the costs were not filled in:', error);
       } catch {
         // nothing else to do
       }
@@ -620,9 +620,9 @@ export function patchCostSummary(source, table) {
   const { start, end, from, to } = places[0];
   // The function is made once for each page load. A failure while it is made leaves the summary as it is.
   const call =
-    '(globalThis.__agyFlagsCost||(globalThis.__agyFlagsCost=(()=>{try{return(' +
+    '(globalThis.__agyPlusCost||(globalThis.__agyPlusCost=(()=>{try{return(' +
     costRepricerFactory.toString() +
-    `)(${JSON.stringify(table)})}catch(e){try{console.error("[agy-flags]",e)}catch(_){}return a=>a}})()))`;
+    `)(${JSON.stringify(table)})}catch(e){try{console.error("[agy-plus]",e)}catch(_){}return a=>a}})()))`;
   const replacement = `${from}.costSummary!==void 0&&(${to}.costSummary=${call}(${from}.costSummary))`;
   return { ok: true, source: source.slice(0, start) + replacement + source.slice(end) };
 }
@@ -632,7 +632,7 @@ export function indicatorReplacement(names) {
   return (
     'contextUsageIndicator:(()=>{try{return{Indicator:(' +
     indicatorFactory.toString() +
-    `)(${names.react},${names.stateHook})}}catch(e){try{console.error("[agy-flags]",e)}catch(_){}return void 0}})(),`
+    `)(${names.react},${names.stateHook})}}catch(e){try{console.error("[agy-plus]",e)}catch(_){}return void 0}})(),`
   );
 }
 
@@ -640,7 +640,7 @@ export function indicatorReplacement(names) {
 export const PART_INDICATOR = 'contextUsageIndicator';
 export const PART_COSTS = 'costPrices';
 export const PART_L10N = 'l10n';
-/** The page of agy-flags in the settings. It belongs to no entry of the catalog. */
+/** The page of agy-plus in the settings. It belongs to no entry of the catalog. */
 export const PART_SETTINGS = 'settingsPage';
 
 function patchIndicator(source) {
@@ -663,7 +663,7 @@ function patchIndicator(source) {
  * @param {boolean} [options.indicator=true] Add the context usage indicator.
  * @param {object|null} [options.prices=null] Fill in the costs from this price table.
  * @param {object|null} [options.l10n=null]   Show the page in Chinese with this word list.
- * @param {{ api: string }|null} [options.settings=null] Add the page of agy-flags to the settings.
+ * @param {{ api: string }|null} [options.settings=null] Add the page of agy-plus to the settings.
  * @param {boolean} [options.check=true]     Parse the result before it is returned.
  * @returns {{ ok: boolean, source: string, reason?: string, names?: object, parts: object }}
  *          `ok` is true when every change that was asked for was made. `parts` says for each

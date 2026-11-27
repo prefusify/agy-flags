@@ -18,7 +18,7 @@ import https from 'node:https';
 import zlib from 'node:zlib';
 import { MODELS_KIND, kindOf, modelDisplayNames, patchFlagConfig, summarizeFlags } from './patch.mjs';
 
-export const PING_PATH = '/__agy_flags_ping';
+export const PING_PATH = '/__agy_plus_ping';
 
 const HOP_BY_HOP = new Set([
   'connection',
@@ -152,7 +152,7 @@ export function createForwarder({
   function handle(req, res) {
     const pathname = (req.url || '/').split('?')[0];
     if (pathname === PING_PATH) {
-      const body = JSON.stringify({ app: 'agy-flags', role: name, ...identity() });
+      const body = JSON.stringify({ app: 'agy-plus', role: name, ...identity() });
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       res.end(body);
       return;
@@ -249,7 +249,7 @@ export function createForwarder({
       }
       if (!res.headersSent) {
         res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
-        res.end('agy-flags: upstream request failed\n');
+        res.end('agy-plus: upstream request failed\n');
       } else {
         res.destroy();
       }

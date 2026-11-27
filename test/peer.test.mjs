@@ -276,7 +276,7 @@ async function acceptor(t) {
 
 test('lsof: another program of the same user is recognized', { skip: !realLsof }, async (t) => {
   const { port, accepted } = await acceptor(t);
-  // A program that only connects, like the command line of agy-flags.
+  // A program that only connects, like the command line of agy-plus.
   const child = spawn(process.execPath, ['-e', `require('net').connect(${port},'127.0.0.1').on('error',()=>{}).resume();setTimeout(()=>{},30000)`], {
     stdio: 'ignore',
   });

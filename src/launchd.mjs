@@ -9,13 +9,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dataDir, ensureDataDir } from './config.mjs';
+import { dataDir, ensureDataDir, legacyDataDir } from './config.mjs';
 
-export const LABEL = 'dev.agy-flags.daemon';
+export const LABEL = 'dev.agy-plus.daemon';
+export const LEGACY_LABEL = 'dev.agy-flags.daemon';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const COPIED = ['bin', 'src', 'package.json', 'LICENSE', 'README.md'];
 
 export const plistPath = () => path.join(os.homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
+export const legacyPlistPath = () => path.join(os.homedir(), 'Library', 'LaunchAgents', `${LEGACY_LABEL}.plist`);
 export const installedRoot = () => path.join(dataDir(), 'app');
 const domain = () => `gui/${process.getuid()}`;
 
@@ -32,7 +34,7 @@ const xml = (text) =>
 
 /** The LaunchAgent definition. Exported for the tests. */
 export function buildPlist({ node, script, errorLog, home }) {
-  const env = home ? `  <key>EnvironmentVariables</key>\n  <dict>\n    <key>AGY_FLAGS_HOME</key>\n    <string>${xml(home)}</string>\n  </dict>\n` : '';
+  const env = home ? `  <key>EnvironmentVariables</key>\n  <dict>\n    <key>AGY_PLUS_HOME</key>\n    <string>${xml(home)}</string>\n  </dict>\n` : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -103,27 +105,38 @@ export function copyProgram() {
   return target;
 }
 
-export async function isLoaded() {
-  const { ok } = await run('/bin/launchctl', ['print', `${domain()}/${LABEL}`]);
+export async function isLoaded(label = LABEL) {
+  const { ok } = await run('/bin/launchctl', ['print', `${domain()}/${label}`]);
   return ok;
 }
 
-/** Stop the login item if it is loaded. launchd sends SIGTERM; the daemon clears its variables. */
-export async function unload() {
-  if (!(await isLoaded())) return { ok: true, wasLoaded: false };
-  const result = await run('/bin/launchctl', ['bootout', `${domain()}/${LABEL}`]);
+/** Stop a login item if it is loaded. launchd sends SIGTERM; the daemon clears its variables. */
+export async function unload(label = LABEL) {
+  if (!(await isLoaded(label))) return { ok: true, wasLoaded: false };
+  const result = await run('/bin/launchctl', ['bootout', `${domain()}/${label}`]);
   const deadline = Date.now() + 10000;
-  while (Date.now() < deadline && (await isLoaded())) await new Promise((r) => setTimeout(r, 300));
-  return { ok: !(await isLoaded()), wasLoaded: true, stderr: result.stderr.trim() };
+  while (Date.now() < deadline && (await isLoaded(label))) await new Promise((r) => setTimeout(r, 300));
+  return { ok: !(await isLoaded(label)), wasLoaded: true, stderr: result.stderr.trim() };
 }
 
-export async function load({ home = process.env.AGY_FLAGS_HOME || '' } = {}) {
+/** Stop and remove the legacy agy-flags login item if present on this machine. */
+export async function unloadLegacy() {
+  if (process.env.AGY_PLUS_HOME) return { ok: true, wasLoaded: false };
+  const stopped = await unload(LEGACY_LABEL);
+  if (!stopped.ok) return stopped;
+  fs.rmSync(legacyPlistPath(), { force: true });
+  const oldDir = legacyDataDir();
+  if (oldDir) fs.rmSync(path.join(oldDir, 'app'), { recursive: true, force: true });
+  return stopped;
+}
+
+export async function load({ home = process.env.AGY_PLUS_HOME || '' } = {}) {
   const root = copyProgram();
   const file = plistPath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const plist = buildPlist({
     node: stableNodePath(),
-    script: path.join(root, 'bin', 'agy-flags.mjs'),
+    script: path.join(root, 'bin', 'agy-plus.mjs'),
     errorLog: path.join(dataDir(), 'launchd-stderr.log'),
     home,
   });

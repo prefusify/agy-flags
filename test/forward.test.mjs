@@ -325,7 +325,7 @@ test('the ping path is answered locally', async (t) => {
     res.end();
   });
   const res = await request({ port, path: PING_PATH });
-  assert.deepEqual(JSON.parse(res.body.toString('utf8')), { app: 'agy-flags', role: 'aicode', pid: 123 });
+  assert.deepEqual(JSON.parse(res.body.toString('utf8')), { app: 'agy-plus', role: 'aicode', pid: 123 });
   assert.equal(reached, false);
 });
 

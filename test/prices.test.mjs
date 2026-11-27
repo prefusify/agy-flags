@@ -90,7 +90,7 @@ test('the download asks one address, follows no redirect and has a size limit', 
   assert.equal(new URL(PRICES_URL).protocol, 'https:');
   assert.equal(calls[0].options.redirect, 'error');
   // Nothing about the user or the machine goes out.
-  assert.deepEqual(calls[0].options.headers, { accept: 'application/json', 'user-agent': 'agy-flags' });
+  assert.deepEqual(calls[0].options.headers, { accept: 'application/json', 'user-agent': 'agy-plus' });
   assert.equal(Object.hasOwn(list, PRICES_PROVIDER), true);
 
   await assert.rejects(fetchPriceList({ fetchImpl: async () => new Response('no', { status: 503 }) }), /HTTP 503/);

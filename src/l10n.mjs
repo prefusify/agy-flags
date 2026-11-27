@@ -435,7 +435,7 @@ export function l10nFactory(data, attrs) {
     if (CLOSED_TAGS[el.tagName] === 1) return CLOSED;
     for (let i = 0; i < CLOSED_ATTRS.length; i++) if (el.hasAttribute(CLOSED_ATTRS[i])) return CLOSED;
     // The web's own mark for "do not translate". The client does not use it (2.35.2); the
-    // AGY-flags page does, because it is already in the language chosen on it.
+    // AGY Plus page does, because it is already in the language chosen on it.
     if (el.getAttribute('translate') === 'no') return CLOSED;
     const classes = el.classList;
     if (classes && classes.length > 0) {
@@ -855,7 +855,7 @@ export function l10nFactory(data, attrs) {
     } catch (error) {
       failures += 1;
       try {
-        console.error('[agy-flags] the translation failed:', error);
+        console.error('[agy-plus] the translation failed:', error);
       } catch {
         // nothing else to do
       }
@@ -972,7 +972,7 @@ export function l10nFactory(data, attrs) {
       observer.takeRecords();
     } catch (error) {
       try {
-        console.error('[agy-flags] the translation failed:', error);
+        console.error('[agy-plus] the translation failed:', error);
       } catch {
         // nothing else to do
       }
@@ -1125,7 +1125,7 @@ function patchIpcCalls(source) {
   const menuAt = out.indexOf(menuAnchor);
   if (menuAt !== -1 && out.indexOf(menuAnchor, menuAt + menuAnchor.length) === -1) {
     const menuWrap =
-      '(globalThis.__agyFlagsL10n?.wrapContextMenu?.(window.electronNative)??window.electronNative?.showContextMenu?.bind?.(window.electronNative))?.(';
+      '(globalThis.__agyPlusL10n?.wrapContextMenu?.(window.electronNative)??window.electronNative?.showContextMenu?.bind?.(window.electronNative))?.(';
     out = out.slice(0, menuAt) + menuWrap + out.slice(menuAt + menuAnchor.length);
   }
   const notifAnchor = 'this.bridge.send(';
@@ -1135,7 +1135,7 @@ function patchIpcCalls(source) {
     out.indexOf(notifAnchor, notifAt + notifAnchor.length) === -1 &&
     out.slice(Math.max(0, notifAt - 2000), notifAt).includes('nativeNotifications')
   ) {
-    const notifWrap = '(globalThis.__agyFlagsL10n?.wrapNotificationSend?.(this.bridge)??this.bridge.send.bind(this.bridge))(';
+    const notifWrap = '(globalThis.__agyPlusL10n?.wrapNotificationSend?.(this.bridge)??this.bridge.send.bind(this.bridge))(';
     out = out.slice(0, notifAt) + notifWrap + out.slice(notifAt + notifAnchor.length);
   }
   return out;
@@ -1151,8 +1151,8 @@ export function patchL10n(source, data) {
   const base = patchIpcCalls(source);
   // The translator is made once for each page load. A failure while it is made changes nothing.
   const code =
-    '\n;(()=>{try{if(!globalThis.__agyFlagsL10n){globalThis.__agyFlagsL10n=(' +
+    '\n;(()=>{try{if(!globalThis.__agyPlusL10n){globalThis.__agyPlusL10n=(' +
     l10nFactory.toString() +
-    `)(${JSON.stringify(data)},${JSON.stringify(L10N_ATTRIBUTES)});globalThis.__agyFlagsL10n.start(document)}}catch(e){try{console.error("[agy-flags]",e)}catch(_){}}})();\n`;
+    `)(${JSON.stringify(data)},${JSON.stringify(L10N_ATTRIBUTES)});globalThis.__agyPlusL10n.start(document)}}catch(e){try{console.error("[agy-plus]",e)}catch(_){}}})();\n`;
   return { ok: true, source: base + code };
 }

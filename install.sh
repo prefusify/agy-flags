@@ -1,31 +1,32 @@
 #!/bin/bash
-# agy-flags: one-step installer for macOS.
+# agy-plus: one-step installer for macOS.
 #
 #   Install or update:
-#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash
+#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-plus/main/install.sh | bash
 #   Show the status:
-#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- status
+#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-plus/main/install.sh | bash -s -- status
 #   Remove:
-#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- uninstall
+#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-plus/main/install.sh | bash -s -- uninstall
 #
 # What "install" does, in this order:
 #   1. Looks for Node.js 18 or later. If there is none, it downloads the official Node.js
-#      build from nodejs.org into the agy-flags data folder and checks its SHA-256 against
+#      build from nodejs.org into the agy-plus data folder and checks its SHA-256 against
 #      the value written in this file. Nothing is installed system-wide and no password is asked.
-#   2. Downloads agy-flags from GitHub (or uses the folder this script is in).
-#   3. Runs "agy-flags install": copies the program into the data folder and registers a
-#      login item that starts it at every login.
-#   4. Says how to reach the settings page: it is inside Antigravity, under Settings > AGY-flags,
+#   2. Downloads agy-plus from GitHub (or uses the folder this script is in).
+#   3. Runs "agy-plus install": migrates settings from agy-flags when present, copies the
+#      program into the data folder, and registers a login item that starts it at every login.
+#   4. Says how to reach the settings page: it is inside Antigravity, under Settings > AGY Plus,
 #      after Antigravity was restarted once.
 #
-# The data folder is ~/Library/Application Support/agy-flags. This script writes nowhere else,
-# apart from the login item in ~/Library/LaunchAgents that agy-flags itself registers.
+# The data folder is ~/Library/Application Support/agy-plus. This script writes nowhere else,
+# apart from the login item in ~/Library/LaunchAgents that agy-plus itself registers.
 
 set -euo pipefail
 
-REPO="prefusify/agy-flags"
+REPO="prefusify/agy-plus"
 BRANCH="main"
-LABEL="dev.agy-flags.daemon"
+LABEL="dev.agy-plus.daemon"
+LEGACY_LABEL="dev.agy-flags.daemon"
 MIN_NODE_MAJOR=18
 
 # The Node.js build that is downloaded when the machine has none. The checksums are the ones
@@ -36,10 +37,12 @@ NODE_SHA256_X64="977614af0504c81045e7fd85596dbca0e5f951b96681516dadafedcca8c447f
 NODE_MIN_MACOS_MAJOR=13
 NODE_MIN_MACOS_MINOR=5
 
-DATA_DIR="${AGY_FLAGS_HOME:-$HOME/Library/Application Support/agy-flags}"
+DATA_DIR="${AGY_PLUS_HOME:-$HOME/Library/Application Support/agy-plus}"
+LEGACY_DATA_DIR="$HOME/Library/Application Support/agy-flags"
 RUNTIME_DIR="$DATA_DIR/runtime"
-APP_SCRIPT="$DATA_DIR/app/bin/agy-flags.mjs"
+APP_SCRIPT="$DATA_DIR/app/bin/agy-plus.mjs"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LEGACY_PLIST="$HOME/Library/LaunchAgents/$LEGACY_LABEL.plist"
 WORK=""
 
 # ---- messages -------------------------------------------------------------------------
@@ -87,6 +90,13 @@ find_node() {
       return 0
     fi
   done
+  # Reuse a runtime previously downloaded by agy-flags so upgrading does not download 55 MB again.
+  if [ -z "${AGY_PLUS_HOME:-}" ] && [ ! -d "$RUNTIME_DIR" ] && [ -d "$LEGACY_DATA_DIR/runtime" ] && node_ok "$LEGACY_DATA_DIR/runtime/bin/node"; then
+    if mkdir -p "$DATA_DIR" && chmod 700 "$DATA_DIR" && mv "$LEGACY_DATA_DIR/runtime" "$RUNTIME_DIR" 2>/dev/null; then
+      printf '%s\n' "$RUNTIME_DIR/bin/node"
+      return 0
+    fi
+  fi
   return 0
 }
 
@@ -113,10 +123,10 @@ download_node() {
   fi
 
   local name="node-v$NODE_VERSION-darwin-$arch"
-  local url="${AGY_FLAGS_NODE_MIRROR:-https://nodejs.org/dist}/v$NODE_VERSION/$name.tar.gz"
+  local url="${AGY_PLUS_NODE_MIRROR:-https://nodejs.org/dist}/v$NODE_VERSION/$name.tar.gz"
   local file="$WORK/$name.tar.gz"
-  say "没有找到 Node.js。正在下载官方的 Node.js ${NODE_VERSION}（约 55 MB），只放进 agy-flags 自己的文件夹：" \
-    "Node.js was not found. Downloading the official Node.js $NODE_VERSION (about 55 MB) into the agy-flags folder only:" >&2
+  say "没有找到 Node.js。正在下载官方的 Node.js ${NODE_VERSION}（约 55 MB），只放进 agy-plus 自己的文件夹：" \
+    "Node.js was not found. Downloading the official Node.js $NODE_VERSION (about 55 MB) into the agy-plus folder only:" >&2
   say "  $url" "  $url" >&2
   curl -fL --progress-bar --retry 2 -o "$file" "$url" >&2 ||
     die "下载 Node.js 失败。请检查网络后重试。" "could not download Node.js. Check the network and try again."
@@ -146,17 +156,17 @@ download_node() {
 
 # ---- the program ----------------------------------------------------------------------
 
-# Prints the folder that holds the agy-flags source to install from.
+# Prints the folder that holds the agy-plus source to install from.
 fetch_source() {
   # A folder given by hand, or the folder this script lies in when it is run from a download
   # or a clone ("bash install.sh"). Through "curl | bash" there is no script file.
   local here=""
-  if [ -n "${AGY_FLAGS_SOURCE:-}" ]; then
-    here="$AGY_FLAGS_SOURCE"
-    [ -f "$here/bin/agy-flags.mjs" ] || die "AGY_FLAGS_SOURCE 指的文件夹里没有 agy-flags。" "AGY_FLAGS_SOURCE does not hold agy-flags."
+  if [ -n "${AGY_PLUS_SOURCE:-}" ]; then
+    here="$AGY_PLUS_SOURCE"
+    [ -f "$here/bin/agy-plus.mjs" ] || die "AGY_PLUS_SOURCE 指的文件夹里没有 agy-plus。" "AGY_PLUS_SOURCE does not hold agy-plus."
   elif [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    [ -f "$here/bin/agy-flags.mjs" ] && [ -f "$here/package.json" ] || here=""
+    [ -f "$here/bin/agy-plus.mjs" ] && [ -f "$here/package.json" ] || here=""
   fi
   if [ -n "$here" ]; then
     printf '%s\n' "$here"
@@ -164,19 +174,19 @@ fetch_source() {
   fi
 
   local url="https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz"
-  say "正在从 GitHub 下载 agy-flags……" "Downloading agy-flags from GitHub..." >&2
-  curl -fsSL --retry 2 -o "$WORK/agy-flags.tar.gz" "$url" ||
-    die "下载 agy-flags 失败。请检查网络后重试。" "could not download agy-flags. Check the network and try again."
-  if ! { mkdir -p "$WORK/src" && tar -xzf "$WORK/agy-flags.tar.gz" -C "$WORK/src" --strip-components=1; }; then
-    die "解压 agy-flags 失败。" "could not unpack agy-flags."
+  say "正在从 GitHub 下载 agy-plus……" "Downloading agy-plus from GitHub..." >&2
+  curl -fsSL --retry 2 -o "$WORK/agy-plus.tar.gz" "$url" ||
+    die "下载 agy-plus 失败。请检查网络后重试。" "could not download agy-plus. Check the network and try again."
+  if ! { mkdir -p "$WORK/src" && tar -xzf "$WORK/agy-plus.tar.gz" -C "$WORK/src" --strip-components=1; }; then
+    die "解压 agy-plus 失败。" "could not unpack agy-plus."
   fi
-  [ -f "$WORK/src/bin/agy-flags.mjs" ] || die "下载到的文件不完整。" "the download is incomplete."
+  [ -f "$WORK/src/bin/agy-plus.mjs" ] || die "下载到的文件不完整。" "the download is incomplete."
   printf '%s\n' "$WORK/src"
 }
 
 cmd_install() {
-  WORK="$(mktemp -d "${TMPDIR:-/tmp}/agy-flags-install.XXXXXX")"
-  say "正在安装 agy-flags……" "Installing agy-flags..."
+  WORK="$(mktemp -d "${TMPDIR:-/tmp}/agy-plus-install.XXXXXX")"
+  say "正在安装 agy-plus……" "Installing agy-plus..."
 
   local node
   node="$(find_node)"
@@ -187,24 +197,24 @@ cmd_install() {
   source="$(fetch_source)"
   # The folder of the chosen Node.js goes first in PATH. The program then records that path in
   # the login item (a package manager's link survives an upgrade; the file behind it does not).
-  if ! output="$(PATH="$(dirname "$node"):$PATH" "$node" "$source/bin/agy-flags.mjs" install 2>&1)"; then
+  if ! output="$(PATH="$(dirname "$node"):$PATH" "$node" "$source/bin/agy-plus.mjs" install 2>&1)"; then
     printf '%s\n' "$output" >&2
     die "安装没有成功，原因见上面的输出。" "the installation failed. See the output above."
   fi
 
   if [ ! -d "/Applications/Antigravity.app" ]; then
     say "提示：没有在「应用程序」里找到 Antigravity。装好 Antigravity 之后，本工具才有作用。" \
-      "Note: Antigravity was not found in Applications. agy-flags does nothing until it is installed."
+      "Note: Antigravity was not found in Applications. agy-plus does nothing until it is installed."
   fi
 
   say "" ""
-  say "安装完成。agy-flags 已经在运行，以后每次登录会自动启动。" "Done. agy-flags is running and starts at every login."
+  say "安装完成。agy-plus 已经在运行，以后每次登录会自动启动。" "Done. agy-plus is running and starts at every login."
   say "接下来：" "Next:"
   say "  1. 退出并重新打开 Antigravity（已经开着的窗口里还没有设置页）。" "  1. Quit and reopen Antigravity (a window that is already open does not have the page yet)."
-  say "  2. 在 Antigravity 里打开「设置」，左侧最后一项是 AGY-flags，在那里选要开的功能。" "  2. In Antigravity, open Settings. The last entry on the left is AGY-flags; choose your features there."
+  say "  2. 在 Antigravity 里打开「设置」，左侧最后一项是 AGY Plus，在那里选要开的功能。" "  2. In Antigravity, open Settings. The last entry on the left is AGY Plus; choose your features there."
   say "  3. 按页面上的提示重启 Antigravity，功能就生效了。" "  3. Restart Antigravity when the page asks you to. The features are then on."
   say "" ""
-  say "要卸载，运行：" "To remove agy-flags, run:"
+  say "要卸载，运行：" "To remove agy-plus, run:"
   say "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- uninstall" \
     "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- uninstall"
 }
@@ -217,7 +227,7 @@ run_installed() {
   node="$(node_of_login_item)"
   if [ -z "$node" ]; then node="$(find_node)"; fi
   if [ -z "$node" ] || [ ! -f "$APP_SCRIPT" ]; then
-    die "agy-flags 还没有安装。请先运行安装命令。" "agy-flags is not installed. Run the install command first."
+    die "agy-plus 还没有安装。请先运行安装命令。" "agy-plus is not installed. Run the install command first."
   fi
   "$node" "$APP_SCRIPT" "$@"
 }
@@ -236,13 +246,14 @@ node_of_login_item() {
 # files, and clear the variables that still point at the default ports.
 remove_by_hand() {
   launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
+  launchctl bootout "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1 || true
   local pair name value
   for pair in "CLOUD_CODE_URL=http://127.0.0.1:47931" "AICODE_ENDPOINT_URL=http://127.0.0.1:47932" "AGY_DEV_UI_URL=http://127.0.0.1:47933"; do
     name="${pair%%=*}"
     value="${pair#*=}"
     if [ "$(launchctl getenv "$name" 2>/dev/null || true)" = "$value" ]; then launchctl unsetenv "$name" || true; fi
   done
-  rm -f "$PLIST"
+  rm -f "$PLIST" "$LEGACY_PLIST"
   rm -rf "$DATA_DIR/app"
   if [ "$1" = "purge" ]; then rm -rf "$DATA_DIR"; fi
 }
@@ -258,7 +269,7 @@ cmd_uninstall() {
   if [ -z "$node" ]; then node="$(find_node)"; fi
 
   if [ -n "$node" ] && [ -f "$APP_SCRIPT" ]; then
-    # Antigravity is restarted when it still runs through agy-flags: without that it could
+    # Antigravity is restarted when it still runs through agy-plus: without that it could
     # no longer reach its servers.
     local args=(uninstall --restart-client)
     if [ "$purge" = "purge" ]; then args+=(--purge); fi
@@ -273,14 +284,14 @@ cmd_uninstall() {
   rm -rf "$RUNTIME_DIR" "$RUNTIME_DIR.new"
 
   say "" ""
-  say "agy-flags 已卸载。" "agy-flags was removed."
+  say "agy-plus 已卸载。" "agy-plus was removed."
   if [ "$purge" != "purge" ] && [ -d "$DATA_DIR" ]; then
     say "你选过的功能还保留在这个文件夹里，重新安装后会恢复：" "The features you chose are kept in this folder and come back after a new install:"
     say "  $DATA_DIR" "  $DATA_DIR"
     say "想连它一起删掉，在卸载命令的末尾加上 --purge 再运行一次。" "To delete it too, run the uninstall command again with --purge at the end."
   fi
-  say "在 agy-flags 开着的时候打开的程序（例如「终端」）还带着它的设置。" \
-    "Programs that were opened while agy-flags was on (Terminal, for example) still carry its settings."
+  say "在 agy-plus 开着的时候打开的程序（例如「终端」）还带着它的设置。" \
+    "Programs that were opened while agy-plus was on (Terminal, for example) still carry its settings."
   say "如果你用命令行的 agy，请把终端完全退出再打开，然后再使用。" \
     "If you use the agy command line, quit Terminal completely and open it again before you use it."
 }
@@ -288,13 +299,13 @@ cmd_uninstall() {
 # ---- entry ----------------------------------------------------------------------------
 
 main() {
-  [ "$(uname -s)" = "Darwin" ] || die "本工具只支持 macOS。" "agy-flags supports macOS only."
-  [ "$(id -u)" != "0" ] || die "请不要用 sudo 运行。本工具只装在你自己的账户里。" "do not run this with sudo. agy-flags installs into your own account only."
+  [ "$(uname -s)" = "Darwin" ] || die "本工具只支持 macOS。" "agy-plus supports macOS only."
+  [ "$(id -u)" != "0" ] || die "请不要用 sudo 运行。本工具只装在你自己的账户里。" "do not run this with sudo. agy-plus installs into your own account only."
 
-  # --purge deletes the data folder. Refuse a folder that cannot be the one of agy-flags.
+  # --purge deletes the data folder. Refuse a folder that cannot be the one of agy-plus.
   case "$DATA_DIR" in
     / | "$HOME" | "$HOME/" | /Users | /tmp | /private/tmp)
-      die "AGY_FLAGS_HOME 指向了不能用作数据文件夹的位置。" "AGY_FLAGS_HOME names a folder that cannot be the data folder."
+      die "AGY_PLUS_HOME 指向了不能用作数据文件夹的位置。" "AGY_PLUS_HOME names a folder that cannot be the data folder."
       ;;
   esac
 

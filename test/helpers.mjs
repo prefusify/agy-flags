@@ -62,7 +62,7 @@ export function request({ port, method = 'GET', path: pathname = '/', headers = 
 }
 
 export function tempHome() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agy-flags-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'agy-plus-test-'));
 }
 
 /** Stands in for launchctl: the "login session environment" is a plain object. */

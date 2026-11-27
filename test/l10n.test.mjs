@@ -1450,9 +1450,9 @@ test('the translator is added to the end of the script and starts by itself', ()
   const context = vm.createContext({ document: page.document, MutationObserver: page.MutationObserver, console });
   // Loaded twice, as two script tags would: one translator.
   new vm.Script(result.source).runInContext(context);
-  const first = context.__agyFlagsL10n;
+  const first = context.__agyPlusL10n;
   new vm.Script(result.source).runInContext(context);
-  assert.equal(context.__agyFlagsL10n, first);
+  assert.equal(context.__agyPlusL10n, first);
   assert.equal(page.observers.length, 1);
   assert.equal(textOf(header), '设置');
   assert.equal(header.getAttribute('title'), '复制');
@@ -1468,7 +1468,7 @@ test('the translator is one more change of the page script', () => {
   const result = patchMainJs(script, { l10n: DATA });
   assert.equal(result.ok, true);
   assert.deepEqual(Object.keys(result.parts).sort(), ['contextUsageIndicator', PART_L10N].sort());
-  assert.ok(result.source.includes('__agyFlagsL10n'));
+  assert.ok(result.source.includes('__agyPlusL10n'));
   const alone = patchMainJs(script, { indicator: false, l10n: DATA });
   assert.deepEqual(alone.parts, { [PART_L10N]: { ok: true, reason: null } });
   assert.ok(alone.source.startsWith(script));
@@ -1479,14 +1479,14 @@ test('the translator is one more change of the page script', () => {
   assert.match(none.parts[PART_L10N].reason, /no word list/);
 });
 
-// ---- the word list of agy-flags -------------------------------------------------------------
+// ---- the word list of agy-plus --------------------------------------------------------------
 
-test('the word list of agy-flags is a word list', () => {
+test('the word list of agy-plus is a word list', () => {
   const list = loadDictionary(WORD_LIST);
   assert.ok(list, 'src/l10n/zh-CN.json is missing or is not a word list');
   assert.ok(list.count > 1000);
   const { lookup } = l10nFactory(list.data);
-  // What the context usage indicator of agy-flags shows.
+  // What the context usage indicator of agy-plus shows.
   for (const text of [
     'Context window',
     'Compacted',
@@ -1736,7 +1736,7 @@ test('shipped dictionary covers tier-B cloud, backend, IPC, long skill, and anti
   assert.ok(!/agents/.test(lookup('Running · 2/4 agents') || 'agents'));
 });
 
-test('the word list of agy-flags is fast on a long text that it does not have', () => {
+test('the word list of agy-plus is fast on a long text that it does not have', () => {
   const list = loadDictionary(WORD_LIST);
   assert.ok(list);
   const { lookup } = l10nFactory(list.data);

@@ -1,16 +1,16 @@
 {
-  "name": "agy-flags",
+  "name": "agy-plus",
   "version": "0.3.0",
-  "description": "Choose which Antigravity experiment flags are on, from a page in Antigravity's own settings. No app modification, no certificates.",
+  "description": "Native UX enhancements and hidden feature toggles for Antigravity — context usage indicator, estimated turn costs, Chinese UI, and curated flags right inside Settings.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/prefusify/agy-flags.git"
+    "url": "git+https://github.com/prefusify/agy-plus.git"
   },
-  "homepage": "https://github.com/prefusify/agy-flags",
+  "homepage": "https://github.com/prefusify/agy-plus",
   "bin": {
-    "agy-flags": "bin/agy-flags.mjs"
+    "agy-plus": "bin/agy-plus.mjs"
   },
   "files": [
     "bin",

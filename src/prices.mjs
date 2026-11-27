@@ -91,7 +91,7 @@ export async function fetchPriceList({ url = PRICES_URL, fetchImpl = globalThis.
   const res = await fetchImpl(url, {
     redirect: 'error',
     signal: AbortSignal.timeout(timeoutMs),
-    headers: { accept: 'application/json', 'user-agent': 'agy-flags' },
+    headers: { accept: 'application/json', 'user-agent': 'agy-plus' },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const chunks = [];

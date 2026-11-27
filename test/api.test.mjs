@@ -139,7 +139,7 @@ test('a request that a page of another site makes the browser send is refused', 
   const { port, post, get, calls, checked } = await setup(t);
   const body = { enabled: false };
   // A browser that talks to us directly names an Origin for every change. Even our own address is refused:
-  // the page of agy-flags never talks to us directly, and the language server removes the header.
+  // the page of agy-plus never talks to us directly, and the language server removes the header.
   for (const origin of ['https://evil.example', `http://127.0.0.1:${port + 1}`, `http://127.0.0.1:${port}`, 'null']) {
     const res = await post('enabled.json', body, { ...JSON_TYPE, origin });
     assert.equal(res.status, 403, origin);

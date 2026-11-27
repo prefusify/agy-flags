@@ -54,7 +54,7 @@ export function uiPatchGroups(catalogFile = CATALOG_FILE) {
       .map((group) => ({
         patch: group.uiPatch,
         flags: list(group.flags),
-        // A feature of agy-flags itself (config.features), and the flags of other groups it needs.
+        // A feature of agy-plus itself (config.features), and the flags of other groups it needs.
         feature: FEATURE_NAMES.includes(group.feature) ? group.feature : null,
         requires: list(group.requires),
       }))
@@ -64,7 +64,7 @@ export function uiPatchGroups(catalogFile = CATALOG_FILE) {
   }
 }
 
-/** Ask whoever listens on a local port whether it is agy-flags. Resolves to its answer or null. */
+/** Ask whoever listens on a local port whether it is agy-plus. Resolves to its answer or null. */
 export function ping(port, timeoutMs = 1500) {
   return new Promise((resolve) => {
     const req = http.get({ host: '127.0.0.1', port, path: PING_PATH, timeout: timeoutMs, agent: false }, (res) => {
@@ -77,7 +77,7 @@ export function ping(port, timeoutMs = 1500) {
       res.on('end', () => {
         try {
           const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-          resolve(body && body.app === 'agy-flags' ? body : null);
+          resolve(body && body.app === 'agy-plus' ? body : null);
         } catch {
           resolve(null);
         }
@@ -246,7 +246,7 @@ export async function startDaemon({
   // Title requests of the desktop app: how many were changed, and how many could not be
   // changed because the client words its instruction differently now.
   const titles = { rewritten: 0, rewrittenAt: null, changed: 0, changedAt: null, skipped: 0 };
-  // The word list for the Chinese interface. It is a file of agy-flags itself.
+  // The word list for the Chinese interface. It is a file of agy-plus itself.
   const dictionary = loadDictionary(l10nFile);
   if (!dictionary) log('word list for the Chinese interface: cannot be read');
   // byClient counts who sent the requests. Only the desktop app is changed; the rest pass through.
@@ -344,7 +344,7 @@ export async function startDaemon({
   const pageFeatureOn = (patch) => config.enabled && pageGroups.some((group) => group.patch === patch && groupOn(group));
   const pricesOn = () => pageFeatureOn(PART_COSTS);
   const titlesOn = () => config.enabled && config.features.chineseTitles === true;
-  // A feature of agy-flags that changes the page. The client loads its page when it starts.
+  // A feature of agy-plus that changes the page. The client loads its page when it starts.
   const pageFeatures = new Set(pageGroups.map((group) => group.feature).filter(Boolean));
   /** Does the running client need a restart for the step from `before` to `after`? */
   const restartNeeded = (before, after) =>
@@ -758,7 +758,7 @@ export async function startDaemon({
       const other = await ping(entry.port);
       if (other) {
         // Another copy of us is serving. Its variables are valid; leave them alone.
-        log(`port ${entry.port} is served by another agy-flags (pid ${other.pid ?? '?'})`);
+        log(`port ${entry.port} is served by another agy-plus (pid ${other.pid ?? '?'})`);
         return { status: 'already-running' };
       }
       // Nobody of ours is listening. A variable that still points at us would break the client.

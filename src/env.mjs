@@ -1,5 +1,5 @@
 // The environment variables that point Antigravity at this program: two for the local
-// forwarders, and one more for the page files, which hold the settings page of agy-flags.
+// forwarders, and one more for the page files, which hold the settings page of agy-plus.
 //
 // They live in the login session (launchctl setenv), so every app started afterwards
 // inherits them. The dangerous state is "variable still set, nobody listening": a client
@@ -43,7 +43,7 @@ function run(args) {
 export function launchctlRunner() {
   if (process.platform !== 'darwin') {
     const unsupported = async () => {
-      throw new Error('agy-flags can set login-session variables on macOS only');
+      throw new Error('agy-plus can set login-session variables on macOS only');
     };
     return { get: unsupported, set: unsupported, unset: unsupported };
   }

@@ -1,4 +1,4 @@
-// The AGY-flags page in Antigravity's own settings.
+// The AGY Plus page in Antigravity's own settings.
 //
 // The settings of the client are a list of pages in its page script: a table with the names
 // for the navigation, and for each name the component that draws the page. Three small
@@ -14,10 +14,10 @@
 // found by its shape. When one of the three places is not found exactly once, none of the
 // changes is made.
 //
-// The page asks its own origin for /__agy_flags/<name>.json (see api.mjs).
+// The page asks its own origin for /__agy_plus/<name>.json (see api.mjs).
 
 /** The name of the page: in the navigation, and in the state of the client. */
-export const SETTINGS_SCREEN = 'AGY-flags';
+export const SETTINGS_SCREEN = 'AGY Plus';
 
 const IDENT = '[A-Za-z_$][\\w$]*';
 
@@ -30,24 +30,24 @@ const IDENT = '[A-Za-z_$][\\w$]*';
  */
 export function settingsPageFactory(React, options) {
   const h = React.createElement;
-  const API = (options && options.api) || '/__agy_flags/';
+  const API = (options && options.api) || '/__agy_plus/';
   const POLL_MS = 3000;
   const own = (object, name) => Object.prototype.hasOwnProperty.call(object || {}, name);
 
   const TEXT = {
     zh: {
-      tagline: '选择要开启的 Antigravity 实验功能。多数改动要重启 Antigravity 才生效。',
+      tagline: '选择要开启的 Antigravity 增强与实验功能。多数改动要重启 Antigravity 才生效。',
       loading: '正在读取…',
-      offline: '连不上 agy-flags 的常驻进程，这一页暂时不能用。',
-      refused: 'agy-flags 拒绝了这一页的请求（{detail}）。',
+      offline: '连不上 agy-plus 的常驻进程，这一页暂时不能用。',
+      refused: 'agy-plus 拒绝了这一页的请求（{detail}）。',
       broken: '这一页出错了，详情见开发者工具的控制台。',
-      enable: '启用 agy-flags',
+      enable: '启用 agy-plus',
       enableOn: '正在改写 Google 下发给 Antigravity 的开关配置。',
       enableOff: '已关闭：不改写任何内容，Antigravity 直连 Google。',
-      bannerNotRouted: '重启 Antigravity 后，agy-flags 才开始起作用。',
+      bannerNotRouted: '重启 Antigravity 后，agy-plus 才开始起作用。',
       bannerStillRouted: '改写已关闭，重启 Antigravity 后恢复为直连 Google。',
       bannerFlagsChanged: '你改了开关，重启 Antigravity 后生效。',
-      bannerPageOff: 'Antigravity 还在从 agy-flags 加载界面，重启后恢复为自带的界面。',
+      bannerPageOff: 'Antigravity 还在从 agy-plus 加载界面，重启后恢复为自带的界面。',
       restart: '重启 Antigravity',
       restartShort: '重启',
       restarting: '正在重启…',
@@ -63,7 +63,7 @@ export function settingsPageFactory(React, options) {
       other: '其他',
       about: '关于',
       aboutClient: 'Antigravity',
-      routed: '经过 agy-flags',
+      routed: '经过 agy-plus',
       direct: '直连 Google',
       notRunning: '未运行',
       aboutRewrite: '上次改写',
@@ -72,7 +72,7 @@ export function settingsPageFactory(React, options) {
       notRewritten: '{time}，没有改写',
       aboutOthers: '其他程序',
       othersLine: '命令行 agy 的请求 {cli} 个，其他来源 {other} 个，全部原样放行。',
-      aboutVersion: 'agy-flags',
+      aboutVersion: 'agy-plus',
       language: '页面语言',
       languageAuto: '跟随系统',
       footer:
@@ -102,18 +102,18 @@ export function settingsPageFactory(React, options) {
       },
     },
     en: {
-      tagline: 'Choose which experimental features of Antigravity are on. Most changes need a restart of Antigravity.',
+      tagline: 'Choose which enhancements and experimental features of Antigravity are on. Most changes need a restart of Antigravity.',
       loading: 'Loading…',
-      offline: 'The agy-flags daemon cannot be reached, so this page does not work for now.',
-      refused: 'agy-flags refused the requests of this page ({detail}).',
+      offline: 'The agy-plus daemon cannot be reached, so this page does not work for now.',
+      refused: 'agy-plus refused the requests of this page ({detail}).',
       broken: 'This page failed. See the console of the developer tools.',
-      enable: 'Enable agy-flags',
+      enable: 'Enable agy-plus',
       enableOn: 'Rewriting the flag configuration that Google sends to Antigravity.',
       enableOff: 'Off: nothing is rewritten, and Antigravity connects directly to Google.',
-      bannerNotRouted: 'Restart Antigravity for agy-flags to take effect.',
+      bannerNotRouted: 'Restart Antigravity for agy-plus to take effect.',
       bannerStillRouted: 'Rewriting is off. Restart Antigravity to connect directly to Google again.',
       bannerFlagsChanged: 'You changed flags. Restart Antigravity to apply them.',
-      bannerPageOff: 'Antigravity still loads its page from agy-flags. Restart it to go back to its own page.',
+      bannerPageOff: 'Antigravity still loads its page from agy-plus. Restart it to go back to its own page.',
       restart: 'Restart Antigravity',
       restartShort: 'Restart',
       restarting: 'Restarting…',
@@ -129,7 +129,7 @@ export function settingsPageFactory(React, options) {
       other: 'Other',
       about: 'About',
       aboutClient: 'Antigravity',
-      routed: 'through agy-flags',
+      routed: 'through agy-plus',
       direct: 'direct to Google',
       notRunning: 'not running',
       aboutRewrite: 'Last rewrite',
@@ -138,13 +138,13 @@ export function settingsPageFactory(React, options) {
       notRewritten: '{time}, not rewritten',
       aboutOthers: 'Other programs',
       othersLine: '{cli} requests from the agy command line and {other} from other senders, all passed through unchanged.',
-      aboutVersion: 'agy-flags',
+      aboutVersion: 'agy-plus',
       language: 'Page language',
       languageAuto: 'System',
       footer:
-        'agy-flags runs on this machine only and sends none of your data to third parties ("Estimated costs" downloads a public price list from models.dev; "Chinese conversation titles" changes only one sentence of the title request). These features are unreleased, may be unstable, and may stop working after an update.',
+        'agy-plus runs on this machine only and sends none of your data to third parties ("Estimated costs" downloads a public price list from models.dev; "Chinese conversation titles" changes only one sentence of the title request). These features are unreleased, may be unstable, and may stop working after an update.',
       pageScriptFail: 'The Antigravity page could not be changed ({reason}), so this does not work for now.',
-      l10nMissing: 'The word list cannot be read, so the page stays in English; install agy-flags again.',
+      l10nMissing: 'The word list cannot be read, so the page stays in English; install agy-plus again.',
       titlesChanged: 'The client now asks for titles differently, so titles are English for now.',
       pricesError: 'The price list could not be updated ({error}); the last one is still used.',
       pricesErrorNone: 'The price list could not be downloaded ({error}); it is tried again in an hour.',
@@ -155,16 +155,16 @@ export function settingsPageFactory(React, options) {
       errGeneric: 'Failed: {detail}',
       warn: {
         'app-missing': 'Antigravity was not found: {detail}',
-        'env-conflict': 'The environment variable {detail} is already set by another program. agy-flags does not overwrite it, so it has no effect now.',
+        'env-conflict': 'The environment variable {detail} is already set by another program. agy-plus does not overwrite it, so it has no effect now.',
         'env-error': 'Could not set the environment variables. See the log.',
-        'endpoint-mismatch': 'Antigravity wants a different cloud endpoint from the one agy-flags forwards to ({detail}). Update agy-flags, or edit upstreams in config.json.',
+        'endpoint-mismatch': 'Antigravity wants a different cloud endpoint from the one agy-plus forwards to ({detail}). Update agy-plus, or edit upstreams in config.json.',
         'not-patched': 'The last response was not rewritten and was passed through ({detail}). The server format may have changed.',
         skipped: 'These flags have a different type on the server and were skipped: {detail}',
         'upstream-failed': 'A forwarded request failed recently ({detail}).',
-        'desktop-not-recognized': 'The requests of Antigravity were not recognised (it calls itself {detail}), so no flag was rewritten. The client version may have changed; update agy-flags.',
+        'desktop-not-recognized': 'The requests of Antigravity were not recognised (it calls itself {detail}), so no flag was rewritten. The client version may have changed; update agy-plus.',
         'page-unavailable': 'The page files of the client were not found ({detail}), so features that change the page have no effect.',
-        'page-not-changed': 'One change of the page script could not be made ({detail}), so its feature has no effect. The client version may have changed; update agy-flags.',
-        'titles-not-changed': 'The last title request was not changed: the client words its title instruction differently now. Update agy-flags.',
+        'page-not-changed': 'One change of the page script could not be made ({detail}), so its feature has no effect. The client version may have changed; update agy-plus.',
+        'titles-not-changed': 'The last title request was not changed: the client words its title instruction differently now. Update agy-plus.',
       },
     },
   };
@@ -395,9 +395,9 @@ export function settingsPageFactory(React, options) {
   function Frame(props) {
     return h(
       'div',
-      // translate="no": the interface translation of agy-flags leaves this page alone, which is
+      // translate="no": the interface translation of agy-plus leaves this page alone, which is
       // already in the language chosen on it.
-      { ref: props.rootRef, className: 'w-full bg-transparent h-full overflow-y-auto', 'data-agy-flags': 'settings-page', translate: 'no' },
+      { ref: props.rootRef, className: 'w-full bg-transparent h-full overflow-y-auto', 'data-agy-plus': 'settings-page', translate: 'no' },
       h(
         'div',
         { className: `${props.compact ? 'p-4' : 'p-6'} flex flex-col gap-4 w-full max-w-2xl mx-auto` },
@@ -410,7 +410,7 @@ export function settingsPageFactory(React, options) {
             h(
               'div',
               { className: 'flex-1 flex flex-col gap-1 min-w-0 bg-transparent' },
-              h('h2', { className: `${props.compact ? 'text-xl' : 'text-2xl'} m-0 font-medium truncate flex-1 text-foreground` }, 'AGY-flags'),
+              h('h2', { className: `${props.compact ? 'text-xl' : 'text-2xl'} m-0 font-medium truncate flex-1 text-foreground` }, 'AGY Plus'),
               props.tagline ? h('div', { className: 'text-muted-foreground bg-transparent' }, props.tagline) : null
             ),
             props.actions ? h('div', { role: 'group', 'aria-label': props.actionsLabel, title: props.actionsLabel, className: 'flex items-center gap-1.5 shrink-0 pt-1' }, props.actions) : null
@@ -715,7 +715,7 @@ export function settingsPageFactory(React, options) {
     }
     componentDidCatch(error) {
       try {
-        console.error('[agy-flags] the settings page failed:', error);
+        console.error('[agy-plus] the settings page failed:', error);
       } catch {
         // nothing else to do
       }
@@ -827,14 +827,14 @@ export function patchSettingsPage(source, options) {
   const maker =
     '(()=>{let c;return r=>{if(!c){try{c=(' +
     settingsPageFactory.toString() +
-    `)(r,${JSON.stringify({ api: options.api })})}catch(e){try{console.error("[agy-flags]",e)}catch(_){}c=()=>null}}return c}})()`;
-  const component = `globalThis.__agyFlagsSettings(${react})`;
+    `)(r,${JSON.stringify({ api: options.api })})}catch(e){try{console.error("[agy-plus]",e)}catch(_){}c=()=>null}}return c}})()`;
+  const component = `globalThis.__agyPlusSettings(${react})`;
 
   const edits = [
     {
       start: table.start,
       end: table.end,
-      text: `(globalThis.__agyFlagsSettings=${maker},${source.slice(table.start, table.end - 1)},{screen:${name}}])`,
+      text: `(globalThis.__agyPlusSettings=${maker},${source.slice(table.start, table.end - 1)},{screen:${name}}])`,
     },
     {
       start: page.end,

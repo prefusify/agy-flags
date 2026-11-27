@@ -1,5 +1,5 @@
 {
-  "note": "The features of the AGY-flags page in Antigravity's settings: those that were found worth turning on. 'sections' are the headings of the page, in their order; 'section' of a group names the heading it stands under. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features). 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. 'risk' is asked about before the feature is turned on, and 'riskLabel' is shown next to its name. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
+  "note": "The features of the AGY Plus page in Antigravity's settings: those that were found worth turning on. 'sections' are the headings of the page, in their order; 'section' of a group names the heading it stands under. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-plus adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-plus itself that no flag of the client stands for (config.features). 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. 'risk' is asked about before the feature is turned on, and 'riskLabel' is shown next to its name. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
   "sections": [
     {
       "id": "interface",
@@ -119,7 +119,7 @@
       },
       "risk": {
         "zh": "本工具每天最多一次从 models.dev 下载价格表，不带你的任何数据。",
-        "en": "Once a day at most, agy-flags downloads a price list from models.dev, without any of your data."
+        "en": "Once a day at most, agy-plus downloads a price list from models.dev, without any of your data."
       },
       "title": {
         "zh": "估算费用",
@@ -162,7 +162,7 @@
       },
       "risk": {
         "zh": "本工具会换掉起标题请求里的一句指令，你的消息原样发出。",
-        "en": "agy-flags replaces one sentence of the instruction in the title request; your message goes out unchanged."
+        "en": "agy-plus replaces one sentence of the instruction in the title request; your message goes out unchanged."
       },
       "title": {
         "zh": "中文对话标题",

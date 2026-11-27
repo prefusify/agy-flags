@@ -8,7 +8,7 @@ import { SETTINGS_SCREEN, patchSettingsPage, settingsPageFactory } from '../src/
 import { fakeSettingsScript } from './helpers.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const OPTIONS = { api: '/__agy_flags/' };
+const OPTIONS = { api: '/__agy_plus/' };
 
 // ---- a React that is just enough to draw the page once ------------------------------------
 
@@ -149,7 +149,7 @@ test('an entry is on when all its flags are, by an override or because the serve
   assert.deepEqual(helpers.groupState(risky, state({ r1: true, p1: true }), SERVER), { on: true, partial: false, serverOnly: false });
 });
 
-test('a feature of agy-flags is on with its own switch and the flags it needs', () => {
+test('a feature of agy-plus is on with its own switch and the flags it needs', () => {
   const costs = CATALOG.groups[3];
   const state = (costPrices, overrides = {}) => makeState({ overrides, features: { costPrices, uiChinese: false, chineseTitles: false } });
   assert.deepEqual(helpers.groupState(costs, state(false), SERVER), { on: false, partial: false, serverOnly: false });
@@ -213,7 +213,7 @@ test('the shipped catalog puts every feature under a heading', () => {
 
 test('before the first answer the page says that it is loading', () => {
   const tree = page([]);
-  assert.match(textOf(tree), /AGY-flags/);
+  assert.match(textOf(tree), /AGY Plus/);
   assert.match(textOf(tree), /Loading…|正在读取…/);
   assert.equal(switches(tree).length, 0);
   // The daemon does not answer: the page says so.
@@ -226,7 +226,7 @@ test('the features stand under their headings, each with one switch', () => {
   // A heading without a feature is left out; a feature without a heading comes last.
   assert.deepEqual(headings(tree), ['界面', '代理', '其他', '关于']);
   const list = switches(tree);
-  assert.deepEqual(list.map((node) => node.props['aria-label']), ['启用 agy-flags', '普通', '有风险', '界面汉化', '估算费用']);
+  assert.deepEqual(list.map((node) => node.props['aria-label']), ['启用 agy-plus', '普通', '有风险', '界面汉化', '估算费用']);
   assert.deepEqual(list.map((node) => node.props['aria-checked']), [true, true, false, true, false]);
   assert.ok(list.every((node) => node.props.disabled !== true));
   const text = textOf(tree);
@@ -234,7 +234,7 @@ test('the features stand under their headings, each with one switch', () => {
   // Only what is unusual gets a mark: not seen working, and a risk.
   assert.match(text, /未实测/);
   assert.match(text, /消耗配额/);
-  assert.equal(text.includes('2.35.2 · 经过 agy-flags'), true);
+  assert.equal(text.includes('2.35.2 · 经过 agy-plus'), true);
   assert.deepEqual(notices(tree), []);
   // The version it was seen on is in the tip of the name.
   assert.equal(all(tree, (node) => node.props.title === '已在 Antigravity 2.35.2 上实测').length, 2);
@@ -301,7 +301,7 @@ test('a risky feature asks before it is turned on', async (t) => {
   const yes = buttons(tree).find((node) => textOf([node]) === '仍要开启');
   yes.props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(sent[0], ['/__agy_flags/flags.json', 'POST', '{"changes":{"p1":true,"r1":true}}']);
+  assert.deepEqual(sent[0], ['/__agy_plus/flags.json', 'POST', '{"changes":{"p1":true,"r1":true}}']);
 
   // A feature without a risk is changed at once, and off needs no question.
   const allOn = makeState({ overrides: { p1: true, p2: true, r1: true } });
@@ -309,12 +309,12 @@ test('a risky feature asks before it is turned on', async (t) => {
   tree = shown(allOn);
   switches(tree)[1].props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(sent[0], ['/__agy_flags/flags.json', 'POST', '{"changes":{"p1":null,"p2":null}}']);
+  assert.deepEqual(sent[0], ['/__agy_plus/flags.json', 'POST', '{"changes":{"p1":null,"p2":null}}']);
   sent.length = 0;
   tree = shown(allOn);
   switches(tree)[2].props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(sent[0], ['/__agy_flags/flags.json', 'POST', '{"changes":{"r1":null}}']);
+  assert.deepEqual(sent[0], ['/__agy_plus/flags.json', 'POST', '{"changes":{"r1":null}}']);
 });
 
 test('the restart is asked about first, in the place where it was clicked', async (t) => {
@@ -339,7 +339,7 @@ test('the restart is asked about first, in the place where it was clicked', asyn
   assert.equal(buttons(tree).filter((node) => textOf([node]) === '重启').length, 2);
   buttons(tree).find((node) => textOf([node]) === '重启').props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(sent[0], ['/__agy_flags/restart-client.json', 'POST', '{}']);
+  assert.deepEqual(sent[0], ['/__agy_plus/restart-client.json', 'POST', '{}']);
 
   // While the client restarts, there is nothing to click.
   tree = shown(makeState({ restarting: true }));
@@ -359,7 +359,7 @@ test('the page language is chosen with three buttons at the top of the page', as
   });
   const tree = shown(makeState());
   // The interface translation leaves the page alone: it is already in the chosen language.
-  assert.equal(all(tree, (node) => node.props['data-agy-flags'] === 'settings-page')[0].props.translate, 'no');
+  assert.equal(all(tree, (node) => node.props['data-agy-plus'] === 'settings-page')[0].props.translate, 'no');
   const group = all(tree, (node) => node.props.role === 'group')[0];
   assert.equal(group.props['aria-label'], '页面语言');
   // They come before every section of the page.
@@ -370,7 +370,7 @@ test('the page language is chosen with three buttons at the top of the page', as
   assert.equal(choices[1].props.onClick, undefined);
   choices[2].props.onClick();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(sent[0], ['/__agy_flags/page-language.json', 'POST', '{"language":"en"}']);
+  assert.deepEqual(sent[0], ['/__agy_plus/page-language.json', 'POST', '{"language":"en"}']);
 });
 
 test('a mistake while the page is drawn leaves a short note, not a broken window', () => {
@@ -408,7 +408,7 @@ test('the page is added to the three places, and the script still runs', () => {
   // The navigation: one more page, at the end.
   assert.equal(vm.runInContext('navTable.map((entry) => entry.screen).join()', context), `General,App,Developer,Running,${SETTINGS_SCREEN}`);
   assert.equal(vm.runInContext('navTable[1].label', context), 'Application');
-  assert.equal(typeof context.__agyFlagsSettings, 'function');
+  assert.equal(typeof context.__agyPlusSettings, 'function');
 
   // The settings window: the page is there, and shown when it is the chosen one.
   const pages = (name) => vm.runInContext(`settingsWindow(${JSON.stringify(name)}).children`, context);
@@ -447,11 +447,11 @@ test('the places are found whatever React is called', () => {
 test('the component is made once, and a failure while it is made leaves an empty page', () => {
   const context = run(patchSettingsPage(script(), OPTIONS).source);
   // This React has no hooks, but making the component does not need them.
-  const first = vm.runInContext('__agyFlagsSettings(Q)', context);
-  assert.equal(vm.runInContext('__agyFlagsSettings(Q)', context), first);
+  const first = vm.runInContext('__agyPlusSettings(Q)', context);
+  assert.equal(vm.runInContext('__agyPlusSettings(Q)', context), first);
   // A React without the Component class: the page cannot be made.
   const broken = run(patchSettingsPage(script(), OPTIONS).source.replace(',Component:class{}', ''));
-  const empty = vm.runInContext('__agyFlagsSettings(Q)', broken);
+  const empty = vm.runInContext('__agyPlusSettings(Q)', broken);
   assert.equal(empty(), null);
 });
 
