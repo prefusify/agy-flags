@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
 import test from 'node:test';
+import { API_PREFIX } from '../src/api.mjs';
 import { files, loadConfig } from '../src/config.mjs';
 import { computePending, ping, startDaemon } from '../src/daemon.mjs';
 import { TITLE_NEW } from '../src/forward.mjs';
@@ -75,7 +76,7 @@ async function setup(
   process.env.AGY_FLAGS_HOME = home;
   const upstream = fakeUpstream(upstreamFlags);
   const upstreamPort = await listen(upstream);
-  const [cloudcode, aicode, ui, devui] = await freePorts(4);
+  const [cloudcode, aicode, devui] = await freePorts(3);
   const origin = `http://127.0.0.1:${upstreamPort}`;
   // The "app" is a directory with a page archive in its language server, or nothing at all.
   const appPath = app
@@ -91,7 +92,7 @@ async function setup(
     : `${home}/Missing.app`;
   fs.writeFileSync(
     files.config(),
-    JSON.stringify({ enabled, flags, ports: { cloudcode, aicode, ui, devui }, upstreams: { cloudcode: origin, aicode: origin }, appPath })
+    JSON.stringify({ enabled, flags, ports: { cloudcode, aicode, devui }, upstreams: { cloudcode: origin, aicode: origin }, appPath })
   );
   const logs = [];
   // A small catalog of our own, so that the tests do not depend on the shipped one.
@@ -111,12 +112,18 @@ async function setup(
   // A word list of our own too.
   const l10nFile = `${home}/words.json`;
   fs.writeFileSync(l10nFile, JSON.stringify({ exact: { 'New Conversation': '新建对话' }, patterns: [] }));
-  const ctx = { home, runner, client, logs, upstream, ports: { cloudcode, aicode, ui, devui }, handles: [] };
+  const ctx = { home, runner, client, logs, upstream, ports: { cloudcode, aicode, devui }, handles: [] };
   ctx.start = async (extra = {}) => {
-    const handle = await startDaemon({ runner, client, log: (m) => logs.push(m), pollMs: 20, catalogFile, l10nFile, ...extra });
+    // Every caller counts as a program of the user here. peer.test.mjs tests the real lookup.
+    const handle = await startDaemon({ runner, client, log: (m) => logs.push(m), pollMs: 20, catalogFile, l10nFile, peerCheck: async () => true, ...extra });
     if (handle.status === 'running') ctx.handles.push(handle);
     return handle;
   };
+  // The requests of the settings page, sent the way the command line sends them.
+  ctx.get = (name) => request({ port: devui, path: `${API_PREFIX}${name}.json` });
+  ctx.post = (name, body) =>
+    request({ port: devui, method: 'POST', path: `${API_PREFIX}${name}.json`, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  ctx.script = async () => (await request({ port: devui, path: '/main.js' })).body.toString('utf8');
   t.after(async () => {
     for (const handle of ctx.handles) await handle.stop();
     await close(upstream);
@@ -128,16 +135,23 @@ async function setup(
   return ctx;
 }
 
+/** The two variables of the forwarders, the variable of the page files, and all three. */
 const ours = (ports) => ({
   CLOUD_CODE_URL: `http://127.0.0.1:${ports.cloudcode}`,
   AICODE_ENDPOINT_URL: `http://127.0.0.1:${ports.aicode}`,
 });
+const pageVar = (ports) => ({ AGY_DEV_UI_URL: `http://127.0.0.1:${ports.devui}` });
+const all = (ports) => ({ ...ours(ports), ...pageVar(ports) });
+
+/** The mark of the settings page in a page script. */
+const SETTINGS_MARK = '{screen:"AGY-flags"}';
+const PART_OK = { ok: true, reason: null };
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
 
 const NO_FEATURES = { costPrices: false, uiChinese: false, chineseTitles: false };
 
-test('the variables are set only after the forwarders are listening', async (t) => {
+test('the variables are set only after every listener is up', async (t) => {
   const runner = fakeRunner();
   const set = runner.set;
   const listeningWhenSet = [];
@@ -147,8 +161,8 @@ test('the variables are set only after the forwarders are listening', async (t) 
   };
   const ctx = await setup(t, { runner });
   assert.equal(ctx.handle.status, 'running');
-  assert.deepEqual(listeningWhenSet, [true, true]);
-  assert.deepEqual(runner.vars, ours(ctx.ports));
+  assert.deepEqual(listeningWhenSet, [true, true, true]);
+  assert.deepEqual(runner.vars, all(ctx.ports));
 });
 
 test('a flag response that passes through is patched, and the state shows it', async (t) => {
@@ -167,39 +181,35 @@ test('a flag response that passes through is patched, and the state shows it', a
   assert.equal(state.app.version, '9.9.9');
 });
 
-test('the web API changes overrides, and refuses a value of the wrong type', async (t) => {
+test('the settings page changes overrides, and a value of the wrong type is refused', async (t) => {
   const ctx = await setup(t, { flags: {} });
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
   // Let the daemon see the server list first.
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
 
-  const ok = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"x":true,"custom-flag":false}}' });
+  const ok = await ctx.post('flags', { changes: { x: true, 'custom-flag': false } });
   assert.equal(ok.status, 200);
   assert.deepEqual(loadConfig().flags, { x: true, 'custom-flag': false });
   assert.ok(loadConfig().flagsChangedAt > 0);
 
-  const refused = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"n":true}}' });
+  const refused = await ctx.post('flags', { changes: { n: true } });
   assert.equal(refused.status, 400);
   assert.equal(parse(refused).error, 'server-type');
-  const notBool = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"x":"yes"}}' });
-  assert.equal(parse(notBool).error, 'bad-value');
-  const fraction = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"n":1.5}}' });
-  assert.equal(parse(fraction).error, 'bad-value');
-  const intOnBool = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"x":3}}' });
-  assert.equal(parse(intOnBool).error, 'server-type');
-  const badName = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"bad name":true}}' });
-  assert.equal(parse(badName).error, 'bad-name');
+  assert.equal(parse(await ctx.post('flags', { changes: { x: 'yes' } })).error, 'bad-value');
+  assert.equal(parse(await ctx.post('flags', { changes: { n: 1.5 } })).error, 'bad-value');
+  assert.equal(parse(await ctx.post('flags', { changes: { x: 3 } })).error, 'server-type');
+  assert.equal(parse(await ctx.post('flags', { changes: { 'bad name': true } })).error, 'bad-name');
+  assert.equal(parse(await ctx.post('flags', {})).error, 'bad-request');
   assert.deepEqual(loadConfig().flags, { x: true, 'custom-flag': false });
 
-  const removed = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"custom-flag":null}}' });
+  const removed = await ctx.post('flags', { changes: { 'custom-flag': null } });
   assert.equal(removed.status, 200);
   assert.deepEqual(loadConfig().flags, { x: true });
 
-  const list = parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
+  const list = parse(await ctx.get('server-flags'));
   assert.deepEqual(list.flags.n, { type: 'intValue', value: '3', sources: ['cloudcode'] });
 
   // An integer flag takes an integer, whether the server sends the flag or not.
-  const ints = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"n":7,"new_count":2}}' });
+  const ints = await ctx.post('flags', { changes: { n: 7, new_count: 2 } });
   assert.equal(ints.status, 200);
   assert.deepEqual(loadConfig().flags, { x: true, n: 7, new_count: 2 });
 });
@@ -220,17 +230,29 @@ test('the model list is never changed, and it does not replace the status of the
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(files.state(), 'utf8')).serverFlags.cloudcode), ['x', 'n']);
 });
 
-test('turning rewriting off clears the variables but keeps forwarding', async (t) => {
+test('turning rewriting off clears the forwarder variables, and keeps the page variable and the forwarding', async (t) => {
   const ctx = await setup(t);
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
-  const off = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/enabled', headers, body: '{"enabled":false}' });
+  const off = await ctx.post('enabled', { enabled: false });
   assert.equal(off.status, 200);
-  assert.deepEqual(ctx.runner.vars, {});
+  // The settings page is where rewriting is turned on again, so the client must still get it.
+  assert.deepEqual(ctx.runner.vars, pageVar(ctx.ports));
+  assert.ok((await ctx.script()).includes(SETTINGS_MARK));
+  assert.equal(parse(await ctx.get('state')).enabled, false);
   const res = await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
   assert.deepEqual(parse(res).flags[0], { name: 'x', boolValue: false });
 
-  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/enabled', headers, body: '{"enabled":true}' });
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
+  await ctx.post('enabled', { enabled: true });
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
+  assert.equal(parse(await ctx.post('enabled', { enabled: 'yes' })).error, 'bad-request');
+});
+
+test('rewriting that is off at the start sets the page variable only', async (t) => {
+  const ctx = await setup(t, { enabled: false });
+  assert.deepEqual(ctx.runner.vars, pageVar(ctx.ports));
+  const state = await ctx.handle.getState();
+  assert.equal(state.env.status, 'set');
+  assert.equal(state.page.wanted, true);
+  assert.deepEqual(state.warnings, []);
 });
 
 test('a second daemon sees the first one and leaves everything alone', async (t) => {
@@ -239,7 +261,7 @@ test('a second daemon sees the first one and leaves everything alone', async (t)
   const second = await ctx.start();
   assert.equal(second.status, 'already-running');
   assert.equal(ctx.runner.calls.length, callsBefore);
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
   assert.ok(await ping(ctx.ports.cloudcode));
 });
 
@@ -248,23 +270,42 @@ test('stopping clears the variables and frees the ports', async (t) => {
   await ctx.handle.stop();
   assert.deepEqual(ctx.runner.vars, {});
   assert.equal(await ping(ctx.ports.cloudcode), null);
-  assert.equal(await ping(ctx.ports.ui), null);
+  assert.equal(await ping(ctx.ports.devui), null);
 });
 
-test('a variable set by another program is not overwritten', async (t) => {
+test('a forwarder variable set by another program is not overwritten, and the settings page is still there to say so', async (t) => {
   const runner = fakeRunner({ CLOUD_CODE_URL: 'http://127.0.0.1:8888' });
   const ctx = await setup(t, { runner });
-  assert.deepEqual(runner.vars, { CLOUD_CODE_URL: 'http://127.0.0.1:8888' });
+  // Neither forwarder variable is set: one without the other would split the traffic.
+  assert.deepEqual(runner.vars, { CLOUD_CODE_URL: 'http://127.0.0.1:8888', ...pageVar(ctx.ports) });
   const state = await ctx.handle.getState();
   assert.equal(state.env.status, 'conflict');
-  assert.deepEqual(state.warnings.map((w) => w.code), ['env-conflict']);
+  assert.deepEqual(state.warnings, [{ code: 'env-conflict', detail: 'CLOUD_CODE_URL' }]);
+  assert.equal(state.page.wanted, true);
   await ctx.handle.stop();
   assert.deepEqual(runner.vars, { CLOUD_CODE_URL: 'http://127.0.0.1:8888' });
 });
 
+test('a page variable set by another program is not overwritten, and rewriting still works', async (t) => {
+  const client = fakeClient();
+  const runner = fakeRunner({ AGY_DEV_UI_URL: 'http://127.0.0.1:5173' });
+  const ctx = await setup(t, { runner, client });
+  assert.deepEqual(runner.vars, { ...ours(ctx.ports), AGY_DEV_UI_URL: 'http://127.0.0.1:5173' });
+  // A client that started with these variables is as it should be: a restart would change nothing.
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() + 60_000, env: { ...runner.vars } });
+  const state = await ctx.handle.getState();
+  assert.equal(state.env.status, 'conflict');
+  assert.deepEqual(state.warnings, [{ code: 'env-conflict', detail: 'AGY_DEV_UI_URL' }]);
+  assert.equal(state.page.wanted, false);
+  assert.equal(state.pendingRestart, false);
+  assert.equal(state.client.routed, true);
+  await ctx.handle.stop();
+  assert.deepEqual(runner.vars, { AGY_DEV_UI_URL: 'http://127.0.0.1:5173' });
+});
+
 test('a port taken by another program stops the start and removes stale variables', async (t) => {
   const ctx = await setup(t, { start: false });
-  Object.assign(ctx.runner.vars, ours(ctx.ports));
+  Object.assign(ctx.runner.vars, all(ctx.ports));
   const squatter = http.createServer((req, res) => res.end('not agy-flags'));
   await listen(squatter, ctx.ports.aicode);
   t.after(() => close(squatter));
@@ -301,60 +342,111 @@ test('the server flag list survives a daemon restart', async (t) => {
 test('the state says when the client needs a restart', async (t) => {
   const client = fakeClient();
   const ctx = await setup(t, { client, flags: {} });
-  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: ours(ctx.ports) });
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: all(ctx.ports) });
   let state = await ctx.handle.getState();
   assert.equal(state.pendingRestart, false);
   assert.equal(state.client.routed, true);
+  assert.equal(state.page.carried, true);
 
-  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"x":true}}' });
+  await ctx.post('flags', { changes: { x: true } });
   state = await ctx.handle.getState();
   assert.equal(state.pendingRestart, true);
   assert.equal(state.pendingReason, 'flags-changed');
 
-  const restart = await request({ port: ctx.ports.ui, method: 'POST', path: '/api/restart-client', headers, body: '{}' });
+  const restart = await ctx.post('restart-client', {});
   assert.equal(restart.status, 200);
   assert.equal(client.restarts, 1);
+});
+
+test('a client that started without the page variable needs a restart to get the settings page', async (t) => {
+  const client = fakeClient();
+  const ctx = await setup(t, { client, flags: {} });
+  // It started before the page files could be served: it has the forwarders only.
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() + 60_000, env: ours(ctx.ports) });
+  let state = await ctx.handle.getState();
+  assert.equal(state.pendingReason, 'not-routed');
+  assert.equal(state.client.routed, true);
+  assert.equal(state.page.carried, false);
+
+  client.current.env = all(ctx.ports);
+  state = await waitFor(async () => {
+    const s = await ctx.handle.getState();
+    return s.pendingRestart ? null : s;
+  });
+  assert.equal(state.page.carried, true);
+});
+
+test('with rewriting off, a client needs the page variable and nothing else', async (t) => {
+  const client = fakeClient();
+  const ctx = await setup(t, { client, flags: {} });
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: all(ctx.ports) });
+  await ctx.post('enabled', { enabled: false });
+  // It still sends its requests through us.
+  await waitFor(async () => (await ctx.handle.getState()).pendingReason === 'still-routed');
+  // After its restart it has the page variable only, and that is how it should be.
+  Object.assign(client.current, { lsPid: 11, lsStartedAt: Date.now(), env: pageVar(ctx.ports) });
+  const state = await waitFor(async () => {
+    const s = await ctx.handle.getState();
+    return s.pendingRestart ? null : s;
+  });
+  assert.equal(state.client.routed, false);
+  assert.equal(state.page.carried, true);
+  // Turned on again: now the forwarders are missing.
+  await ctx.post('enabled', { enabled: true });
+  await waitFor(async () => (await ctx.handle.getState()).pendingReason === 'not-routed');
 });
 
 test('computePending', () => {
   const base = { CLOUD_CODE_URL: 'http://127.0.0.1:1', AICODE_ENDPOINT_URL: 'http://127.0.0.1:2' };
   const page = { AGY_DEV_UI_URL: 'http://127.0.0.1:3' };
+  const both = { ...base, ...page };
   const client = (env, lsStartedAt = 1000) => ({ running: true, lsPid: 1, lsStartedAt, env });
   const stopped = { running: false, lsPid: null, lsStartedAt: null, env: {} };
-  const reason = (args) => computePending({ base, page, changedAt: 0, ...args }).reason;
+  const pending = (args) => computePending({ base, page, wantPage: true, changedAt: 0, ...args });
+  const reason = (args) => pending(args).reason;
 
-  assert.deepEqual(computePending({ enabled: true, client: stopped, base, changedAt: 5000 }), { pending: false, reason: null, routed: null, carries: null });
-  assert.deepEqual(computePending({ enabled: true, client: client({}), base, changedAt: 0 }), { pending: true, reason: 'not-routed', routed: false, carries: false });
-  // One variable alone is not enough.
-  assert.equal(reason({ enabled: true, client: client({ CLOUD_CODE_URL: base.CLOUD_CODE_URL }) }), 'not-routed');
-  assert.deepEqual(computePending({ enabled: true, client: client(base), base, changedAt: 500 }), { pending: false, reason: null, routed: true, carries: true });
-  assert.equal(reason({ enabled: true, client: client(base), changedAt: 2000 }), 'flags-changed');
-  assert.equal(reason({ enabled: false, client: client(base) }), 'still-routed');
-  assert.deepEqual(computePending({ enabled: false, client: client({}), base, changedAt: 9999 }), { pending: false, reason: null, routed: false, carries: false });
+  // No client, or no language server yet: nothing to restart.
+  assert.deepEqual(pending({ enabled: true, client: stopped, changedAt: 5000 }), { pending: false, reason: null, routed: null, carries: null });
+  assert.equal(pending({ enabled: true, client: { ...client(both), lsPid: null } }).pending, false);
 
-  // The page variable: wanted and missing, carried and no longer wanted.
-  assert.equal(reason({ enabled: true, client: client(base), wantPage: true }), 'not-routed');
-  assert.equal(reason({ enabled: true, client: client({ ...base, ...page }), wantPage: true }), null);
-  assert.equal(reason({ enabled: true, client: client({ ...base, ...page }), wantPage: false }), 'page-off');
-  // A client that has only the page variable still needs a restart after rewriting is turned off.
-  assert.deepEqual(computePending({ enabled: false, client: client(page), base, page, changedAt: 0 }), {
-    pending: true,
-    reason: 'still-routed',
-    routed: false,
-    carries: true,
-  });
+  // Rewriting on: the client needs all three variables.
+  assert.deepEqual(pending({ enabled: true, client: client({}) }), { pending: true, reason: 'not-routed', routed: false, carries: false });
+  assert.deepEqual(pending({ enabled: true, client: client(both), changedAt: 500 }), { pending: false, reason: null, routed: true, carries: true });
+  // One forwarder variable alone is not enough.
+  assert.equal(reason({ enabled: true, client: client({ ...page, CLOUD_CODE_URL: base.CLOUD_CODE_URL }) }), 'not-routed');
+  // A variable with another value does not count.
+  assert.equal(reason({ enabled: true, client: client({ ...both, CLOUD_CODE_URL: 'http://127.0.0.1:8888' }) }), 'not-routed');
+  // Without the page variable the settings page is missing.
+  assert.deepEqual(pending({ enabled: true, client: client(base) }), { pending: true, reason: 'not-routed', routed: true, carries: true });
+  // A change that was made after the client started.
+  assert.equal(reason({ enabled: true, client: client(both), changedAt: 2000 }), 'flags-changed');
+  assert.equal(reason({ enabled: true, client: client(both, null), changedAt: 2000 }), null);
+
+  // Rewriting off: the page variable alone is right.
+  assert.deepEqual(pending({ enabled: false, client: client(page), changedAt: 9999 }), { pending: false, reason: null, routed: false, carries: true });
+  assert.equal(reason({ enabled: false, client: client(both) }), 'still-routed');
+  assert.equal(reason({ enabled: false, client: client({ ...page, CLOUD_CODE_URL: base.CLOUD_CODE_URL }) }), 'still-routed');
+  assert.equal(reason({ enabled: false, client: client({}) }), 'not-routed');
+
+  // The page files cannot be served: the client should not carry the page variable.
+  assert.equal(reason({ enabled: true, client: client(both), wantPage: false }), 'page-off');
+  assert.equal(reason({ enabled: true, client: client(base), wantPage: false }), null);
+  assert.equal(reason({ enabled: false, client: client(page), wantPage: false }), 'page-off');
+  assert.deepEqual(pending({ enabled: false, client: client({}), wantPage: false, changedAt: 9999 }), { pending: false, reason: null, routed: false, carries: false });
+
+  // Without `page` and `wantPage`, only the forwarders count.
+  assert.deepEqual(computePending({ enabled: true, client: client(base), base, changedAt: 0 }), { pending: false, reason: null, routed: true, carries: true });
 });
 
-test('a page feature sets the third variable and serves the page script with the component', async (t) => {
+test('the page script gets the settings page, and a page feature adds its component', async (t) => {
   const ctx = await setup(t, { flags: { 'ctx-on': true } });
-  const pageVar = `http://127.0.0.1:${ctx.ports.devui}`;
-  assert.deepEqual(ctx.runner.vars, { ...ours(ctx.ports), AGY_DEV_UI_URL: pageVar });
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
 
   const script = await request({ port: ctx.ports.devui, path: '/main.js' });
   assert.equal(script.status, 200);
   assert.match(script.headers['content-type'], /javascript/);
   const text = script.body.toString('utf8');
+  assert.ok(text.includes(SETTINGS_MARK));
   assert.equal(text.includes('contextUsageIndicator:void 0,'), false);
   assert.ok(text.includes('contextUsageIndicator:(()=>'));
   // Every other file comes out of the archive unchanged.
@@ -366,60 +458,127 @@ test('a page feature sets the third variable and serves the page script with the
   const state = await ctx.handle.getState();
   assert.equal(state.page.wanted, true);
   assert.equal(state.page.script.patched, true);
+  assert.deepEqual(state.page.script.parts, { settingsPage: PART_OK, contextUsageIndicator: PART_OK });
   assert.deepEqual(state.warnings, []);
 
   await ctx.handle.stop();
   assert.deepEqual(ctx.runner.vars, {});
 });
 
-test('without a page feature the third variable is not set and the script is the original', async (t) => {
+test('without a page feature the script gets the settings page and nothing else', async (t) => {
   const ctx = await setup(t, { flags: { x: true } });
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
-  const script = await request({ port: ctx.ports.devui, path: '/main.js' });
-  assert.equal(script.body.toString('utf8'), fakePageScript());
-  assert.equal((await ctx.handle.getState()).page.wanted, false);
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
+  const script = await ctx.script();
+  assert.ok(script.includes(SETTINGS_MARK));
+  assert.ok(script.includes(`"api":"${API_PREFIX}"`));
+  assert.ok(script.includes('contextUsageIndicator:void 0,'));
+  const state = await ctx.handle.getState();
+  assert.equal(state.page.wanted, true);
+  assert.deepEqual(state.page.script.parts, { settingsPage: PART_OK });
 });
 
-test('turning a page feature on and off sets and clears the third variable', async (t) => {
+test('turning a page feature on and off changes the script, not the variables', async (t) => {
   const client = fakeClient();
   const ctx = await setup(t, { flags: {}, client });
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
-  const pageVar = `http://127.0.0.1:${ctx.ports.devui}`;
-  Object.assign(client.current, { running: true, lsPid: 7, lsStartedAt: Date.now() + 60_000, env: ours(ctx.ports) });
+  Object.assign(client.current, { running: true, lsPid: 7, lsStartedAt: Date.now() - 60_000, env: all(ctx.ports) });
+  assert.equal((await ctx.handle.getState()).pendingRestart, false);
 
-  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"ctx-on":true}}' });
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, pageVar);
-  // The running client does not have the variable yet.
-  await waitFor(async () => (await ctx.handle.getState()).pendingReason === 'not-routed');
+  await ctx.post('flags', { changes: { 'ctx-on': true } });
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
+  assert.ok((await ctx.script()).includes('contextUsageIndicator:(()=>'));
+  // The client loaded its page before the change.
+  await waitFor(async () => (await ctx.handle.getState()).pendingReason === 'flags-changed');
 
-  client.current.env = { ...ours(ctx.ports), AGY_DEV_UI_URL: pageVar };
-  await waitFor(async () => (await ctx.handle.getState()).pendingRestart === false);
-
-  await request({ port: ctx.ports.ui, method: 'POST', path: '/api/flags', headers, body: '{"changes":{"ctx-on":null}}' });
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
-  // The client still takes its page files from us until it is restarted.
-  await waitFor(async () => (await ctx.handle.getState()).pendingReason === 'page-off');
-  assert.equal((await request({ port: ctx.ports.devui, path: '/main.js' })).body.toString('utf8'), fakePageScript());
+  await ctx.post('flags', { changes: { 'ctx-on': null } });
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
+  const script = await ctx.script();
+  assert.ok(script.includes('contextUsageIndicator:void 0,'));
+  assert.ok(script.includes(SETTINGS_MARK));
 });
 
-test('when the page files cannot be found, the third variable is not set', async (t) => {
-  const ctx = await setup(t, { flags: { 'ctx-on': true }, app: false });
+test('when the page files cannot be found, the page variable is not set', async (t) => {
+  const client = fakeClient();
+  const ctx = await setup(t, { flags: { 'ctx-on': true }, app: false, client });
   assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
-  const state = await ctx.handle.getState();
+  let state = await ctx.handle.getState();
   assert.equal(state.page.wanted, false);
   assert.deepEqual(state.warnings.map((w) => w.code), ['page-unavailable']);
   assert.equal((await request({ port: ctx.ports.devui, path: '/main.js' })).status, 500);
+  // The requests of the settings page are still answered: the command line asks them too.
+  assert.equal((await ctx.get('state')).status, 200);
+  // A client that still takes its page files from us cannot load them any more.
+  Object.assign(client.current, { running: true, lsPid: 7, lsStartedAt: Date.now() + 60_000, env: all(ctx.ports) });
+  state = await waitFor(async () => {
+    const s = await ctx.handle.getState();
+    return s.pendingRestart ? s : null;
+  });
+  assert.equal(state.pendingReason, 'page-off');
 });
 
-test('a page script that cannot be changed is served as it is, with a warning', async (t) => {
-  const original = fakePageScript({ anchor: '' });
-  const ctx = await setup(t, { flags: { 'ctx-on': true }, pageScript: original });
-  const script = await request({ port: ctx.ports.devui, path: '/main.js' });
-  assert.equal(script.body.toString('utf8'), original);
+test('with rewriting off and no page files, no variable is set', async (t) => {
+  const ctx = await setup(t, { enabled: false, app: false });
+  assert.deepEqual(ctx.runner.vars, {});
+  assert.equal((await ctx.handle.getState()).env.status, 'cleared');
+  assert.ok(ctx.logs.some((line) => line.startsWith('environment variables: cleared')));
+});
+
+test('a page feature that cannot be added leaves its place as it is, with a warning', async (t) => {
+  const ctx = await setup(t, { flags: { 'ctx-on': true }, pageScript: fakePageScript({ anchor: '' }) });
+  const script = await ctx.script();
+  // The settings page does not depend on it.
+  assert.ok(script.includes(SETTINGS_MARK));
+  assert.equal(script.includes('contextUsageIndicator:(()=>'), false);
   const state = await ctx.handle.getState();
+  assert.equal(state.page.script.patched, false);
   assert.deepEqual(state.warnings.map((w) => w.code), ['page-not-changed']);
   assert.match(state.warnings[0].detail, /place for the indicator was not found/);
+});
+
+test('a client whose settings are built differently gets its own script, and the state says why', async (t) => {
+  const original = fakePageScript({ settings: false });
+  const ctx = await setup(t, { flags: {}, pageScript: original });
+  assert.equal(await ctx.script(), original);
+  // The page files are still served, so the variable stays.
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
+  const state = await ctx.handle.getState();
+  assert.deepEqual(state.page.script.parts, { settingsPage: { ok: false, reason: 'the list of setting pages was found 0 times, not once' } });
+  assert.deepEqual(state.warnings, [{ code: 'page-not-changed', detail: 'the list of setting pages was found 0 times, not once' }]);
+  // The features can still be chosen without the page.
+  assert.equal((await ctx.post('flags', { changes: { x: true } })).status, 200);
+  assert.deepEqual(loadConfig().flags, { x: true });
+});
+
+test('the requests of the settings page are answered for the programs of the user only', async (t) => {
+  const ctx = await setup(t, { start: false });
+  const asked = [];
+  ctx.handle = await ctx.start({
+    peerCheck: async (socket) => {
+      asked.push(socket.localPort);
+      return false;
+    },
+  });
+  const read = await ctx.get('state');
+  assert.equal(read.status, 403);
+  assert.deepEqual(parse(read), { error: 'caller not recognized' });
+  assert.equal((await ctx.post('enabled', { enabled: false })).status, 403);
+  assert.equal(loadConfig().enabled, true);
+  assert.deepEqual(asked, [ctx.ports.devui, ctx.ports.devui]);
+  // The page files hold nothing of the user, and the language server asks for them: no check.
+  assert.equal((await request({ port: ctx.ports.devui, path: '/main.js' })).status, 200);
+  assert.ok(await ping(ctx.ports.devui));
+  assert.equal(asked.length, 2);
+  // The forwarders do not answer these requests at all.
+  const other = await request({ port: ctx.ports.cloudcode, path: `${API_PREFIX}state.json` });
+  assert.deepEqual(parse(other), { other: true });
+});
+
+test('the file with the secret of the old web page is removed at the start', async (t) => {
+  const ctx = await setup(t, { start: false });
+  fs.writeFileSync(`${ctx.home}/token`, 'a'.repeat(64));
+  ctx.handle = await ctx.start();
+  assert.equal(fs.existsSync(`${ctx.home}/token`), false);
+  assert.equal(Object.hasOwn(ctx.handle, 'token'), false);
+  assert.equal(Object.hasOwn(loadConfig().ports, 'ui'), false);
 });
 
 test('a request of the command line is not changed and leaves no trace in the flag status', async (t) => {
@@ -461,7 +620,7 @@ test('a desktop app that runs through us under an unknown name gets a warning', 
 
   // The desktop app starts, routed through us. The command line alone is no reason either.
   await sleep(5);
-  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now(), env: ours(ctx.ports) });
+  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now(), env: all(ctx.ports) });
   await list('cli');
   await waitFor(async () => (await ctx.handle.getState()).client.routed === true);
   assert.deepEqual(await codes(), []);
@@ -491,7 +650,7 @@ test('an unknown sender next to a working desktop app raises no warning', async 
   ctx.handle = await ctx.start();
   const codes = async () => (await ctx.handle.getState()).warnings.map((w) => w.code);
   const list = (as) => request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}', as });
-  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now() - 1000, env: ours(ctx.ports) });
+  Object.assign(client.current, { running: true, lsPid: 42, lsStartedAt: Date.now() - 1000, env: all(ctx.ports) });
   await list('desktop');
   await list('antigravity/ide/1.20.0 (aidev_client)');
   await waitFor(async () => (await ctx.handle.getState()).client.routed === true);
@@ -501,8 +660,7 @@ test('an unknown sender next to a working desktop app raises no warning', async 
 
 test('the page gets what the servers send for each flag', async (t) => {
   const ctx = await setup(t);
-  const headers = { 'x-agy-flags-token': ctx.handle.token };
-  const list = async () => parse(await request({ port: ctx.ports.ui, path: '/api/server-flags', headers }));
+  const list = async () => parse(await ctx.get('server-flags'));
   const before = await list();
   assert.deepEqual(before.flags, {});
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
@@ -513,6 +671,10 @@ test('the page gets what the servers send for each flag', async (t) => {
   assert.equal(after.flags.n.type, 'intValue');
   // Nothing else: the page shows the curated features only.
   assert.deepEqual(Object.keys(after).sort(), ['flags', 'version']);
+  // The page reads the same number in the state, to know when to ask again.
+  assert.equal(parse(await ctx.get('state')).server.version, after.version);
+  // The catalog of the daemon is the one the page shows.
+  assert.deepEqual(parse(await ctx.get('catalog')).groups.map((group) => group.id), ['plain', 'ctx', 'prices', 'zh', 'titles']);
 });
 
 // ---- costs at public prices -----------------------------------------------------------
@@ -536,35 +698,32 @@ async function setupPrices(t, options = {}) {
     },
     priceWaitMs: 500,
   });
-  const headers = { 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' };
-  ctx.post = (pathname, body) => request({ port: ctx.ports.ui, method: 'POST', path: pathname, headers, body: JSON.stringify(body) });
-  ctx.state = async () => parse(await request({ port: ctx.ports.ui, path: '/api/state', headers }));
-  ctx.script = async () => (await request({ port: ctx.ports.devui, path: '/main.js' })).body.toString('utf8');
+  ctx.state = async () => parse(await ctx.get('state'));
   return ctx;
 }
 
-test('the price feature is off at first: no download, no third variable, the original script', async (t) => {
+test('the price feature is off at first: no download, and the costs are left alone', async (t) => {
   const ctx = await setupPrices(t);
   await sleep(60);
   assert.equal(ctx.downloads.count, 0);
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
   const state = await ctx.state();
   assert.deepEqual(state.features, NO_FEATURES);
   assert.equal(state.prices.fetchedAt, null);
   assert.equal(fs.existsSync(files.prices()), false);
   // Nobody can download the list from the page while the feature is off.
-  const res = await ctx.post('/api/prices/refresh', {});
+  const res = await ctx.post('prices-refresh', {});
   assert.equal(res.status, 400);
+  assert.equal(parse(res).error, 'feature-off');
   assert.equal(ctx.downloads.count, 0);
 });
 
-test('turning the price feature on downloads the list, sets the third variable and fills in the costs', async (t) => {
+test('turning the price feature on downloads the list and fills in the costs', async (t) => {
   const ctx = await setupPrices(t);
-  const res = await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  const res = await ctx.post('features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
   assert.equal(res.status, 200);
   await waitFor(async () => (await ctx.state()).prices.fetchedAt);
   assert.equal(ctx.downloads.count, 1);
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
 
   // The feature is in the config file, apart from the flags; the flag it needs is a flag.
   const saved = loadConfig();
@@ -578,7 +737,7 @@ test('turning the price feature on downloads the list, sets the third variable a
   // The indicator is another feature, and it is off.
   assert.ok(script.includes('contextUsageIndicator:void 0,'));
   const state = await ctx.state();
-  assert.deepEqual(state.page.script.parts, { costPrices: { ok: true, reason: null } });
+  assert.deepEqual(state.page.script.parts, { settingsPage: PART_OK, costPrices: PART_OK });
   assert.equal(state.prices.count, 1);
   assert.equal(state.prices.error, null);
   assert.deepEqual(state.warnings, []);
@@ -591,35 +750,35 @@ test('turning the price feature on downloads the list, sets the third variable a
 test('the price feature needs the flag of the other group', async (t) => {
   const ctx = await setupPrices(t);
   // The feature alone, without the flag: nothing happens yet.
-  await ctx.post('/api/features', { changes: { costPrices: true } });
+  await ctx.post('features', { changes: { costPrices: true } });
   await sleep(60);
   assert.equal(ctx.downloads.count, 0);
-  assert.deepEqual(ctx.runner.vars, ours(ctx.ports));
   assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
 
   // The flag comes: now it works.
-  await ctx.post('/api/flags', { changes: { 'cost-on': true } });
+  await ctx.post('flags', { changes: { 'cost-on': true } });
   await waitFor(() => ctx.downloads.count === 1);
-  await waitFor(() => ctx.runner.vars.AGY_DEV_UI_URL);
+  await waitFor(async () => (await ctx.state()).prices.fetchedAt);
   assert.ok((await ctx.script()).includes('__agyFlagsCost'));
 
   // The flag goes: the feature stops, and the flag of the other group is not touched by it.
-  await ctx.post('/api/flags', { changes: { 'cost-on': null } });
-  await waitFor(() => !ctx.runner.vars.AGY_DEV_UI_URL);
+  await ctx.post('flags', { changes: { 'cost-on': null } });
   assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
   assert.deepEqual(loadConfig().features, { ...NO_FEATURES, costPrices: true });
 
   // Turning the feature off leaves the flag as it is.
-  await ctx.post('/api/flags', { changes: { 'cost-on': true } });
-  await ctx.post('/api/features', { changes: { costPrices: false } });
+  await ctx.post('flags', { changes: { 'cost-on': true } });
+  await ctx.post('features', { changes: { costPrices: false } });
   assert.equal(loadConfig().flags['cost-on'], true);
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
+  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  // None of this touches the variables.
+  assert.deepEqual(ctx.runner.vars, all(ctx.ports));
 });
 
 test('a flag that the server already turns on counts for the price feature', async (t) => {
   const ctx = await setupPrices(t, { upstreamFlags: [{ name: 'x', boolValue: false }, { name: 'cost-on', boolValue: true }] });
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:listExperiments', body: '{}' });
-  await ctx.post('/api/features', { changes: { costPrices: true } });
+  await ctx.post('features', { changes: { costPrices: true } });
   await waitFor(() => ctx.downloads.count === 1);
   assert.equal(Object.hasOwn(loadConfig().flags, 'cost-on'), false);
 });
@@ -637,7 +796,7 @@ test('bad feature changes are refused and change nothing', async (t) => {
     { changes: { costPrices: true }, flags: { 'bad name': true } },
     { changes: { costPrices: true }, flags: { n: true } },
   ]) {
-    assert.equal((await ctx.post('/api/features', body)).status, 400, JSON.stringify(body));
+    assert.equal((await ctx.post('features', body)).status, 400, JSON.stringify(body));
   }
   assert.deepEqual(loadConfig().features, NO_FEATURES);
   assert.deepEqual(loadConfig().flags, { x: true });
@@ -648,7 +807,7 @@ test('the models of the client are listed with or without a price', async (t) =>
   const ctx = await setupPrices(t);
   // While the feature is off, the model list is not read.
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: '/v1internal:fetchAvailableModels', body: '{}' });
-  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await ctx.post('features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
   await waitFor(async () => (await ctx.state()).prices.fetchedAt);
   assert.deepEqual((await ctx.state()).prices.models, []);
 
@@ -669,7 +828,6 @@ test('the models of the client are listed with or without a price', async (t) =>
       return PRICE_LIST;
     },
   });
-  // The token is the same after a restart, so the same headers still work.
   const state = await ctx.state();
   assert.deepEqual(state.prices.models, expected);
   assert.equal(state.prices.count, 1);
@@ -681,7 +839,7 @@ test('the models of the client are listed with or without a price', async (t) =>
 test('a download that fails leaves the script without the costs, with a warning, and the button tries again', async (t) => {
   const ctx = await setupPrices(t);
   ctx.downloads.fail = true;
-  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await ctx.post('features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
   await waitFor(async () => (await ctx.state()).prices.error);
   assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
   let state = await ctx.state();
@@ -689,12 +847,12 @@ test('a download that fails leaves the script without the costs, with a warning,
   assert.equal(state.prices.fetchedAt, null);
   assert.deepEqual(state.warnings, [{ code: 'page-not-changed', detail: 'there is no price list yet' }]);
 
-  const failed = await ctx.post('/api/prices/refresh', {});
+  const failed = await ctx.post('prices-refresh', {});
   assert.equal(failed.status, 502);
   assert.equal(parse(failed).detail, 'offline');
 
   ctx.downloads.fail = false;
-  assert.equal((await ctx.post('/api/prices/refresh', {})).status, 200);
+  assert.equal((await ctx.post('prices-refresh', {})).status, 200);
   assert.ok((await ctx.script()).includes('__agyFlagsCost'));
   state = await ctx.state();
   assert.equal(state.prices.error, null);
@@ -715,19 +873,17 @@ test('the script waits a short time for the first download of the prices', async
 
 test('the indicator and the costs can be on together, and each has its own status', async (t) => {
   const ctx = await setupPrices(t, { flags: { 'ctx-on': true } });
-  await ctx.post('/api/features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
+  await ctx.post('features', { changes: { costPrices: true }, flags: { 'cost-on': true } });
   await waitFor(async () => (await ctx.state()).prices.fetchedAt);
   const script = await ctx.script();
   assert.ok(script.includes('contextUsageIndicator:(()=>'));
   assert.ok(script.includes('__agyFlagsCost'));
-  assert.deepEqual((await ctx.state()).page.script.parts, {
-    contextUsageIndicator: { ok: true, reason: null },
-    costPrices: { ok: true, reason: null },
-  });
-  // The costs go off: the third variable stays, because the indicator still needs it.
-  await ctx.post('/api/features', { changes: { costPrices: false } });
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
-  assert.equal((await ctx.script()).includes('__agyFlagsCost'), false);
+  assert.deepEqual((await ctx.state()).page.script.parts, { settingsPage: PART_OK, contextUsageIndicator: PART_OK, costPrices: PART_OK });
+  // The costs go off: the indicator stays.
+  await ctx.post('features', { changes: { costPrices: false } });
+  const without = await ctx.script();
+  assert.equal(without.includes('__agyFlagsCost'), false);
+  assert.ok(without.includes('contextUsageIndicator:(()=>'));
 });
 
 // ---- Chinese interface and titles ---------------------------------------------------
@@ -736,11 +892,8 @@ test('the indicator and the costs can be on together, and each has its own statu
 async function setupRunning(t, options = {}) {
   const client = fakeClient();
   const ctx = await setup(t, { client, flags: {}, ...options });
-  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: ours(ctx.ports) });
-  const headers = () => ({ 'x-agy-flags-token': ctx.handle.token, 'content-type': 'application/json' });
-  ctx.post = (pathname, body) => request({ port: ctx.ports.ui, method: 'POST', path: pathname, headers: headers(), body: JSON.stringify(body) });
+  Object.assign(client.current, { running: true, lsPid: 10, lsStartedAt: Date.now() - 60_000, env: all(ctx.ports) });
   ctx.state = () => ctx.handle.getState();
-  ctx.script = async () => (await request({ port: ctx.ports.devui, path: '/main.js' })).body.toString('utf8');
   return ctx;
 }
 
@@ -751,8 +904,7 @@ test('the Chinese interface changes the page script, and the client needs a rest
   assert.equal(state.pendingRestart, false);
   assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
 
-  assert.equal((await ctx.post('/api/features', { changes: { uiChinese: true } })).status, 200);
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, `http://127.0.0.1:${ctx.ports.devui}`);
+  assert.equal((await ctx.post('features', { changes: { uiChinese: true } })).status, 200);
   const script = await ctx.script();
   assert.ok(script.includes('__agyFlagsL10n'));
   assert.ok(script.includes('新建对话'));
@@ -760,12 +912,14 @@ test('the Chinese interface changes the page script, and the client needs a rest
   assert.deepEqual(state.features, { ...NO_FEATURES, uiChinese: true });
   assert.ok(state.changedAt > 0);
   assert.equal(state.pendingRestart, true);
-  assert.deepEqual(state.page.script.parts, { l10n: { ok: true, reason: null } });
+  assert.equal(state.pendingReason, 'flags-changed');
+  assert.deepEqual(state.page.script.parts, { settingsPage: PART_OK, l10n: PART_OK });
   assert.deepEqual(state.warnings, []);
 
-  await ctx.post('/api/features', { changes: { uiChinese: false } });
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
-  assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
+  await ctx.post('features', { changes: { uiChinese: false } });
+  const without = await ctx.script();
+  assert.equal(without.includes('__agyFlagsL10n'), false);
+  assert.ok(without.includes(SETTINGS_MARK));
 });
 
 test('a word list that cannot be read leaves the page as it is, with a warning', async (t) => {
@@ -773,7 +927,7 @@ test('a word list that cannot be read leaves the page as it is, with a warning',
   ctx.handle = await ctx.start({ l10nFile: `${ctx.home}/missing.json` });
   assert.ok(ctx.logs.some((line) => line.includes('word list')));
   assert.deepEqual((await ctx.state()).l10n, { ready: false, words: 0 });
-  await ctx.post('/api/features', { changes: { uiChinese: true } });
+  await ctx.post('features', { changes: { uiChinese: true } });
   assert.equal((await ctx.script()).includes('__agyFlagsL10n'), false);
   assert.deepEqual((await ctx.state()).warnings, [{ code: 'page-not-changed', detail: 'the word list cannot be read' }]);
 });
@@ -790,13 +944,12 @@ test('Chinese titles work at once, without a restart, and the state counts them'
   await send(titleRequest());
   assert.equal(last().includes(TITLE_NEW), false);
 
-  await ctx.post('/api/features', { changes: { chineseTitles: true } });
+  await ctx.post('features', { changes: { chineseTitles: true } });
   let state = await ctx.state();
   assert.deepEqual(state.features, { ...NO_FEATURES, chineseTitles: true });
-  // The feature changes requests, not the page: no restart, no third variable.
+  // The feature changes requests, not the page: no restart.
   assert.equal(state.changedAt, before);
   assert.equal(state.pendingRestart, false);
-  assert.equal(ctx.runner.vars.AGY_DEV_UI_URL, undefined);
 
   await send(titleRequest());
   assert.ok(last().includes(TITLE_NEW));
@@ -823,7 +976,7 @@ test('Chinese titles work at once, without a restart, and the state counts them'
   assert.equal(last().includes(TITLE_NEW), false);
 
   // Off again: at once.
-  await ctx.post('/api/features', { changes: { chineseTitles: false } });
+  await ctx.post('features', { changes: { chineseTitles: false } });
   await send(titleRequest());
   assert.equal(last().includes(TITLE_NEW), false);
   assert.equal((await ctx.state()).titles.rewritten, 2);
@@ -847,8 +1000,8 @@ test('Chinese titles turned on in the config file need no restart either', async
 
 test('Chinese titles are off while agy-flags is off', async (t) => {
   const ctx = await setupRunning(t);
-  await ctx.post('/api/features', { changes: { chineseTitles: true } });
-  await ctx.post('/api/enabled', { enabled: false });
+  await ctx.post('features', { changes: { chineseTitles: true } });
+  await ctx.post('enabled', { enabled: false });
   assert.equal((await ctx.state()).enabled, false);
   await request({ port: ctx.ports.cloudcode, method: 'POST', path: TITLE_PATH, body: titleRequest() });
   assert.equal(ctx.upstream.modelBodies.at(-1).includes(TITLE_NEW), false);

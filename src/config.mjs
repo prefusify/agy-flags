@@ -3,7 +3,6 @@
 // config.json is the single source of truth for which flags are overridden. The daemon
 // re-reads it when its modification time changes, so editing it by hand also works.
 
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,7 +13,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   flags: {},
   features: { costPrices: false, uiChinese: false, chineseTitles: false },
   flagsChangedAt: 0,
-  ports: { cloudcode: 47931, aicode: 47932, ui: 47930, devui: 47933 },
+  ports: { cloudcode: 47931, aicode: 47932, devui: 47933 },
   upstreams: {
     cloudcode: 'https://daily-cloudcode-pa.googleapis.com',
     aicode: 'https://aicode.googleapis.com',
@@ -51,7 +50,6 @@ export const FEATURE_NAMES = Object.freeze(['costPrices', 'uiChinese', 'chineseT
 export const files = {
   prices: () => path.join(dataDir(), 'prices.json'),
   config: () => path.join(dataDir(), 'config.json'),
-  token: () => path.join(dataDir(), 'token'),
   state: () => path.join(dataDir(), 'state.json'),
   log: () => path.join(dataDir(), 'daemon.log'),
 };
@@ -91,7 +89,6 @@ export function normalizeConfig(raw) {
     ports: {
       cloudcode: validPort(ports.cloudcode, DEFAULT_CONFIG.ports.cloudcode),
       aicode: validPort(ports.aicode, DEFAULT_CONFIG.ports.aicode),
-      ui: validPort(ports.ui, DEFAULT_CONFIG.ports.ui),
       devui: validPort(ports.devui, DEFAULT_CONFIG.ports.devui),
     },
     upstreams: {
@@ -134,18 +131,12 @@ export function configMtime() {
   }
 }
 
-/** The secret the web page must present. Created on first use, readable by the user only. */
-export function ensureToken() {
-  ensureDataDir();
-  try {
-    const existing = fs.readFileSync(files.token(), 'utf8').trim();
-    if (/^[0-9a-f]{48,}$/.test(existing)) return existing;
-  } catch {
-    // create below
-  }
-  const token = crypto.randomBytes(32).toString('hex');
-  writeFileAtomic(files.token(), `${token}\n`);
-  return token;
+/**
+ * Versions up to 0.2 had a web page of their own, which had to present a secret from a file
+ * in the data directory. Nothing reads that file any more.
+ */
+export function removeObsoleteFiles() {
+  fs.rmSync(path.join(dataDir(), 'token'), { force: true });
 }
 
 export function loadState() {

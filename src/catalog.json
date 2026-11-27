@@ -1,8 +1,60 @@
 {
-  "note": "Curated groups for the web UI: features that were found worth turning on. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features); 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
+  "note": "The features of the AGY-flags page in Antigravity's settings: those that were found worth turning on. 'sections' are the headings of the page, in their order; 'section' of a group names the heading it stands under. 'tested' names the Antigravity version on which the effect was seen in the client; null means the effect is known from the client's page code only and was not seen. 'uiPatch' names a component that agy-flags adds to the client's page script, because the public build has the flag but not the component. 'feature' names a feature of agy-flags itself that no flag of the client stands for (config.features). 'requires' are flags of another group that it needs, which are turned on with it and are left on when it is turned off. 'risk' is asked about before the feature is turned on, and 'riskLabel' is shown next to its name. Titles are short; 'description' and 'risk' are one plain sentence each, for people who do not read code.",
+  "sections": [
+    {
+      "id": "interface",
+      "title": {
+        "zh": "界面",
+        "en": "Interface"
+      }
+    },
+    {
+      "id": "conversations",
+      "title": {
+        "zh": "对话",
+        "en": "Conversations"
+      }
+    },
+    {
+      "id": "agents",
+      "title": {
+        "zh": "代理",
+        "en": "Agents"
+      }
+    },
+    {
+      "id": "usage",
+      "title": {
+        "zh": "用量和费用",
+        "en": "Usage and costs"
+      }
+    },
+    {
+      "id": "chinese",
+      "title": {
+        "zh": "中文",
+        "en": "Chinese"
+      }
+    },
+    {
+      "id": "marketplace",
+      "title": {
+        "zh": "插件市场",
+        "en": "Plugin marketplace"
+      }
+    },
+    {
+      "id": "computer",
+      "title": {
+        "zh": "电脑操作",
+        "en": "Computer use"
+      }
+    }
+  ],
   "groups": [
     {
       "id": "developer-mode",
+      "section": "interface",
       "flags": [
         "enable-developer-mode"
       ],
@@ -18,20 +70,13 @@
     },
     {
       "id": "context-usage-indicator",
+      "section": "usage",
       "flags": [
         "enable-context-usage-indicator"
       ],
       "uiPatch": "contextUsageIndicator",
       "status": "page",
       "tested": "2.35.1",
-      "riskLabel": {
-        "zh": "依赖本工具运行",
-        "en": "needs agy-flags running"
-      },
-      "risk": {
-        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字，要等本工具恢复或客户端重启。",
-        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text until agy-flags runs again or the app restarts."
-      },
       "title": {
         "zh": "上下文用量指示器",
         "en": "Context usage indicator"
@@ -43,6 +88,7 @@
     },
     {
       "id": "turn-token-usage",
+      "section": "usage",
       "flags": [
         "enable-cost-accumulator"
       ],
@@ -58,6 +104,7 @@
     },
     {
       "id": "turn-cost-prices",
+      "section": "usage",
       "flags": [],
       "feature": "costPrices",
       "requires": [
@@ -67,12 +114,12 @@
       "status": "prices",
       "tested": "2.35.1",
       "riskLabel": {
-        "zh": "依赖本工具运行，连接 models.dev",
-        "en": "needs agy-flags running, connects to models.dev"
+        "zh": "连接 models.dev",
+        "en": "connects to models.dev"
       },
       "risk": {
-        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字；另外它每天最多一次从 models.dev 下载价格表，不带你的任何数据。",
-        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text; also, once a day at most, agy-flags downloads a price list from models.dev, without any of your data."
+        "zh": "本工具每天最多一次从 models.dev 下载价格表，不带你的任何数据。",
+        "en": "Once a day at most, agy-flags downloads a price list from models.dev, without any of your data."
       },
       "title": {
         "zh": "估算费用",
@@ -85,20 +132,13 @@
     },
     {
       "id": "ui-chinese",
+      "section": "chinese",
       "flags": [],
       "feature": "uiChinese",
       "requires": [],
       "uiPatch": "l10n",
       "status": "l10n",
       "tested": "2.35.2",
-      "riskLabel": {
-        "zh": "依赖本工具运行",
-        "en": "needs agy-flags running"
-      },
-      "risk": {
-        "zh": "本工具停止运行时，Antigravity 窗口一刷新就只显示报错文字，要等本工具恢复或客户端重启。",
-        "en": "While agy-flags is not running, a reloaded Antigravity window shows only an error text until agy-flags runs again or the app restarts."
-      },
       "title": {
         "zh": "界面汉化",
         "en": "Chinese interface"
@@ -110,6 +150,7 @@
     },
     {
       "id": "chinese-titles",
+      "section": "chinese",
       "flags": [],
       "feature": "chineseTitles",
       "requires": [],
@@ -134,6 +175,7 @@
     },
     {
       "id": "conversation-forking",
+      "section": "conversations",
       "flags": [
         "enable-conversation-forking",
         "enable-fork-at-historical-step",
@@ -155,6 +197,7 @@
     },
     {
       "id": "sidebar-redesign",
+      "section": "interface",
       "flags": [
         "enable-sidebar-redesign",
         "enable-sidebar-inbox-mode"
@@ -171,6 +214,7 @@
     },
     {
       "id": "conversation-groups",
+      "section": "conversations",
       "flags": [
         "enable-conversation-groups"
       ],
@@ -186,6 +230,7 @@
     },
     {
       "id": "resource-manager",
+      "section": "interface",
       "flags": [
         "enable-resource-manager"
       ],
@@ -201,6 +246,7 @@
     },
     {
       "id": "artifact-width",
+      "section": "interface",
       "flags": [
         "configure-artifact-width"
       ],
@@ -216,6 +262,7 @@
     },
     {
       "id": "open-with",
+      "section": "interface",
       "flags": [
         "enable-open-with"
       ],
@@ -231,6 +278,7 @@
     },
     {
       "id": "file-pane-sidebar",
+      "section": "interface",
       "flags": [
         "enable-enhanced-file-viewer"
       ],
@@ -246,6 +294,7 @@
     },
     {
       "id": "composer-connectors",
+      "section": "interface",
       "flags": [
         "enable-composer-connectors"
       ],
@@ -261,6 +310,7 @@
     },
     {
       "id": "conversation-telemetry-toggle",
+      "section": "conversations",
       "flags": [
         "enable-per-conversation-telemetry-toggle"
       ],
@@ -276,6 +326,7 @@
     },
     {
       "id": "dictation-rework",
+      "section": "interface",
       "flags": [
         "enable-dictation-rework"
       ],
@@ -291,6 +342,7 @@
     },
     {
       "id": "subagent-models",
+      "section": "agents",
       "flags": [
         "enable-subagent-dropdown-models"
       ],
@@ -306,6 +358,7 @@
     },
     {
       "id": "review-agent",
+      "section": "agents",
       "flags": [
         "enable-review"
       ],
@@ -321,6 +374,7 @@
     },
     {
       "id": "deep-agent",
+      "section": "agents",
       "flags": [
         "enable-deepagent"
       ],
@@ -336,6 +390,7 @@
     },
     {
       "id": "input-drafts",
+      "section": "conversations",
       "flags": [
         "enable-input-draft-persistence"
       ],
@@ -351,6 +406,7 @@
     },
     {
       "id": "github-permissions",
+      "section": "agents",
       "flags": [
         "enable-permissioned-github"
       ],
@@ -366,6 +422,7 @@
     },
     {
       "id": "html-widgets-prompt",
+      "section": "agents",
       "flags": [
         "jetski-generative-ui-prompt"
       ],
@@ -381,6 +438,7 @@
     },
     {
       "id": "marketplace-ranking",
+      "section": "marketplace",
       "flags": [
         "enable-plugin-ranking"
       ],
@@ -396,6 +454,7 @@
     },
     {
       "id": "marketplace-user-count",
+      "section": "marketplace",
       "flags": [
         "enable-marketplace-user-count"
       ],
@@ -411,6 +470,7 @@
     },
     {
       "id": "computer-use",
+      "section": "computer",
       "flags": [
         "enable-agy-hub-cua-macos"
       ],
@@ -434,6 +494,7 @@
     },
     {
       "id": "computer-use-foreground",
+      "section": "computer",
       "flags": [
         "enable-agy-hub-cua-foreground"
       ],
@@ -460,6 +521,7 @@
     },
     {
       "id": "teamwork-model",
+      "section": "agents",
       "flags": [
         "disable-teamwork-forced-flash-model"
       ],

@@ -1,27 +1,33 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { createApi } from '../src/api.mjs';
-import { PING_PATH } from '../src/forward.mjs';
+import { API_PREFIX, createApi, refusal } from '../src/api.mjs';
 import { close, listen, request } from './helpers.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const TOKEN = 'a'.repeat(64);
+const JSON_TYPE = { 'content-type': 'application/json' };
 
-async function setup(t, { failDownload = false } = {}) {
+async function setup(t, { failDownload = false, peerCheck, catalogFile = path.join(ROOT, 'src', 'catalog.json') } = {}) {
   const calls = [];
-  const server = createApi({
-    token: TOKEN,
-    uiDir: path.join(ROOT, 'ui'),
-    catalogFile: path.join(ROOT, 'src', 'catalog.json'),
-    identity: () => ({ pid: 1 }),
+  const checked = [];
+  const api = createApi({
+    catalogFile,
     getState: async () => ({ enabled: true }),
-    getServerFlags: () => ({ version: 1, flags: {} }),
+    getServerFlags: () => ({ version: 1, flags: { a: true } }),
+    peerCheck:
+      peerCheck ??
+      (async (socket) => {
+        checked.push(socket.remotePort);
+        return true;
+      }),
     actions: {
       setFlags: async (changes) => {
         calls.push(['setFlags', changes]);
-        return changes && changes.reject ? { ok: false, error: 'server-type', name: 'reject' } : { ok: true };
+        if (changes && changes.reject) return { ok: false, error: 'server-type', name: 'reject' };
+        if (changes && changes.busy) return { ok: false, error: 'busy' };
+        return { ok: true };
       },
       setFeatures: async (changes, flags) => {
         calls.push(['setFeatures', changes, flags]);
@@ -41,134 +47,178 @@ async function setup(t, { failDownload = false } = {}) {
       },
     },
   });
+  // The page-file server hands over every path below the prefix. So does this one.
+  const server = http.createServer((req, res) => {
+    api(req, res, (req.url || '/').split('?')[0]).catch((err) => {
+      res.writeHead(500);
+      res.end(String(err));
+    });
+  });
   const port = await listen(server);
   t.after(() => close(server));
-  const auth = { 'x-agy-flags-token': TOKEN };
-  const json = { ...auth, 'content-type': 'application/json' };
-  return { port, calls, auth, json };
+  const get = (name, headers = {}) => request({ port, path: `${API_PREFIX}${name}`, headers });
+  const post = (name, body, headers = JSON_TYPE, method = 'POST') =>
+    request({ port, method, path: `${API_PREFIX}${name}`, headers, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  return { port, calls, checked, get, post };
 }
 
 const parse = (res) => JSON.parse(res.body.toString('utf8'));
 
-test('the page is served without a token, with a strict content security policy', async (t) => {
-  const { port } = await setup(t);
-  for (const pathname of ['/', '/app.js', '/style.css']) {
-    const res = await request({ port, path: pathname });
-    assert.equal(res.status, 200, pathname);
-    assert.match(res.headers['content-security-policy'], /default-src 'none'/);
-    assert.match(res.headers['content-security-policy'], /script-src 'self'/);
-    assert.equal(res.headers['x-content-type-options'], 'nosniff');
+test('the state, the flags of the servers and the catalog can be read', async (t) => {
+  const { get } = await setup(t);
+  const state = await get('state.json');
+  assert.equal(state.status, 200);
+  assert.deepEqual(parse(state), { enabled: true });
+  assert.equal(state.headers['content-type'], 'application/json; charset=utf-8');
+  assert.equal(state.headers['cache-control'], 'no-store');
+  assert.equal(state.headers['x-content-type-options'], 'nosniff');
+  assert.equal(state.headers['cross-origin-resource-policy'], 'same-origin');
+  assert.equal(state.headers['access-control-allow-origin'], undefined);
+  assert.deepEqual(parse(await get('server-flags.json')), { version: 1, flags: { a: true } });
+  const catalog = parse(await get('catalog.json'));
+  assert.ok(catalog.groups.length > 0);
+  assert.ok(catalog.sections.length > 0);
+  // A query does not change what is asked for.
+  assert.equal((await get('state.json?x=1')).status, 200);
+});
+
+test('only the known names are answered, and only as <name>.json', async (t) => {
+  const { port, get, post, calls } = await setup(t);
+  for (const name of ['nothing.json', 'state', 'state.txt', 'State.json', '../state.json', 'a/state.json', '', 'flag-notes.json']) {
+    assert.equal((await get(name)).status, 404, name);
   }
-  assert.equal((await request({ port, path: '/../package.json' })).status, 404);
-  assert.equal((await request({ port, path: '/src/config.mjs' })).status, 404);
-});
-
-test('the page has no inline script or style, so the policy does not break it', async (t) => {
-  const { port } = await setup(t);
-  const html = (await request({ port, path: '/' })).body.toString('utf8');
-  assert.ok(!/<script(?![^>]*\bsrc=)/i.test(html), 'inline <script>');
-  assert.ok(!/<style/i.test(html), 'inline <style>');
-  assert.ok(!/\sstyle=/i.test(html), 'style attribute');
-  assert.ok(!/\son[a-z]+=/i.test(html), 'inline event handler');
-});
-
-test('every API call needs the token', async (t) => {
-  const { port, auth, calls } = await setup(t);
-  assert.equal((await request({ port, path: '/api/state' })).status, 401);
-  assert.equal((await request({ port, path: '/api/state', headers: { 'x-agy-flags-token': 'b'.repeat(64) } })).status, 401);
-  assert.equal((await request({ port, path: '/api/state', headers: { 'x-agy-flags-token': 'short' } })).status, 401);
-  const post = await request({ port, method: 'POST', path: '/api/enabled', headers: { 'content-type': 'application/json' }, body: '{"enabled":false}' });
-  assert.equal(post.status, 401);
+  // What can be changed cannot be read, and what can be read cannot be changed.
+  assert.equal((await get('flags.json')).status, 404);
+  assert.equal((await get('prices-refresh.json')).status, 404);
+  assert.equal((await post('state.json', {})).status, 404);
+  assert.equal((await post('nothing.json', {})).status, 404);
+  assert.equal((await post('flags.json', {}, JSON_TYPE, 'PUT')).status, 405);
+  assert.equal((await request({ port, method: 'DELETE', path: `${API_PREFIX}flags.json` })).status, 405);
+  // A name of Object.prototype is not a name of ours.
+  assert.equal((await get('constructor.json')).status, 404);
+  assert.equal((await post('constructor.json', {})).status, 404);
   assert.equal(calls.length, 0);
-  const ok = await request({ port, path: '/api/state', headers: auth });
-  assert.equal(ok.status, 200);
-  assert.deepEqual(parse(ok), { enabled: true });
 });
 
-test('a request with a foreign Host is refused, even with the token', async (t) => {
-  const { port, auth } = await setup(t);
-  for (const host of ['evil.example', `evil.example:${port}`, `127.0.0.1:${port + 1}`]) {
-    const res = await request({ port, path: '/api/state', headers: { ...auth, host } });
+test('an unreadable catalog gives an empty list, not an error', async (t) => {
+  const { get } = await setup(t, { catalogFile: path.join(ROOT, 'no-such-file.json') });
+  assert.deepEqual(parse(await get('catalog.json')), { groups: [] });
+});
+
+test('a caller that is not a program of the same user is refused', async (t) => {
+  const seen = [];
+  const { get, post, calls } = await setup(t, {
+    peerCheck: async (socket) => {
+      seen.push(typeof socket.remotePort);
+      return false;
+    },
+  });
+  const read = await get('state.json');
+  assert.equal(read.status, 403);
+  assert.deepEqual(parse(read), { error: 'caller not recognized' });
+  assert.equal((await post('enabled.json', { enabled: false })).status, 403);
+  assert.equal(calls.length, 0);
+  // The check gets the connection of the request.
+  assert.deepEqual(seen, ['number', 'number']);
+});
+
+test('a request with a foreign Host is refused, before anybody looks up the caller', async (t) => {
+  const { port, get, checked } = await setup(t);
+  for (const host of ['evil.example', `evil.example:${port}`, `127.0.0.1:${port + 1}`, '127.0.0.1', `[::1]:${port}`]) {
+    const res = await get('state.json', { host });
     assert.equal(res.status, 403, host);
+    assert.deepEqual(parse(res), { error: 'bad host' });
   }
-  assert.equal((await request({ port, path: '/', headers: { host: 'evil.example' } })).status, 403);
-  assert.equal((await request({ port, path: '/api/state', headers: { ...auth, host: `localhost:${port}` } })).status, 200);
+  assert.equal(checked.length, 0);
+  assert.equal((await get('state.json', { host: `localhost:${port}` })).status, 200);
+  assert.equal((await get('state.json', { host: `LOCALHOST:${port}` })).status, 200);
+  assert.equal(checked.length, 2);
 });
 
-test('a request from another origin is refused, even with the token', async (t) => {
-  const { port, json, calls } = await setup(t);
-  const body = '{"enabled":false}';
-  const cross = await request({ port, method: 'POST', path: '/api/enabled', headers: { ...json, origin: 'https://evil.example' }, body });
-  assert.equal(cross.status, 403);
-  const otherPort = await request({ port, method: 'POST', path: '/api/enabled', headers: { ...json, origin: `http://127.0.0.1:${port + 1}` }, body });
-  assert.equal(otherPort.status, 403);
-  const site = await request({ port, method: 'POST', path: '/api/enabled', headers: { ...json, 'sec-fetch-site': 'cross-site' }, body });
-  assert.equal(site.status, 403);
+test('a request that a page of another site makes the browser send is refused', async (t) => {
+  const { port, post, get, calls, checked } = await setup(t);
+  const body = { enabled: false };
+  // A browser that talks to us directly names an Origin for every change. Even our own address is refused:
+  // the page of agy-flags never talks to us directly, and the language server removes the header.
+  for (const origin of ['https://evil.example', `http://127.0.0.1:${port + 1}`, `http://127.0.0.1:${port}`, 'null']) {
+    const res = await post('enabled.json', body, { ...JSON_TYPE, origin });
+    assert.equal(res.status, 403, origin);
+    assert.deepEqual(parse(res), { error: 'bad origin' });
+  }
+  // The language server passes this header on. Only a page of its own origin may ask.
+  for (const site of ['cross-site', 'same-site', 'none']) {
+    const res = await post('enabled.json', body, { ...JSON_TYPE, 'sec-fetch-site': site });
+    assert.equal(res.status, 403, site);
+    assert.deepEqual(parse(res), { error: 'cross-site request' });
+    assert.equal((await get('state.json', { 'sec-fetch-site': site })).status, 403, site);
+  }
   assert.equal(calls.length, 0);
-  const same = await request({ port, method: 'POST', path: '/api/enabled', headers: { ...json, origin: `http://127.0.0.1:${port}`, 'sec-fetch-site': 'same-origin' }, body });
+  assert.equal(checked.length, 0);
+  const same = await post('enabled.json', body, { ...JSON_TYPE, 'sec-fetch-site': 'same-origin' });
   assert.equal(same.status, 200);
   assert.deepEqual(calls, [['setEnabled', false]]);
 });
 
-test('POST needs a JSON content type and a small JSON body', async (t) => {
-  const { port, auth, json, calls } = await setup(t);
-  const form = await request({ port, method: 'POST', path: '/api/enabled', headers: { ...auth, 'content-type': 'text/plain' }, body: '{"enabled":false}' });
-  assert.equal(form.status, 415);
-  const broken = await request({ port, method: 'POST', path: '/api/enabled', headers: json, body: '{nope' });
-  assert.equal(broken.status, 400);
-  const array = await request({ port, method: 'POST', path: '/api/enabled', headers: json, body: '[]' });
-  assert.equal(array.status, 400);
-  const big = await request({ port, method: 'POST', path: '/api/flags', headers: json, body: JSON.stringify({ pad: 'x'.repeat(70 * 1024) }) });
-  assert.equal(big.status, 413);
+test('a change needs a JSON content type and a small JSON object', async (t) => {
+  const { post, calls } = await setup(t);
+  // What a form of another site can send without asking first.
+  for (const type of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', '']) {
+    const res = await post('enabled.json', '{"enabled":false}', type ? { 'content-type': type } : {});
+    assert.equal(res.status, 415, type);
+  }
+  assert.equal((await post('enabled.json', '{nope')).status, 400);
+  assert.equal((await post('enabled.json', '[]')).status, 400);
+  assert.equal((await post('enabled.json', 'null')).status, 400);
+  assert.equal((await post('enabled.json', '"text"')).status, 400);
+  assert.equal((await post('flags.json', { pad: 'x'.repeat(70 * 1024) })).status, 413);
   assert.equal(calls.length, 0);
+  assert.equal((await post('enabled.json', { enabled: true }, { 'content-type': 'Application/JSON; charset=utf-8' })).status, 200);
+  assert.deepEqual(calls, [['setEnabled', true]]);
 });
 
-test('actions are called and their refusals come back as 400', async (t) => {
-  const { port, json, auth, calls } = await setup(t);
-  const ok = await request({ port, method: 'POST', path: '/api/flags', headers: json, body: '{"changes":{"a":true,"b":null}}' });
-  assert.equal(ok.status, 200);
-  const refused = await request({ port, method: 'POST', path: '/api/flags', headers: json, body: '{"changes":{"reject":true}}' });
+test('each change calls its action, and a refusal comes back with its own status', async (t) => {
+  const { post, calls } = await setup(t);
+  assert.equal((await post('flags.json', { changes: { a: true, b: null } })).status, 200);
+  const refused = await post('flags.json', { changes: { reject: true } });
   assert.equal(refused.status, 400);
-  assert.equal(parse(refused).error, 'server-type');
-  assert.equal((await request({ port, method: 'POST', path: '/api/restart-client', headers: json, body: '{}' })).status, 200);
-  assert.deepEqual(calls, [['setFlags', { a: true, b: null }], ['setFlags', { reject: true }], ['restartClient']]);
-
-  assert.equal((await request({ port, method: 'POST', path: '/api/nothing', headers: json, body: '{}' })).status, 404);
-  assert.equal((await request({ port, method: 'PUT', path: '/api/flags', headers: json, body: '{}' })).status, 405);
-  assert.equal((await request({ port, path: '/api/nothing', headers: auth })).status, 404);
-  const catalog = parse(await request({ port, path: '/api/catalog', headers: auth }));
-  assert.ok(catalog.groups.length > 0);
-  // The flag notes of the old "all flags" list are gone.
-  assert.equal((await request({ port, path: '/api/flag-notes', headers: auth })).status, 404);
-});
-
-test('the ping needs no token', async (t) => {
-  const { port } = await setup(t);
-  const res = await request({ port, path: PING_PATH });
-  assert.deepEqual(parse(res), { app: 'agy-flags', role: 'ui', pid: 1 });
-});
-
-test('features of agy-flags and the price list have their own paths', async (t) => {
-  const { port, calls, auth, json } = await setup(t);
-  const post = (pathname, body, headers = json) => request({ port, method: 'POST', path: pathname, headers, body: JSON.stringify(body) });
-  assert.equal((await post('/api/features', { changes: { costPrices: true }, flags: { 'enable-cost-accumulator': true } })).status, 200);
-  assert.equal((await post('/api/features', { changes: { costPrices: false } })).status, 200);
-  assert.equal((await post('/api/prices/refresh', {})).status, 200);
+  assert.deepEqual(parse(refused), { ok: false, error: 'server-type', name: 'reject' });
+  assert.equal((await post('flags.json', { changes: { busy: true } })).status, 409);
+  assert.equal((await post('features.json', { changes: { costPrices: true }, flags: { 'enable-cost-accumulator': true } })).status, 200);
+  assert.equal((await post('features.json', { changes: { costPrices: false } })).status, 200);
+  assert.equal((await post('enabled.json', { enabled: false })).status, 200);
+  assert.equal((await post('prices-refresh.json', {})).status, 200);
+  const restart = await post('restart-client.json', {});
+  assert.equal(restart.status, 200);
+  assert.deepEqual(parse(restart), { ok: true });
   assert.deepEqual(calls, [
+    ['setFlags', { a: true, b: null }],
+    ['setFlags', { reject: true }],
+    ['setFlags', { busy: true }],
     ['setFeatures', { costPrices: true }, { 'enable-cost-accumulator': true }],
     ['setFeatures', { costPrices: false }, undefined],
+    ['setEnabled', false],
     ['refreshPrices'],
+    ['restartClient'],
   ]);
-  // The token is needed as for every other change.
-  assert.equal((await post('/api/features', { changes: { costPrices: true } }, { 'content-type': 'application/json' })).status, 401);
-  assert.equal((await post('/api/prices/refresh', {}, { 'content-type': 'application/json' })).status, 401);
-  assert.equal(calls.length, 3);
-  assert.equal((await request({ port, path: '/api/prices/refresh', headers: auth })).status, 404);
 });
 
 test('a download of the price list that fails is told to the page', async (t) => {
-  const { port, json } = await setup(t, { failDownload: true });
-  const res = await request({ port, method: 'POST', path: '/api/prices/refresh', headers: json, body: '{}' });
+  const { post } = await setup(t, { failDownload: true });
+  const res = await post('prices-refresh.json', {});
   assert.equal(res.status, 502);
   assert.deepEqual(parse(res), { ok: false, error: 'download-failed', detail: 'offline' });
+});
+
+test('refusal: the reasons, in the order they are looked at', () => {
+  const req = (headers, localPort = 47933) => ({ headers, socket: { localPort } });
+  assert.equal(refusal(req({ host: '127.0.0.1:47933' })), null);
+  assert.equal(refusal(req({ host: 'localhost:47933', 'sec-fetch-site': 'same-origin' })), null);
+  assert.equal(refusal(req({})), 'bad host');
+  assert.equal(refusal(req({ host: '127.0.0.1:47933' }, 47931)), 'bad host');
+  assert.equal(refusal(req({ host: 'evil.example', origin: 'https://evil.example' })), 'bad host');
+  assert.equal(refusal(req({ host: '127.0.0.1:47933', origin: '' })), 'bad origin');
+  assert.equal(refusal(req({ host: '127.0.0.1:47933', origin: 'http://127.0.0.1:47933', 'sec-fetch-site': 'cross-site' })), 'bad origin');
+  assert.equal(refusal(req({ host: '127.0.0.1:47933', 'sec-fetch-site': 'cross-site' })), 'cross-site request');
+  assert.equal(refusal(req({ host: '127.0.0.1:47933', 'sec-fetch-site': '' })), 'cross-site request');
+  assert.equal(refusal({ headers: { host: '127.0.0.1:47933' } }), 'bad host');
 });

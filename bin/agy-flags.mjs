@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Command line for agy-flags. Run `agy-flags help` for the list of commands.
 
-import { execFile, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -15,14 +15,17 @@ Usage: agy-flags <command>
   uninstall             Stop it and remove the login item
       --restart-client    also restart Antigravity when it still runs through agy-flags
       --purge             also delete the settings in the data directory
-  ui                    Open the web page   (--print shows the address instead)
   status                Show what is running and what is changed
   daemon                Run in the foreground (this is what the login item runs)
   help, --version
 
-agy-flags does not modify the Antigravity app. It runs two local forwarders and points the
-app at them with two login-session environment variables. Only requests of the desktop app
-are changed; requests of the agy command line pass through unchanged. See README.md.
+The features are chosen inside Antigravity: Settings > AGY-flags. The page is there after
+Antigravity was restarted once while agy-flags runs. When the page is missing, "agy-flags
+status" says why, and the same choices can be written into config.json in the data directory.
+
+agy-flags does not modify the Antigravity app. It runs local forwarders and points the app at
+them with login-session environment variables. Only requests of the desktop app are changed;
+requests of the agy command line pass through unchanged. See README.md.
 `;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -81,10 +84,10 @@ function makeLogger(file) {
   };
 }
 
-function apiGet(port, token, pathname) {
+function apiGet(port, pathname) {
   return new Promise((resolve) => {
     const req = http.get(
-      { host: '127.0.0.1', port, path: pathname, timeout: 8000, agent: false, headers: { 'x-agy-flags-token': token } },
+      { host: '127.0.0.1', port, path: pathname, timeout: 8000, agent: false },
       (res) => {
         const chunks = [];
         res.on('data', (chunk) => chunks.push(chunk));
@@ -157,6 +160,7 @@ async function cmdInstall() {
   const launchd = await import('../src/launchd.mjs');
   const { loadConfig } = await import('../src/config.mjs');
   const { ping } = await import('../src/daemon.mjs');
+  const client = await import('../src/client.mjs');
   const config = loadConfig();
 
   const before = await launchd.unload();
@@ -166,13 +170,15 @@ async function cmdInstall() {
 
   let answer = null;
   const deadline = Date.now() + 15000;
-  while (Date.now() < deadline && !(answer = await ping(config.ports.ui))) await sleep(300);
+  while (Date.now() < deadline && !(answer = await ping(config.ports.devui))) await sleep(300);
   if (!answer) {
     fail(`the daemon did not start. See the log: ${path.join(path.dirname(loaded.root), 'daemon.log')}`);
   }
   console.log(`agy-flags is running (pid ${answer.pid}) and starts at every login.`);
   console.log(`Program copied to: ${loaded.root}`);
-  console.log('Next: run "agy-flags ui", choose features, then restart Antigravity.');
+  // The settings page is a part of the Antigravity window, and the window is loaded when the app starts.
+  const { running } = await client.clientState(config.appPath);
+  console.log(`Next: ${running ? 'quit and reopen' : 'open'} Antigravity, then open Settings > AGY-flags and choose features.`);
 }
 
 async function cmdUninstall(args) {
@@ -197,7 +203,7 @@ async function cmdUninstall(args) {
   }
 
   const state = await client.clientState(config.appPath);
-  const { carries } = computePending({
+  const { carries, routed } = computePending({
     enabled: false,
     client: state,
     base: env.ourEnv(config.ports),
@@ -209,8 +215,9 @@ async function cmdUninstall(args) {
       const result = await client.restartClient(config.appPath);
       console.log(result.ok ? 'Antigravity was restarted and now connects directly.' : `Could not restart Antigravity: ${result.error}`);
     } else {
-      console.log('Antigravity is still running with the old settings. It can no longer reach its servers,');
-      console.log('and a window that is reloaded can no longer load its page.');
+      // With rewriting off, the client had only the variable for the page files.
+      console.log(`Antigravity is still running with the settings of agy-flags.${routed ? ' It can no longer reach its servers,' : ''}`);
+      console.log(`${routed ? 'and a' : 'A'} window that is reloaded can no longer load its page.`);
       console.log('Quit and reopen Antigravity now.');
     }
   }
@@ -219,26 +226,10 @@ async function cmdUninstall(args) {
   console.log('variables. Quit and reopen them before you use the agy command line there.');
 }
 
-async function cmdUi(args) {
-  const { loadConfig, ensureToken } = await import('../src/config.mjs');
-  const { ping } = await import('../src/daemon.mjs');
-  const config = loadConfig();
-  if (!(await ping(config.ports.ui))) {
-    fail('the daemon is not running. Run "agy-flags install" first (or "agy-flags daemon" in another terminal).');
-  }
-  // The token travels in the fragment, which browsers do not send to any server.
-  const url = `http://127.0.0.1:${config.ports.ui}/#t=${ensureToken()}`;
-  if (args.includes('--print')) {
-    console.log(url);
-    return;
-  }
-  await new Promise((resolve) => execFile('/usr/bin/open', [url], () => resolve()));
-  console.log(`Opened http://127.0.0.1:${config.ports.ui}/ in the default browser.`);
-}
-
 async function cmdStatus() {
-  const { loadConfig, ensureToken, dataDir } = await import('../src/config.mjs');
+  const { loadConfig, dataDir } = await import('../src/config.mjs');
   const { ping, VERSION } = await import('../src/daemon.mjs');
+  const { API_PREFIX } = await import('../src/api.mjs');
   const config = loadConfig();
   console.log(`agy-flags ${VERSION}`);
   console.log(`data directory: ${dataDir()}`);
@@ -246,7 +237,7 @@ async function cmdStatus() {
     const launchd = await import('../src/launchd.mjs');
     console.log(`login item:     ${(await launchd.isLoaded()) ? 'loaded' : 'not loaded'}`);
   }
-  const answer = await ping(config.ports.ui);
+  const answer = await ping(config.ports.devui);
   if (!answer) {
     console.log('daemon:         not running');
     if (process.platform === 'darwin') {
@@ -259,7 +250,7 @@ async function cmdStatus() {
     return;
   }
   console.log(`daemon:         running (pid ${answer.pid})`);
-  const state = await apiGet(config.ports.ui, ensureToken(), '/api/state');
+  const state = await apiGet(config.ports.devui, `${API_PREFIX}state.json`);
   if (!state) {
     console.log('could not read the state from the daemon');
     return;
@@ -295,9 +286,6 @@ switch (command) {
     break;
   case 'uninstall':
     await cmdUninstall(args);
-    break;
-  case 'ui':
-    await cmdUi(args);
     break;
   case 'status':
     await cmdStatus();

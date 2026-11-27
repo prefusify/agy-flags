@@ -13,7 +13,7 @@ import { dataDir, ensureDataDir } from './config.mjs';
 
 export const LABEL = 'dev.agy-flags.daemon';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const COPIED = ['bin', 'src', 'ui', 'package.json', 'LICENSE', 'README.md'];
+const COPIED = ['bin', 'src', 'package.json', 'LICENSE', 'README.md'];
 
 export const plistPath = () => path.join(os.homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 export const installedRoot = () => path.join(dataDir(), 'app');

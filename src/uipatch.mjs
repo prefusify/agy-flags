@@ -13,6 +13,9 @@
 // A third change adds a translator to the end of the script (see l10n.mjs). It shows the
 // text of the page in Chinese.
 //
+// A fourth change adds the page of agy-flags to the settings of the client (see
+// settingspage.mjs).
+//
 // The changes do not depend on each other. Nothing else in the script changes.
 //
 // The page script is minified, and its internal names change with every release. So the
@@ -24,6 +27,7 @@
 
 import vm from 'node:vm';
 import { patchL10n } from './l10n.mjs';
+import { patchSettingsPage } from './settingspage.mjs';
 
 /** The empty place for the indicator in the public build. */
 export const INDICATOR_ANCHOR = 'contextUsageIndicator:void 0,';
@@ -636,6 +640,8 @@ export function indicatorReplacement(names) {
 export const PART_INDICATOR = 'contextUsageIndicator';
 export const PART_COSTS = 'costPrices';
 export const PART_L10N = 'l10n';
+/** The page of agy-flags in the settings. It belongs to no entry of the catalog. */
+export const PART_SETTINGS = 'settingsPage';
 
 function patchIndicator(source) {
   const first = source.indexOf(INDICATOR_ANCHOR);
@@ -657,15 +663,17 @@ function patchIndicator(source) {
  * @param {boolean} [options.indicator=true] Add the context usage indicator.
  * @param {object|null} [options.prices=null] Fill in the costs from this price table.
  * @param {object|null} [options.l10n=null]   Show the page in Chinese with this word list.
+ * @param {{ api: string }|null} [options.settings=null] Add the page of agy-flags to the settings.
  * @param {boolean} [options.check=true]     Parse the result before it is returned.
  * @returns {{ ok: boolean, source: string, reason?: string, names?: object, parts: object }}
  *          `ok` is true when every change that was asked for was made. `parts` says for each
  *          of them { ok, reason }. One change that cannot be made does not stop the others.
  *          `source` holds the changes that were made; it is the unchanged input when there are none.
  */
-export function patchMainJs(source, { check = true, indicator = true, prices = null, l10n = null } = {}) {
+export function patchMainJs(source, { check = true, indicator = true, prices = null, l10n = null, settings = null } = {}) {
   if (typeof source !== 'string') return { ok: false, source, reason: 'not a script', parts: {} };
   const steps = [];
+  if (settings) steps.push([PART_SETTINGS, (text) => patchSettingsPage(text, settings)]);
   if (indicator) steps.push([PART_INDICATOR, (text) => patchIndicator(text)]);
   if (prices) steps.push([PART_COSTS, (text) => patchCostSummary(text, prices)]);
   // The translator goes to the end, so it comes last.

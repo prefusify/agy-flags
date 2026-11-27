@@ -3,8 +3,6 @@
 #
 #   Install or update:
 #     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash
-#   Open the settings page again (changes nothing):
-#     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- open
 #   Show the status:
 #     curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- status
 #   Remove:
@@ -17,7 +15,8 @@
 #   2. Downloads agy-flags from GitHub (or uses the folder this script is in).
 #   3. Runs "agy-flags install": copies the program into the data folder and registers a
 #      login item that starts it at every login.
-#   4. Opens the settings page in the default browser.
+#   4. Says how to reach the settings page: it is inside Antigravity, under Settings > AGY-flags,
+#      after Antigravity was restarted once.
 #
 # The data folder is ~/Library/Application Support/agy-flags. This script writes nowhere else,
 # apart from the login item in ~/Library/LaunchAgents that agy-flags itself registers.
@@ -198,32 +197,19 @@ cmd_install() {
       "Note: Antigravity was not found in Applications. agy-flags does nothing until it is installed."
   fi
 
-  local opened=0
-  if [ "${AGY_FLAGS_NO_OPEN:-}" != "1" ] && "$node" "$APP_SCRIPT" ui >/dev/null 2>&1; then opened=1; fi
-
   say "" ""
   say "安装完成。agy-flags 已经在运行，以后每次登录会自动启动。" "Done. agy-flags is running and starts at every login."
   say "接下来：" "Next:"
-  if [ "$opened" = 1 ]; then
-    say "  1. 设置页已经在浏览器里打开。建议把它加入书签，以后直接从书签打开。" \
-      "  1. The settings page is open in your browser. Bookmark it, and open it from the bookmark later."
-  else
-    say "  1. 设置页没有自动打开。用下面「书签打不开时」的那一行打开它，然后把它加入书签。" \
-      "  1. The settings page did not open. Open it with the line given below, then bookmark it."
-  fi
-  say "  2. 在页面上选好要开的功能。" "  2. Choose the features you want on that page."
+  say "  1. 退出并重新打开 Antigravity（已经开着的窗口里还没有设置页）。" "  1. Quit and reopen Antigravity (a window that is already open does not have the page yet)."
+  say "  2. 在 Antigravity 里打开「设置」，左侧最后一项是 AGY-flags，在那里选要开的功能。" "  2. In Antigravity, open Settings. The last entry on the left is AGY-flags; choose your features there."
   say "  3. 按页面上的提示重启 Antigravity，功能就生效了。" "  3. Restart Antigravity when the page asks you to. The features are then on."
   say "" ""
-  say "书签打不开时，运行下面这一行。它只重新打开设置页，别的都不动：" \
-    "If the bookmark stops working, run the line below. It only opens the settings page again:"
-  say "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- open" \
-    "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- open"
   say "要卸载，运行：" "To remove agy-flags, run:"
   say "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- uninstall" \
     "  curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/install.sh | bash -s -- uninstall"
 }
 
-# ---- open, status ---------------------------------------------------------------------
+# ---- status ---------------------------------------------------------------------
 
 # Runs one command of the installed program. Installs nothing and restarts nothing.
 run_installed() {
@@ -234,13 +220,6 @@ run_installed() {
     die "agy-flags 还没有安装。请先运行安装命令。" "agy-flags is not installed. Run the install command first."
   fi
   "$node" "$APP_SCRIPT" "$@"
-}
-
-cmd_open() {
-  run_installed ui >/dev/null ||
-    die "打不开设置页：agy-flags 的常驻进程没有在运行。请再运行一次安装命令。" \
-      "could not open the settings page: the agy-flags daemon is not running. Run the install command again."
-  say "设置页已经在浏览器里打开。" "The settings page is open in your browser."
 }
 
 # ---- removal --------------------------------------------------------------------------
@@ -321,14 +300,13 @@ main() {
 
   case "${1:-install}" in
     install) cmd_install ;;
-    open | ui) cmd_open ;;
     status) run_installed status ;;
     uninstall)
       shift
       cmd_uninstall "$@"
       ;;
     -h | --help | help)
-      say "用法：install.sh [install | open | status | uninstall [--purge]]" "Usage: install.sh [install | open | status | uninstall [--purge]]"
+      say "用法：install.sh [install | status | uninstall [--purge]]" "Usage: install.sh [install | status | uninstall [--purge]]"
       ;;
     *) die "不认识的参数：$1" "unknown argument: $1" ;;
   esac

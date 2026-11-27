@@ -28,7 +28,7 @@ const DATA = {
 
 // ---- a page that is just enough for the translator ------------------------------------------
 
-/** What a page gives the translator: elements, text nodes, and an observer that is told about changes. */
+/** What a page gives the translator: elements, text/comment nodes, and an observer that is told about changes. */
 function fakePage() {
   const observers = [];
   const tell = (record) => {
@@ -83,6 +83,12 @@ function fakePage() {
       },
     };
   };
+  const comment = (value = '') => ({
+    nodeType: 8,
+    nodeValue: value,
+    parentNode: null,
+    nextSibling: null,
+  });
   /** el('div', { class: 'a b', title: 'x' }, child, 'text', ...) */
   const el = (tag, attrs = {}, ...children) => {
     const attributes = new Map(Object.entries(attrs));
@@ -108,6 +114,24 @@ function fakePage() {
         for (const child of added) link(node, child);
         tell({ type: 'childList', target: node, addedNodes: added, removedNodes: [] });
         return added.length === 1 ? added[0] : added;
+      },
+      insertBefore(newChild, refChild) {
+        const child = typeof newChild === 'string' ? text(newChild) : newChild;
+        if (!refChild) return node.append(child);
+        child.parentNode = node;
+        if (node.firstChild === refChild) {
+          child.nextSibling = refChild;
+          node.firstChild = child;
+        } else {
+          let before = null;
+          for (let cur = node.firstChild; cur && cur !== refChild; cur = cur.nextSibling) before = cur;
+          if (before) {
+            child.nextSibling = refChild;
+            before.nextSibling = child;
+          }
+        }
+        tell({ type: 'childList', target: node, addedNodes: [child], removedNodes: [] });
+        return child;
       },
       removeChild(child) {
         let before = null;
@@ -135,7 +159,7 @@ function fakePage() {
   const html = el('html');
   const body = el('body');
   link(html, body);
-  return { el, text, body, settle, observers, document: { documentElement: html }, MutationObserver: Observer };
+  return { el, text, comment, body, settle, observers, document: { documentElement: html }, MutationObserver: Observer };
 }
 
 /** The translator, working on a fake page. */
@@ -157,7 +181,16 @@ function setup(data = DATA) {
 
 const textOf = (node) => {
   let out = '';
-  for (let child = node.firstChild; child; child = child.nextSibling) out += child.nodeType === 3 ? child.nodeValue : textOf(child);
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.nodeType === 3) out += child.nodeValue;
+    else if (child.nodeType === 1) out += textOf(child);
+  }
+  return out;
+};
+
+const childrenOf = (node) => {
+  const out = [];
+  for (let child = node.firstChild; child; child = child.nextSibling) out.push(child);
   return out;
 };
 
@@ -183,6 +216,42 @@ test('a text is looked up whole, and keeps the spaces around it', () => {
 test('names of an object are not entries', () => {
   const { lookup } = l10nFactory(DATA);
   for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.equal(lookup(name), null, name);
+});
+
+test('typographic quotes and ellipsis are normalized without folding letter case', () => {
+  const { lookup } = l10nFactory({
+    exact: {
+      'Searching...': '搜索中…',
+      'Starting…': '启动中…',
+      "Don't ask again": '不再询问',
+      'This site can’t be reached': '无法访问此网站',
+      'No sites match "foo".': '没有匹配「foo」的网站。',
+      Settings: '设置',
+    },
+    patterns: [
+      ['^Loading (.+?)\\.\\.\\.$', '加载 $1 中…'],
+      ['^Zipping (.+?)…$', '压缩 $1 中…'],
+      ['^No sites match “(.+?)”\\.$', '没有匹配「$1」的网站。'],
+    ],
+  });
+  // Ellipsis both directions
+  assert.equal(lookup('Searching…'), '搜索中…');
+  assert.equal(lookup('Searching...'), '搜索中…');
+  assert.equal(lookup('Starting...'), '启动中…');
+  assert.equal(lookup('Starting…'), '启动中…');
+  // Curly vs straight quotes both directions
+  assert.equal(lookup('Don’t ask again'), '不再询问');
+  assert.equal(lookup("This site can't be reached"), '无法访问此网站');
+  assert.equal(lookup('No sites match “foo”.'), '没有匹配「foo」的网站。');
+  // Patterns match across ellipsis and curly quotes
+  assert.equal(lookup('Loading branches…'), '加载 branches 中…');
+  assert.equal(lookup('Zipping archive...'), '压缩 archive 中…');
+  assert.equal(lookup('Zipping archive…'), '压缩 archive 中…');
+  assert.equal(lookup('No sites match "example.com".'), '没有匹配「example.com」的网站。');
+  assert.equal(lookup('No sites match “example.com”.'), '没有匹配「example.com」的网站。');
+  // Letter case is never folded.
+  assert.equal(lookup('settings'), null);
+  assert.equal(lookup('SETTINGS'), null);
 });
 
 test('a pattern is only tried for a text that has its fixed words', () => {
@@ -229,23 +298,64 @@ test('a more particular pattern wins over a general one, in whatever order they 
   }
 });
 
-test('a pattern with one fixed word is not used for a sentence', () => {
+test('fixedText handles \\s+ and constrained groups outrank wildcard patterns regardless of order', () => {
+  const rows = [
+    ['^Thought for (.+)$', '思考了 $1'],
+    ['^Thought for (.+?)s$', '思考了 $1 秒'],
+    ['^Thought\\s+for\\s+(\\d+)\\s*m\\s+(\\d+(?:\\.\\d+)?)\\s*s$', '已思考 $1 分钟 $2 秒'],
+    ['^Thought\\s+for\\s+(\\d+)\\s*m$', '已思考 $1 分钟'],
+    ['^Thought\\s+for\\s+(\\d+(?:\\.\\d+)?)\\s*s$', '已思考 $1 秒'],
+    ['^Worked for (.+)$', '耗时 $1'],
+    ['^Worked\\s+for\\s+(\\d+)\\s*m\\s+(\\d+(?:\\.\\d+)?)\\s*s$', '已处理 $1 分钟 $2 秒'],
+    ['^Worked\\s+for\\s+(\\d+(?:\\.\\d+)?)\\s*s$', '已处理 $1 秒'],
+    ['^(.+?) active conversations$', '通配 $1 个活跃对话'],
+    ['^(\\d+) active conversations$', '数字 $1 个活跃对话'],
+    ['^(.+?) Queues after the turn$', '通配 $1'],
+    ['^(Enter|Alt\\+Enter) Queues after the turn$', '枚举 $1'],
+    ['^Executing\\s+task:\\s+(.+)$', '执行任务：$1'],
+  ];
+  for (const patterns of [rows, [...rows].reverse()]) {
+    const { lookup } = l10nFactory({ exact: {}, patterns });
+    assert.equal(lookup('Thought for 2m 15s'), '已思考 2 分钟 15 秒');
+    assert.equal(lookup('Thought for 5m'), '已思考 5 分钟');
+    assert.equal(lookup('Thought for 5s'), '已思考 5 秒');
+    assert.equal(lookup('Worked for 1m 23s'), '已处理 1 分钟 23 秒');
+    assert.equal(lookup('Worked for 42s'), '已处理 42 秒');
+    assert.equal(lookup('42 active conversations'), '数字 42 个活跃对话');
+    assert.equal(lookup('Enter Queues after the turn'), '枚举 Enter');
+    // Multi-word \s+ pattern is NOT falsely classified as loose=true.
+    assert.equal(
+      lookup('Executing task: Run all integration tests across the workspace'),
+      '执行任务：Run all integration tests across the workspace'
+    );
+  }
+});
+
+test('a pattern with one fixed word is not used for a sentence, except explicit colon prefixes', () => {
   const { lookup } = l10nFactory({
     exact: {},
     patterns: [
       ['^Turn (.+?)$', '第 $1 轮'],
       ['^Using (.+?)$', '正在使用 $1'],
+      ['^Show (.+?)$', '显示 $1'],
+      ['^Creating (.+?)$', '创建 $1 中…'],
       ['^Context: (.+)$', '上下文：$1'],
+      ['^Error: (.+?)$', '错误：$1'],
       ['^Thought for (.+?)$', '思考了 $1'],
     ],
   });
-  // What a pattern of one word is for: a number, a name, a few words.
+  // What a pattern of one word is for: a number, a name, a few words (up to 3-word names).
   assert.equal(lookup('Turn 3'), '第 3 轮');
   assert.equal(lookup('Using Google Chrome'), '正在使用 Google Chrome');
+  assert.equal(lookup('Using Visual Studio Code'), '正在使用 Visual Studio Code');
   assert.equal(lookup('Context: 37.5k / 840k (4.5%)'), '上下文：37.5k / 840k (4.5%)');
-  // A sentence of the server, which only starts with the same word.
+  // A sentence of the server, including sentences mixed with numbers, is rejected.
   assert.equal(lookup('Turn Figma designs into production code, map components'), null);
   assert.equal(lookup('Using the Google Antigravity Python SDK to build agents'), null);
+  assert.equal(lookup('Show all 5 remaining items'), null);
+  assert.equal(lookup('Creating project 42 took > 7 seconds'), null);
+  // Explicit colon-prefixed UI labels translate even with longer messages.
+  assert.equal(lookup('Error: Failed to connect to the remote server due to timeout'), '错误：Failed to connect to the remote server due to timeout');
   // A pattern with more fixed words is trusted with a longer part.
   assert.equal(lookup('Thought for a long time about the question'), '思考了 a long time about the question');
 });
@@ -258,9 +368,14 @@ test('a pattern must be simple', () => {
     'Show (\\d+) More',
     '^Show (\\d+) More',
     'Show (\\d+) More$',
+    '^ Show (\\d+) More$',
+    '^Show (\\d+) More $',
     '^(a+)+$',
     '^(a|b)*c$',
     '^(\\d+){2,} x$',
+    '^(.+)(.+)$',
+    '^(.+?)(.+?) end$',
+    '^(.+) a (.+) b (.+) c (.+) d (.+)$',
     '^Open (.+)$|^Close$',
     '^(.+) \\1$',
     '^(unclosed$',
@@ -274,8 +389,19 @@ test('a pattern must be simple', () => {
   }
 });
 
-test('a word list is checked before it goes into the page', () => {
+test('a word list is checked before it goes into the page, including optional inline templates', () => {
   assert.equal(isDictionary(DATA), true);
+  assert.equal(
+    isDictionary({
+      ...DATA,
+      inline: {
+        'Always open {1} links without asking': '始终直接打开 {1} 链接，不再询问',
+        '{1} Press {2} to continue': '{1} 按 {2} 继续',
+        'Visit {1} or {2} for {3}.': '访问 {1} 或 {2} 获取 {3}。',
+      },
+    }),
+    true
+  );
   const bad = [
     null,
     [],
@@ -294,6 +420,15 @@ test('a word list is checked before it goes into the page', () => {
     { exact: { a: 'b' }, patterns: [['^Show (\\d+)$', '项 $']] },
     { exact: { a: 'b' }, patterns: [['^Show (\\d+)$']] },
     { exact: { a: 'b' }, patterns: 'none' },
+    // Invalid inline tables
+    { exact: { a: 'b' }, patterns: [], inline: [] },
+    { exact: { a: 'b' }, patterns: [], inline: { 'No slots here': '没有槽位' } },
+    { exact: { a: 'b' }, patterns: [], inline: { 'Swap {1} and {2}': '交换 {2} 和 {1}' } },
+    { exact: { a: 'b' }, patterns: [], inline: { 'Too many {1} {2} {3} {4}': '太多 {1} {2} {3} {4}' } },
+    // Boundary violations: must not add text where DOM has no text node
+    { exact: { a: 'b' }, patterns: [], inline: { '{1} files': '共 {1} 个文件' } },
+    { exact: { a: 'b' }, patterns: [], inline: { 'Open {1}': '打开 {1} 项' } },
+    { exact: { a: 'b' }, patterns: [], inline: { 'Use {1}{2} now': '使用 {1} 和 {2}' } },
   ];
   for (const data of bad) assert.equal(isDictionary(data), false, JSON.stringify(data));
   assert.equal(patchL10n('var a=1;', { exact: {}, patterns: [] }).ok, false);
@@ -312,8 +447,13 @@ test('the word list file is read, and a broken one gives nothing', (t) => {
   const first = loadDictionary(file);
   assert.deepEqual(first.data, DATA);
   assert.equal(first.count, 9);
-  fs.writeFileSync(file, JSON.stringify({ ...DATA, exact: { ...DATA.exact, Close: '关闭' } }));
-  assert.notEqual(loadDictionary(file).version, first.version);
+  // Optional inline field is preserved and counted when present.
+  const withInline = { ...DATA, inline: { 'Always open {1} links': '始终打开 {1} 链接' } };
+  fs.writeFileSync(file, JSON.stringify(withInline));
+  const second = loadDictionary(file);
+  assert.deepEqual(second.data, withInline);
+  assert.equal(second.count, 10);
+  assert.notEqual(second.version, first.version);
 });
 
 // ---- the page -------------------------------------------------------------------------------
@@ -322,9 +462,10 @@ test('the text and the attributes of the page are translated when the translator
   const page = setup();
   t.after(page.restore);
   const button = page.el('button', { title: 'Copy', 'aria-label': 'More options', id: 'Settings' }, 'Settings');
-  const input = page.el('input', { placeholder: 'Search…' });
+  const input = page.el('input', { placeholder: 'Search…', 'aria-valuetext': 'Settings', 'aria-roledescription': 'Copy' });
+  const slot = page.el('span', { 'data-slot-out': 'Settings', 'aria-hidden': 'true' });
   const unknown = page.el('p', {}, 'Nothing in the list');
-  page.body.append(page.el('div', {}, button, input, unknown, page.el('span', {}, ' Show 3 More ')));
+  page.body.append(page.el('div', {}, button, input, slot, unknown, page.el('span', {}, ' Show 3 More ')));
   page.start();
   assert.equal(textOf(button), '设置');
   assert.equal(button.getAttribute('title'), '复制');
@@ -332,12 +473,15 @@ test('the text and the attributes of the page are translated when the translator
   // An attribute that the user does not see stays.
   assert.equal(button.getAttribute('id'), 'Settings');
   assert.equal(input.getAttribute('placeholder'), '搜索…');
+  assert.equal(input.getAttribute('aria-valuetext'), '设置');
+  assert.equal(input.getAttribute('aria-roledescription'), '复制');
+  assert.equal(slot.getAttribute('data-slot-out'), '设置');
   assert.equal(textOf(unknown), 'Nothing in the list');
   assert.equal(textOf(page.body), '设置Nothing in the list 再显示 3 项 ');
   assert.deepEqual([...L10N_ATTRIBUTES].sort(), [...page.observers[0].options.attributeFilter].sort());
 });
 
-test('code, editors, input fields and drawings are never translated', (t) => {
+test('code, editors, Shiki code/diff blocks, PDF text layers and drawings are never translated', (t) => {
   const page = setup();
   t.after(page.restore);
   const closed = [
@@ -353,24 +497,72 @@ test('code, editors, input fields and drawings are never translated', (t) => {
     page.el('div', { class: 'view monaco-editor' }, page.el('button', { title: 'Copy' }, 'Settings')),
     page.el('div', { class: 'xterm' }, page.el('span', {}, 'Settings')),
     page.el('span', { class: 'katex' }, 'Settings'),
+    page.el('div', { class: 'code-block' }, page.el('div', { class: 'code-line' }, page.el('span', {}, 'Settings'))),
+    page.el('div', { 'data-testid': 'pdf-text-layer', class: 'textLayer' }, page.el('span', {}, 'Settings')),
+    page.el('span', { 'data-line-tokens': '' }, page.el('span', {}, 'Settings')),
   ];
   page.body.append(...closed, page.el('div', { contenteditable: 'false' }, 'Settings'));
   page.start();
   for (const node of closed) assert.equal(textOf(node), node.tagName === 'KBD' ? 'Copy' : 'Settings', node.tagName);
   assert.equal(closed[9].firstChild.getAttribute('title'), 'Copy');
   assert.equal(textOf(page.body.lastChild), '设置');
-  // A button inside an editor is still inside the editor.
+  // A button inside an editor or PDF layer is still closed.
   assert.equal(page.translator.modeOf(closed[9].firstChild), 0);
+  assert.equal(page.translator.modeOf(closed[13]), 0);
 });
 
-test('what the user and the model wrote stays, but a button inside it is translated', (t) => {
+test('textarea and contenteditable translate own visible attributes while keeping children closed', (t) => {
+  const page = setup();
+  t.after(page.restore);
+  const ta = page.el('textarea', { 'data-testid': 'vcs-commit-message', placeholder: 'Search…', 'aria-label': 'Settings', title: 'Copy' }, 'Settings');
+  const editable = page.el(
+    'div',
+    { contenteditable: 'true', 'aria-placeholder': 'Search…', 'aria-label': 'More options' },
+    page.el('p', {}, 'Settings'),
+    page.el('button', {}, 'Copy')
+  );
+  const editorTa = page.el('div', { class: 'monaco-editor' }, page.el('textarea', { placeholder: 'Search…' }, 'Settings'));
+  const contentTa = page.el('div', { 'data-testid': 'planner-response-text' }, page.el('textarea', { placeholder: 'Search…' }, 'Settings'));
+  page.body.append(ta, editable, editorTa, contentTa);
+  page.start();
+  // Own attributes translated when parent is OPEN
+  assert.equal(ta.getAttribute('placeholder'), '搜索…');
+  assert.equal(ta.getAttribute('aria-label'), '设置');
+  assert.equal(ta.getAttribute('title'), '复制');
+  assert.equal(textOf(ta), 'Settings');
+  assert.equal(editable.getAttribute('aria-placeholder'), '搜索…');
+  assert.equal(editable.getAttribute('aria-label'), '更多选项');
+  assert.equal(textOf(editable), 'SettingsCopy');
+  // Dynamic attribute update on textarea is translated
+  ta.setAttribute('placeholder', 'More options');
+  page.settle();
+  assert.equal(ta.getAttribute('placeholder'), '更多选项');
+  // Nested inside CLOSED or CONTENT: attributes are NOT translated
+  assert.equal(editorTa.firstChild.getAttribute('placeholder'), 'Search…');
+  assert.equal(contentTa.firstChild.getAttribute('placeholder'), 'Search…');
+  editorTa.firstChild.setAttribute('placeholder', 'Copy');
+  page.settle();
+  assert.equal(editorTa.firstChild.getAttribute('placeholder'), 'Copy');
+});
+
+test('what the user and the model wrote stays, but controls inside it are translated', (t) => {
   const page = setup();
   t.after(page.restore);
   const copy = page.el('button', { title: 'Copy' }, 'Copy');
+  const menuCheck = page.el('div', { role: 'menuitemcheckbox' }, 'Copy');
+  const menuRadio = page.el('div', { role: 'menuitemradio' }, 'Settings');
+  const radioDiv = page.el('div', { role: 'radio' }, 'Copy');
+  const optionDiv = page.el('div', { role: 'option' }, 'Copy');
+  const dialogDiv = page.el('div', { role: 'dialog' }, 'Settings');
   const reply = page.el(
     'div',
     { 'data-testid': 'planner-response-text' },
-    page.el('div', { 'data-markdown-root': '', title: 'Settings' }, page.el('p', {}, 'Settings'), page.el('div', {}, copy, page.el('pre', {}, page.el('code', {}, 'Copy'))))
+    page.el(
+      'div',
+      { 'data-markdown-root': '', title: 'Settings' },
+      page.el('p', {}, 'Settings'),
+      page.el('div', {}, copy, menuCheck, menuRadio, radioDiv, optionDiv, dialogDiv, page.el('pre', {}, page.el('code', {}, 'Copy')))
+    )
   );
   const message = page.el('div', { 'data-testid': 'user-message-bubble' }, page.el('div', { 'data-testid': 'user-message-content' }, 'New Conversation'));
   const row = page.el(
@@ -379,20 +571,50 @@ test('what the user and the model wrote stays, but a button inside it is transla
     page.el('a', { 'aria-label': 'Settings' }, page.el('span', {}, 'Settings')),
     page.el('button', { 'aria-label': 'More options' })
   );
+  const histRow = page.el(
+    'div',
+    { 'data-testid': 'conversation-row-history' },
+    page.el('span', {}, 'Settings'),
+    page.el('button', { 'aria-label': 'Copy' })
+  );
+  const branch = page.el('span', { 'data-testid': 'branch-pill-label' }, 'Settings');
+  const fileTitle = page.el('span', { 'data-testid': 'file-title-name' }, 'Settings');
+  const projItem = page.el('div', { 'data-project-name': 'Settings' }, page.el('span', {}, 'Settings'), page.el('button', { title: 'Settings' }));
+  const diffLine = page.el(
+    'div',
+    { class: 'code-line', 'data-file-uri': 'file:///a.ts' },
+    page.el('button', { 'aria-label': 'Copy' }),
+    page.el('div', { class: 'line-content' }, page.el('span', {}, 'Settings'))
+  );
   const crumb = page.el('span', { 'data-testid': 'breadcrumb-segment', role: 'button', 'aria-label': 'Settings' }, 'Settings');
   const project = page.el('button', { 'data-testid': 'project-header', 'data-project-label': 'x' }, page.el('span', {}, 'Settings'));
   const model = page.el('button', { 'data-testid': 'model-selector-trigger' }, 'Copy');
   const file = page.el('span', { 'data-uri': 'file:///Settings' }, 'Settings');
   const header = page.el('h1', {}, 'Settings');
-  page.body.append(reply, message, row, crumb, project, model, file, header);
+  page.body.append(reply, message, row, histRow, branch, fileTitle, projItem, diffLine, crumb, project, model, file, header);
   page.start();
-  assert.equal(textOf(reply), 'Settings复制Copy');
+  assert.equal(textOf(copy), '复制');
   assert.equal(copy.getAttribute('title'), '复制');
+  assert.equal(textOf(menuCheck), '复制');
+  assert.equal(textOf(menuRadio), '设置');
+  assert.equal(textOf(radioDiv), '复制');
+  // option and dialog do NOT punch through CONTENT
+  assert.equal(textOf(optionDiv), 'Copy');
+  assert.equal(textOf(dialogDiv), 'Settings');
   assert.equal(reply.firstChild.getAttribute('title'), 'Settings');
   assert.equal(textOf(message), 'New Conversation');
   assert.equal(textOf(row), 'Settings');
   assert.equal(row.firstChild.getAttribute('aria-label'), 'Settings');
   assert.equal(row.lastChild.getAttribute('aria-label'), '更多选项');
+  assert.equal(textOf(histRow), 'Settings');
+  assert.equal(histRow.lastChild.getAttribute('aria-label'), '复制');
+  assert.equal(textOf(branch), 'Settings');
+  assert.equal(textOf(fileTitle), 'Settings');
+  assert.equal(textOf(projItem), 'Settings');
+  assert.equal(projItem.lastChild.getAttribute('title'), '设置');
+  // Shiki diff line: code protected, hover/fold button translated
+  assert.equal(textOf(diffLine), 'Settings');
+  assert.equal(diffLine.firstChild.getAttribute('aria-label'), '复制');
   assert.equal(textOf(crumb), 'Settings');
   assert.equal(crumb.getAttribute('aria-label'), 'Settings');
   assert.equal(textOf(project), 'Settings');
@@ -446,13 +668,16 @@ test('what the page adds or changes later is translated, and the own changes are
   assert.equal(textOf(gone), 'Settings');
 });
 
-test('a sentence that the page puts together from parts is translated whole, or not at all', (t) => {
+test('contiguous text runs are translated whole even next to icons or comments', (t) => {
   const page = setup({
-    exact: { No: '否', 'No automations yet': '还没有自动化', 'No rules yet': '还没有规则', Settings: '设置' },
-    patterns: [['^(\\d+) files$', '$1 个文件']],
+    exact: { No: '否', Show: '显示', 'No automations yet': '还没有自动化', 'No rules yet': '还没有规则', Settings: '设置' },
+    patterns: [
+      ['^(\\d+) files$', '$1 个文件'],
+      ['^Show (\\d+) more$', '再显示 $1 项'],
+    ],
   });
   t.after(page.restore);
-  // As React writes "No ", kind, " yet": three text nodes in one element.
+  // Pure text group: "No ", kind, " yet"
   const kind = page.text('automations');
   const empty = page.el('p', {}, 'No ', kind, ' yet');
   const count = page.el('span', {}, '3', ' files');
@@ -460,7 +685,12 @@ test('a sentence that the page puts together from parts is translated whole, or 
   const other = page.el('p', {}, 'No ', 'skills', ' yet');
   // One part with words and one with spaces only is no sentence of parts.
   const single = page.el('span', {}, ' ', 'Settings');
-  page.body.append(empty, count, other, single);
+  // Icon + contiguous text run: previously broken (turned into "显示 5 more")!
+  const iconMore = page.el('button', {}, page.el('svg'), 'Show ', '5', ' more');
+  const iconUnmatched = page.el('button', {}, page.el('svg'), 'No ', 'skills', ' yet');
+  // Comment node inside a contiguous text run
+  const withComment = page.el('p', {}, 'No ', page.comment(''), 'automations', ' yet');
+  page.body.append(empty, count, other, single, iconMore, iconUnmatched, withComment);
   page.start();
   assert.equal(textOf(empty), '还没有自动化');
   assert.equal(empty.firstChild.nodeValue, '还没有自动化');
@@ -468,18 +698,36 @@ test('a sentence that the page puts together from parts is translated whole, or 
   assert.equal(textOf(count), '3 个文件');
   assert.equal(textOf(other), 'No skills yet');
   assert.equal(textOf(single), ' 设置');
+  assert.equal(textOf(iconMore), '再显示 5 项');
+  assert.equal(textOf(iconUnmatched), 'No skills yet');
+  assert.equal(textOf(withComment), '还没有自动化');
 
   // The page changes one part: the sentence is made again from the English parts.
   kind.nodeValue = 'rules';
   page.settle();
   assert.equal(textOf(empty), '还没有规则');
-  // A sentence without an entry: every part is English again.
   kind.nodeValue = 'skills';
   page.settle();
   assert.equal(textOf(empty), 'No skills yet');
   kind.nodeValue = 'automations';
   page.settle();
   assert.equal(textOf(empty), '还没有自动化');
+
+  // Dynamic element insertion splits a text run, and removal merges it back cleanly.
+  const n1 = page.text('Show ');
+  const n2 = page.text('3');
+  const n3 = page.text(' more');
+  const dynamic = page.el('button', {}, n1, n2, n3);
+  page.body.append(dynamic);
+  page.settle();
+  assert.equal(textOf(dynamic), '再显示 3 项');
+  const divider = page.el('span');
+  dynamic.insertBefore(divider, n2);
+  page.settle();
+  assert.equal(textOf(dynamic), '显示 3 more');
+  dynamic.removeChild(divider);
+  page.settle();
+  assert.equal(textOf(dynamic), '再显示 3 项');
 
   // A part is taken out: what is left is one text, translated as one.
   const words = page.el('span', {}, 'Settings', ' x');
@@ -492,6 +740,64 @@ test('a sentence that the page puts together from parts is translated whole, or 
   // Nothing is left to do.
   page.settle();
   assert.equal(page.observers[0].records.length, 0);
+});
+
+test('inline-slot templates translate in place without adding, removing, or moving DOM nodes', (t) => {
+  const page = setup({
+    exact: { 'Tip:': '提示：', 'Always open': '始终打开', Settings: '设置' },
+    patterns: [],
+    inline: {
+      'Always open {1} links without asking': '始终直接打开 {1} 链接，不再询问',
+      '{1} Press {2} to switch to the app.': '{1} 按 {2} 切换应用。',
+      'No sites match "{1}".': '没有匹配「{1}」的网站。',
+    },
+  });
+  t.after(page.restore);
+
+  // Case 1: [Text, Text, <code>, Text]
+  const t0 = page.text('Always open');
+  const t1 = page.text(' ');
+  const code = page.el('code', {}, 'mailto:');
+  const t2 = page.text(' links without asking');
+  const span = page.el('span', {}, t0, t1, code, t2);
+  const beforeSpanChildren = childrenOf(span);
+
+  // Case 2: leading inline element (no text node before {1}) + <kbd>
+  const tipSpan = page.el('span', {}, 'Tip:');
+  const p0 = page.text(' Press ');
+  const kbd = page.el('kbd', {}, '⌘K');
+  const p1 = page.text(' to switch to the app.');
+  const para = page.el('p', {}, tipSpan, p0, kbd, p1);
+  const beforeParaChildren = childrenOf(para);
+
+  // Case 3: curly quotes normalized to match straight-quote inline key
+  const strong = page.el('strong', {}, 'example.com');
+  const curly = page.el('p', {}, 'No sites match “', strong, '”.');
+
+  page.body.append(span, para, curly);
+  page.start();
+
+  assert.equal(textOf(span), '始终直接打开 mailto: 链接，不再询问');
+  assert.equal(textOf(code), 'mailto:');
+  // Strict React invariant: exact same child node instances in exact same order!
+  assert.deepEqual(childrenOf(span), beforeSpanChildren);
+
+  assert.equal(textOf(para), '提示： 按 ⌘K 切换应用。');
+  assert.equal(textOf(tipSpan), '提示：');
+  assert.equal(textOf(kbd), '⌘K');
+  assert.deepEqual(childrenOf(para), beforeParaChildren);
+
+  assert.equal(textOf(curly), '没有匹配「example.com」的网站。');
+
+  // React mutates a text node so the sentence no longer matches inline: restores cleanly!
+  t2.nodeValue = ' links in external browser';
+  page.settle();
+  assert.equal(textOf(span), '始终打开 mailto: links in external browser');
+  // Mutates back: inline template re-applies cleanly!
+  t2.nodeValue = ' links without asking';
+  page.settle();
+  assert.equal(textOf(span), '始终直接打开 mailto: 链接，不再询问');
+  assert.deepEqual(childrenOf(span), beforeSpanChildren);
 });
 
 test('a failure stops the translator after a few times and never reaches the page', (t) => {
@@ -607,16 +913,54 @@ test('the word list of agy-flags is a word list', () => {
   ]) {
     assert.ok(lookup(text), `no entry for the cost text "${text}"`);
   }
-  // Well-known nouns stay in English, and a conversation is 对话.
-  assert.equal(lookup('Skills'), null);
+  // Core terminology and anti-regression assertions.
+  assert.equal(lookup('Skills'), '技能');
+  assert.equal(lookup('Subagents'), '子代理');
   assert.equal(lookup('MCP'), null);
+  assert.equal(lookup('PIN'), null);
+  assert.equal(lookup('UNPIN'), null);
   assert.equal(lookup('New Conversation'), '新建对话');
   assert.equal(lookup('Settings'), '设置');
+  // Duration & punctuation normalization checks against the shipped dictionary.
+  assert.equal(lookup('Thought for 2m 15s'), '已思考 2 分钟 15 秒');
+  assert.equal(lookup('Worked for 1m 23s'), '耗时 1 分钟 23 秒');
+  assert.ok(lookup('Searching…'));
+  assert.ok(lookup('Searching...'));
+  assert.ok(lookup('Loading branches…'));
   for (const [from, to] of Object.entries(list.data.exact)) {
     assert.ok(/[A-Za-z]/.test(from), `"${from}" has no letter`);
     assert.ok(!/\{\d\}/.test(to), `"${from}" has a placeholder that was not filled`);
     assert.ok(!/智能体|您/.test(to), `"${from}" → "${to}" does not follow the wording rules`);
   }
+  const seenPatterns = new Set();
+  for (const [src, to] of list.data.patterns) {
+    assert.ok(!seenPatterns.has(src), `duplicate pattern "${src}"`);
+    seenPatterns.add(src);
+    assert.ok(!/[\u4e00-\u9fff]/.test(src), `pattern "${src}" must not contain Chinese characters`);
+    assert.ok(!/智能体|您/.test(src) && !/智能体|您/.test(to), `pattern "${src}" → "${to}" violates wording rules`);
+    assert.ok(!/\\s/.test(src), `pattern "${src}" should use plain spaces instead of \\s`);
+    assert.ok(!/\{\d\}/.test(to), `pattern "${src}" → "${to}" has an unfilled placeholder`);
+  }
+  assert.ok(list.data.inline && Object.keys(list.data.inline).length > 0, 'expected inline templates in zh-CN.json');
+  for (const [from, to] of Object.entries(list.data.inline)) {
+    assert.ok(!/智能体|您/.test(to), `inline "${from}" → "${to}" violates wording rules`);
+  }
+});
+
+test('shipped inline templates work end-to-end on real DOM without mutating node structure', (t) => {
+  const list = loadDictionary(WORD_LIST);
+  assert.ok(list && list.data.inline);
+  const page = setup(list.data);
+  t.after(page.restore);
+  const code = page.el('code', {}, 'mailto:');
+  const span = page.el('span', {}, 'Always open', ' ', code, ' links without asking');
+  const before = childrenOf(span);
+  page.body.append(span);
+  page.start();
+  assert.ok(textOf(span).includes('mailto:'));
+  assert.ok(/[\u4e00-\u9fff]/.test(textOf(span)));
+  assert.ok(!/Always open|links without asking/.test(textOf(span)));
+  assert.deepEqual(childrenOf(span), before);
 });
 
 test('the word list of agy-flags is fast on a long text that it does not have', () => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { API_PREFIX } from '../src/api.mjs';
 import { findUiBundle } from '../src/bundle.mjs';
 import { PING_PATH } from '../src/forward.mjs';
 import { bundleNameOf, createUiServer } from '../src/uiserver.mjs';
@@ -214,4 +215,100 @@ test('the Chinese interface and the indicator together', async (t) => {
   assert.ok(body.includes('contextUsageIndicator:(()=>'));
   assert.ok(body.includes('__agyFlagsL10n'));
   assert.deepEqual(scripts[0].parts, { contextUsageIndicator: { ok: true, reason: null }, l10n: { ok: true, reason: null } });
+});
+
+// ---- the settings page --------------------------------------------------------------------
+
+/** Stands in for api.mjs: remembers what it was asked, and answers with it. */
+function fakeApi() {
+  const seen = [];
+  const api = async (req, res, pathname) => {
+    seen.push([req.method, pathname]);
+    if (pathname.endsWith('boom.json')) throw new Error('boom');
+    const body = JSON.stringify({ asked: pathname });
+    res.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+    res.end(body);
+  };
+  return { api, seen };
+}
+
+const SETTINGS_MARK = '{screen:"AGY-flags"}';
+
+test('with the requests of the settings page, the page script gets the page', async (t) => {
+  const { api } = fakeApi();
+  const original = fakePageScript();
+  const { port, scripts } = await setup(t, { script: original, wantIndicator: () => false, api });
+  const body = (await request({ port, path: '/main.js' })).body.toString('utf8');
+  assert.ok(body.includes(SETTINGS_MARK));
+  // The page asks its own origin, below this path.
+  assert.ok(body.includes(`"api":"${API_PREFIX}"`));
+  assert.ok(body.includes('contextUsageIndicator:void 0,'));
+  assert.deepEqual(scripts[0].parts, { settingsPage: { ok: true, reason: null } });
+  assert.equal(scripts[0].patched, true);
+  // The result is kept, and every other file is as it was.
+  await request({ port, path: '/main.js' });
+  assert.equal(scripts.length, 1);
+  assert.equal((await request({ port, path: '/' })).body.toString('utf8'), '<!doctype html>');
+});
+
+test('the requests of the settings page go to their handler, whatever the method', async (t) => {
+  const { api, seen } = fakeApi();
+  const { port } = await setup(t, { api });
+  const read = await request({ port, path: `${API_PREFIX}state.json?x=1` });
+  assert.equal(read.status, 200);
+  assert.deepEqual(JSON.parse(read.body.toString('utf8')), { asked: `${API_PREFIX}state.json` });
+  // A change is a POST. For a page file that method is refused, here it is passed on.
+  const change = await request({ port, method: 'POST', path: `${API_PREFIX}flags.json`, headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(change.status, 200);
+  await request({ port, method: 'PUT', path: `${API_PREFIX}flags.json`, body: '{}' });
+  // What the handler does with a name is its own business.
+  await request({ port, path: `${API_PREFIX}../main.js` });
+  assert.deepEqual(seen, [
+    ['GET', `${API_PREFIX}state.json`],
+    ['POST', `${API_PREFIX}flags.json`],
+    ['PUT', `${API_PREFIX}flags.json`],
+    ['GET', `${API_PREFIX}../main.js`],
+  ]);
+  // A handler that fails gives an error answer, and the server goes on.
+  assert.equal((await request({ port, path: `${API_PREFIX}boom.json` })).status, 500);
+  assert.equal((await request({ port, path: '/jetbox.css' })).status, 200);
+  // The path of the page files next to it is still a page file.
+  assert.equal((await request({ port, path: '/__agy_flags.json' })).status, 404);
+  assert.equal(seen.length, 5);
+});
+
+test('without a handler, the paths of the settings page do not exist and the script is left alone', async (t) => {
+  const original = fakePageScript();
+  const { port, scripts } = await setup(t, { script: original, wantIndicator: () => false });
+  assert.equal((await request({ port, path: `${API_PREFIX}state.json` })).status, 404);
+  assert.equal((await request({ port, method: 'POST', path: `${API_PREFIX}flags.json`, body: '{}' })).status, 404);
+  assert.equal((await request({ port, path: '/main.js' })).body.toString('utf8'), original);
+  assert.equal(scripts.length, 0);
+});
+
+test('a script whose settings are built differently is served without the page, and the report says why', async (t) => {
+  const { api } = fakeApi();
+  const original = fakePageScript({ settings: false });
+  const { port, scripts } = await setup(t, { script: original, wantIndicator: () => false, api });
+  assert.equal((await request({ port, path: '/main.js' })).body.toString('utf8'), original);
+  assert.equal(scripts[0].patched, false);
+  assert.match(scripts[0].parts.settingsPage.reason, /list of setting pages was found 0 times/);
+  // The requests are still answered: the command line sends them too.
+  assert.equal((await request({ port, path: `${API_PREFIX}state.json` })).status, 200);
+});
+
+test('the settings page and the page features do not depend on each other', async (t) => {
+  const { api } = fakeApi();
+  // The indicator has no place in this script, the costs and the translator have.
+  const { port, scripts } = await setup(t, { script: costScript(fakePageScript({ anchor: '' })), api, getPrices: () => PRICES, getL10n: () => WORDS });
+  const body = (await request({ port, path: '/main.js' })).body.toString('utf8');
+  assert.ok(body.includes(SETTINGS_MARK));
+  assert.ok(body.includes('__agyFlagsCost'));
+  assert.ok(body.includes('__agyFlagsL10n'));
+  assert.deepEqual(Object.keys(scripts[0].parts), ['settingsPage', 'contextUsageIndicator', 'costPrices', 'l10n']);
+  assert.deepEqual(
+    Object.values(scripts[0].parts).map((part) => part.ok),
+    [true, false, true, true]
+  );
+  assert.equal(scripts[0].patched, false);
 });

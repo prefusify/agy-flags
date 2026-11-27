@@ -132,14 +132,31 @@ export function makeZip(files) {
   return Buffer.concat([...locals, directory, end]);
 }
 
+/**
+ * The settings of the client as the page script has them, under other names: the table of
+ * the navigation, the pages of the settings window, the single page of the narrow layout,
+ * and the report of the page that is looked at. `react` is the name of the React namespace.
+ */
+export function fakeSettingsScript(react = 'Q') {
+  const page = (name) => `${react}.createElement("div",{style:{display:b==="${name}"?"block":"none"}},${react}.createElement(Dev,null))`;
+  return [
+    'var navTable=[{screen:"General"},{screen:"App",label:"Application"},{screen:"Developer"},{screen:"Running"}];',
+    'function Dev(){return null}',
+    `function settingsWindow(b){return ${react}.createElement("div",null,${page('General')},${page('Developer')},b==="Running"&&${react}.createElement(Dev,null))}`,
+    `function settingsPage(a){switch(a){case "General":return ${react}.createElement(Dev,{isActive:!0});case "Developer":return ${react}.createElement(Dev,null);case "Running":return ${react}.createElement(Dev,null);default:return null}}`,
+    'function viewed(w,b){w.fireEvent("settings_page_viewed",{extra:{screen:b}})}',
+  ].join('');
+}
+
 /** A page script with the same shapes as the real one, under other names. */
-export function fakePageScript({ anchor = 'contextUsageIndicator:void 0,' } = {}) {
+export function fakePageScript({ anchor = 'contextUsageIndicator:void 0,', settings = true } = {}) {
   return [
     'var Q={useState(){},createElement(){},Component:class{}};',
     `var noise=[${Array.from({ length: 30 }, () => '(0,Q.useState)').join(',')}];`,
     'var x=Q.createElement("div");',
     'var rp=a=>a,zz9=(a,b)=>{var c=[],{optimisticState:d,trueState:f}=rp(a);return d};',
     `var bindings={cider:void 0,${anchor}contextWindow:void 0};`,
+    settings ? fakeSettingsScript() : '',
   ].join('');
 }
 

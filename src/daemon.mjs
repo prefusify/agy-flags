@@ -1,5 +1,5 @@
-// The long-running process: two forwarders, the page-file server, the web UI, and the
-// environment variables.
+// The long-running process: two forwarders, the page-file server with the requests of the
+// settings page, and the environment variables.
 //
 // Order matters. The variables are set only after every listener is up and has answered a
 // ping, and they are cleared before the listeners stop. A client that starts while the
@@ -15,10 +15,10 @@ import {
   FEATURE_NAMES,
   configMtime,
   ensureDataDir,
-  ensureToken,
   files,
   loadConfig,
   loadState,
+  removeObsoleteFiles,
   saveConfig,
   saveState,
 } from './config.mjs';
@@ -27,8 +27,9 @@ import { allOurEnv, applyEnv, clearEnv, launchctlRunner, ourEnv, ourUiEnv, readE
 import { PING_PATH, createForwarder } from './forward.mjs';
 import { loadDictionary } from './l10n.mjs';
 import { MODELS_KIND, isValidFlagName } from './patch.mjs';
+import { createPeerCheck } from './peer.mjs';
 import { createPriceStore } from './prices.mjs';
-import { PART_COSTS, PART_INDICATOR, PART_L10N } from './uipatch.mjs';
+import { PART_COSTS, PART_INDICATOR, PART_L10N, PART_SETTINGS } from './uipatch.mjs';
 import { createUiServer } from './uiserver.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -162,8 +163,9 @@ function compactFlags(server) {
  * Does the running client need a restart before the current settings apply?
  * The answer is read from the client's own process, not from what we remember doing.
  *
- * `base` are the two forwarder variables. `page` is the page-file variable, which the
- * client should carry only while a page feature is on (`wantPage`).
+ * `base` are the two forwarder variables: the client should carry them while rewriting is
+ * on. `page` is the page-file variable: the client should carry it while the page files can
+ * be served (`wantPage`), also while rewriting is off, because the settings page is in them.
  * @returns {{ pending: boolean, reason: string|null, routed: boolean|null, carries: boolean|null }}
  *          `routed`: the client sends its cloud requests through us.
  *          `carries`: the client has at least one variable of ours.
@@ -171,19 +173,19 @@ function compactFlags(server) {
 export function computePending({ enabled, client, base, page = {}, wantPage = false, changedAt }) {
   if (!client.running || !client.lsPid) return { pending: false, reason: null, routed: null, carries: null };
   const has = ([name, value]) => client.env[name] === value;
-  const routed = Object.entries(base).every(has);
+  const baseEntries = Object.entries(base);
+  const routed = baseEntries.every(has);
+  const baseCarried = baseEntries.some(has);
   const pageEntries = Object.entries(page);
   const pageCarried = pageEntries.some(has);
-  const out = { routed, carries: routed || pageCarried || Object.entries(base).some(has) };
-  if (!enabled) {
-    return out.carries ? { pending: true, reason: 'still-routed', ...out } : { pending: false, reason: null, ...out };
-  }
-  if (!routed) return { pending: true, reason: 'not-routed', ...out };
+  const out = { routed, carries: baseCarried || pageCarried };
+  if (!enabled && baseCarried) return { pending: true, reason: 'still-routed', ...out };
+  if (enabled && !routed) return { pending: true, reason: 'not-routed', ...out };
   if (wantPage && !pageEntries.every(has)) return { pending: true, reason: 'not-routed', ...out };
-  // The client still takes its page files from us, although no page feature is on any more.
+  // The client still takes its page files from us, although they can no longer be served.
   if (!wantPage && pageCarried) return { pending: true, reason: 'page-off', ...out };
   // The client reads its flags when it starts. A change made later needs a restart.
-  if (client.lsStartedAt !== null && changedAt > client.lsStartedAt) {
+  if (enabled && client.lsStartedAt !== null && changedAt > client.lsStartedAt) {
     return { pending: true, reason: 'flags-changed', ...out };
   }
   return { pending: false, reason: null, ...out };
@@ -191,7 +193,7 @@ export function computePending({ enabled, client, base, page = {}, wantPage = fa
 
 /**
  * Start everything.
- * @returns {Promise<{ status: 'running', stop: Function, getState: Function, token: string, ports: object }
+ * @returns {Promise<{ status: 'running', stop: Function, getState: Function, ports: object }
  *                 | { status: 'already-running' }>}
  * Throws an Error with code PORT_IN_USE when a port is taken by another program.
  */
@@ -208,12 +210,13 @@ export async function startDaemon({
   fetchPriceList,
   priceCheckMs = 30 * 60_000,
   priceWaitMs = 5000,
+  peerCheck = createPeerCheck(),
 } = {}) {
   ensureDataDir();
+  removeObsoleteFiles();
   let config = loadConfig();
   if (!fs.existsSync(files.config())) saveConfig(config);
   let mtime = configMtime();
-  const token = ensureToken();
   const ports = { ...config.ports };
   const baseEnv = ourEnv(ports);
   const pageEnv = ourUiEnv(ports);
@@ -338,7 +341,6 @@ export async function startDaemon({
     (!group.feature || config.features[group.feature] === true) &&
     group.requires.every(flagOn);
   const pageFeatureOn = (patch) => config.enabled && pageGroups.some((group) => group.patch === patch && groupOn(group));
-  const anyPageFeatureOn = () => config.enabled && pageGroups.some(groupOn);
   const pricesOn = () => pageFeatureOn(PART_COSTS);
   const titlesOn = () => config.enabled && config.features.chineseTitles === true;
   // A feature of agy-flags that changes the page. The client loads its page when it starts.
@@ -382,25 +384,17 @@ export async function startDaemon({
     }
   }
 
-  const uiServer = createUiServer({
-    getBundle,
-    wantIndicator: () => pageFeatureOn(PART_INDICATOR),
-    getPrices: () => (pricesOn() ? prices.table() : false),
-    getL10n: () => (pageFeatureOn(PART_L10N) ? (dictionary ? { version: dictionary.version, data: dictionary.data } : null) : false),
-    // The client can ask for its script while the first download of the prices still runs.
-    beforeScript: () => (pricesOn() && !prices.table() ? prices.settled(priceWaitMs) : undefined),
-    onScript: (report) => {
-      lastScript = report;
-      const made = Object.entries(report.parts).filter(([, part]) => part.ok).map(([name]) => name);
-      log(`page script: ${made.length > 0 ? `changed (${made.join(', ')})` : 'not changed'}${report.reason ? `, NOT DONE: ${report.reason}` : ''}`);
-    },
-    identity,
-  });
-
-  /** The variables the login session should have now. */
-  function wantedEnv() {
-    if (!config.enabled) return {};
-    return anyPageFeatureOn() && pageReady() ? allEnv : baseEnv;
+  /**
+   * The variables the login session should have now, in the groups that are set together.
+   * The two forwarder variables are one group: one without the other would split the traffic.
+   * The page-file variable stands alone, and it stays while rewriting is off: the settings
+   * page, where rewriting is turned on again, is in the page files.
+   */
+  function wantedGroups() {
+    const groups = [];
+    if (config.enabled) groups.push(baseEnv);
+    if (pageReady()) groups.push(pageEnv);
+    return groups;
   }
 
   const forwarders = UPSTREAM_NAMES.map((name) => ({
@@ -449,20 +443,25 @@ export async function startDaemon({
     envQueue = envQueue.then(async () => {
       if (stopped) return;
       try {
-        const wanted = wantedEnv();
+        const groups = wantedGroups();
+        const wanted = Object.assign({}, ...groups);
         const unwanted = Object.fromEntries(Object.entries(allEnv).filter(([name]) => !Object.hasOwn(wanted, name)));
-        if (Object.keys(wanted).length > 0) {
-          const result = await applyEnv(runner, wanted);
-          const status = result.ok ? 'set' : Object.keys(result.conflicts).length > 0 ? 'conflict' : 'error';
-          const names = Object.keys(wanted).length;
-          if (status !== envState.status || names !== envState.names) log(`environment variables: ${status} (${names})`);
-          envState = { status, conflicts: result.conflicts, names };
-          await clearEnv(runner, unwanted);
-        } else {
-          await clearEnv(runner, allEnv);
-          if (envState.status !== 'cleared') log('environment variables: cleared (injection is off)');
-          envState = { status: 'cleared', conflicts: {}, names: 0 };
+        const conflicts = {};
+        let failed = false;
+        // A group that another program is in the way of is left out. The other group is still
+        // set: with the page variable alone, the settings page is there to say what is wrong.
+        for (const group of groups) {
+          const result = await applyEnv(runner, group);
+          Object.assign(conflicts, result.conflicts);
+          if (!result.ok && Object.keys(result.conflicts).length === 0) failed = true;
         }
+        await clearEnv(runner, unwanted);
+        const names = Object.keys(wanted).length;
+        const status = names === 0 ? 'cleared' : failed ? 'error' : Object.keys(conflicts).length > 0 ? 'conflict' : 'set';
+        if (status !== envState.status || names !== envState.names) {
+          log(`environment variables: ${status === 'cleared' ? 'cleared (rewriting is off, and the page files cannot be served)' : `${status} (${names})`}`);
+        }
+        envState = { status, conflicts, names };
       } catch (err) {
         envState = { status: 'error', conflicts: {} };
         log(`environment variables: ${err?.message || err}`);
@@ -496,8 +495,7 @@ export async function startDaemon({
       log(`config.json changed on disk (${Object.keys(config.flags).length} overrides, enabled=${config.enabled})`);
       if (restart) writeConfig({ ...config, flagsChangedAt: Date.now() });
     }
-    // A page feature that was turned on or off changes which variables are wanted.
-    if (enabledChanged || flagsChanged) await reconcileEnv();
+    if (enabledChanged) await reconcileEnv();
     syncPrices();
   }
 
@@ -507,7 +505,8 @@ export async function startDaemon({
 
   async function getState() {
     const [app, cl, env] = await Promise.all([getApp(), getClient(), getEnv()]);
-    const wantPage = Object.hasOwn(wantedEnv(), Object.keys(pageEnv)[0]);
+    // The client should carry the page variable while we can set it and serve the files.
+    const wantPage = pageReady() && !Object.keys(pageEnv).some((name) => Object.hasOwn(envState.conflicts, name));
     const pend = computePending({
       enabled: config.enabled,
       client: cl,
@@ -518,10 +517,10 @@ export async function startDaemon({
     });
     const warnings = [];
     if (!app.installed) warnings.push({ code: 'app-missing', detail: config.appPath });
-    if (config.enabled && envState.status === 'conflict') {
+    if (envState.status === 'conflict') {
       warnings.push({ code: 'env-conflict', detail: Object.keys(envState.conflicts).join(', ') });
     }
-    if (config.enabled && envState.status === 'error') warnings.push({ code: 'env-error', detail: '' });
+    if (envState.status === 'error') warnings.push({ code: 'env-error', detail: '' });
     if (cl.endpointArg && pend.routed) {
       let argOrigin = cl.endpointArg;
       try {
@@ -554,10 +553,11 @@ export async function startDaemon({
     ) {
       warnings.push({ code: 'desktop-not-recognized', detail: unrecognized.agent || '?' });
     }
-    if (anyPageFeatureOn() && pageError) warnings.push({ code: 'page-unavailable', detail: pageError });
-    for (const part of [PART_INDICATOR, PART_COSTS, PART_L10N]) {
+    if (pageError) warnings.push({ code: 'page-unavailable', detail: pageError });
+    for (const part of [PART_SETTINGS, PART_INDICATOR, PART_COSTS, PART_L10N]) {
       const made = lastScript?.parts?.[part];
-      if (pageFeatureOn(part) && made && !made.ok) warnings.push({ code: 'page-not-changed', detail: made.reason || '' });
+      const wanted = part === PART_SETTINGS || pageFeatureOn(part);
+      if (wanted && made && !made.ok) warnings.push({ code: 'page-not-changed', detail: made.reason || '' });
     }
     // The last title request could not be changed: the title of that conversation is in English.
     if (titlesOn() && titles.changedAt !== null && titles.changedAt > (titles.rewrittenAt ?? 0)) {
@@ -636,8 +636,6 @@ export async function startDaemon({
     writeConfig({ ...config, flags, features, ...(restart ? { flagsChangedAt: Date.now() } : {}) });
     if (flagsChanged) log(`overrides changed: ${Object.keys(config.flags).length} in total`);
     else log(`features changed: ${FEATURE_NAMES.filter((name) => config.features[name]).join(', ') || 'none'}`);
-    // A page feature that was turned on or off changes which variables are wanted.
-    await reconcileEnv();
     syncPrices();
   }
 
@@ -705,20 +703,34 @@ export async function startDaemon({
     },
   };
 
+  // The requests of the settings page.
   const api = createApi({
-    token,
-    uiDir: path.join(ROOT, 'ui'),
     catalogFile,
-    identity,
     getState,
     getServerFlags: () => ({ version: serverVersion, flags: mergedServerFlags() }),
     actions,
+    peerCheck,
+  });
+
+  const uiServer = createUiServer({
+    getBundle,
+    api,
+    wantIndicator: () => pageFeatureOn(PART_INDICATOR),
+    getPrices: () => (pricesOn() ? prices.table() : false),
+    getL10n: () => (pageFeatureOn(PART_L10N) ? (dictionary ? { version: dictionary.version, data: dictionary.data } : null) : false),
+    // The client can ask for its script while the first download of the prices still runs.
+    beforeScript: () => (pricesOn() && !prices.table() ? prices.settled(priceWaitMs) : undefined),
+    onScript: (report) => {
+      lastScript = report;
+      const made = Object.entries(report.parts).filter(([, part]) => part.ok).map(([name]) => name);
+      log(`page script: ${made.length > 0 ? `changed (${made.join(', ')})` : 'not changed'}${report.reason ? `, NOT DONE: ${report.reason}` : ''}`);
+    },
+    identity,
   });
 
   const servers = [
     ...forwarders.map((f) => ({ name: f.name, port: f.port, server: f.server })),
     { name: 'devui', port: ports.devui, server: uiServer },
-    { name: 'ui', port: ports.ui, server: api },
   ];
 
   async function closeAll() {
@@ -754,7 +766,7 @@ export async function startDaemon({
       throw new Error(`self-check failed on port ${port}`);
     }
   }
-  log(`listening: cloudcode ${ports.cloudcode}, aicode ${ports.aicode}, page files ${ports.devui}, ui ${ports.ui}`);
+  log(`listening: cloudcode ${ports.cloudcode}, aicode ${ports.aicode}, page files and settings page ${ports.devui}`);
 
   await reconcileEnv();
   syncPrices();
@@ -792,5 +804,5 @@ export async function startDaemon({
     await closeAll();
   }
 
-  return { status: 'running', stop, getState, token, ports };
+  return { status: 'running', stop, getState, ports };
 }

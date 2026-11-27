@@ -3,15 +3,20 @@
 // The language server has a development switch: with AGY_DEV_UI_URL set, it takes its page
 // files (index.html, main.js, style sheets, icons, sounds) from that address instead of from
 // the archive inside its own program. This server is that address. Every file comes
-// unchanged out of the archive of the installed language server, except main.js while a
-// page feature is on: then the change of that feature is made in it (see uipatch.mjs).
+// unchanged out of the archive of the installed language server, except main.js: the page
+// of agy-flags is added to the settings in it, and the change of each page feature that is
+// on is made in it (see uipatch.mjs).
 //
 // A change that cannot be made safely is left out; without any, the original script is served. A file the
 // archive does not have gives 404. Nothing here reads or forwards conversation traffic:
 // the page talks to the language server directly, not to this server.
+//
+// The language server also passes on the requests of the settings page of agy-flags. They
+// are answered by api.mjs.
 
 import http from 'node:http';
 import path from 'node:path';
+import { API_PREFIX } from './api.mjs';
 import { readBundleFile } from './bundle.mjs';
 import { PING_PATH } from './forward.mjs';
 import { PART_COSTS, PART_L10N, patchMainJs } from './uipatch.mjs';
@@ -64,6 +69,9 @@ export function bundleNameOf(pathname) {
  * @param {() => ({ version: string, data: object }|null|false)} [options.getL10n]
  *        The word list while the page is to be shown in Chinese; null when that is on but
  *        the word list cannot be read; false when it is off.
+ * @param {(req, res, pathname: string) => Promise<void>} [options.api]
+ *        Answers the requests of the settings page (see api.mjs). With it, the settings page
+ *        is added to main.js.
  * @param {() => (Promise<void>|void)} [options.beforeScript]  Awaited before main.js is prepared.
  * @param {(report: object) => void} [options.onScript]  Called when main.js was prepared:
  *        { at, patched, reason, parts }. `parts` has { ok, reason } for each change that was wanted.
@@ -75,6 +83,7 @@ export function createUiServer({
   wantIndicator = () => false,
   getPrices = () => false,
   getL10n = () => false,
+  api = null,
   beforeScript = () => {},
   onScript = () => {},
   identity = () => ({}),
@@ -87,14 +96,15 @@ export function createUiServer({
     const indicator = wantIndicator() === true;
     const prices = getPrices();
     const l10n = getL10n();
-    if (!indicator && prices === false && l10n === false) return original;
+    const settings = api ? { api: API_PREFIX } : null;
+    if (!settings && !indicator && prices === false && l10n === false) return original;
     const version = (part) => (part ? part.version : part === null ? 'none' : 'off');
-    const wanted = `${indicator ? 1 : 0}:${version(prices)}:${version(l10n)}`;
+    const wanted = `${settings ? 1 : 0}:${indicator ? 1 : 0}:${version(prices)}:${version(l10n)}`;
     if (cache && cache.file === bundle.file && cache.size === bundle.size && cache.mtimeMs === bundle.mtimeMs && cache.wanted === wanted) {
       return cache.data;
     }
     const text = original.toString('utf8');
-    const result = patchMainJs(text, { indicator, prices: prices ? prices.rows : null, l10n: l10n ? l10n.data : null });
+    const result = patchMainJs(text, { settings, indicator, prices: prices ? prices.rows : null, l10n: l10n ? l10n.data : null });
     const parts = { ...result.parts };
     if (prices === null) parts[PART_COSTS] = { ok: false, reason: 'there is no price list yet' };
     if (l10n === null) parts[PART_L10N] = { ok: false, reason: 'the word list cannot be read' };
@@ -125,6 +135,11 @@ export function createUiServer({
 
     if (pathname === PING_PATH) {
       send(200, 'application/json', Buffer.from(JSON.stringify({ app: 'agy-flags', role: 'devui', ...identity() })));
+      return;
+    }
+    if (pathname.startsWith(API_PREFIX)) {
+      if (api) await api(req, res, pathname);
+      else text(404, 'not found');
       return;
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') {

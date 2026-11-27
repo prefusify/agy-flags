@@ -1,10 +1,10 @@
 # agy-flags
 
-在网页上选择要开启的 Antigravity 桌面端实验性功能。[English](README.en.md)
+在 Antigravity 自己的设置里选择要开启的桌面端实验性功能。[English](README.en.md)
 
 Antigravity 的很多功能由 Google 服务端下发的「实验开关」控制。agy-flags 在本机改写这份下发的配置，让你自己决定哪些开关是开的。
 
-- **不修改 Antigravity 应用**，应用自动更新后不用重新处理。
+- **不修改 Antigravity 应用**，应用自动更新后不用重新处理。设置里多出来的「AGY-flags」一页是客户端启动时从本工具取界面文件得到的。
 - **不安装证书，不做 HTTPS 中间人**。
 - **只在本机运行**，没有第三方依赖。只有一项可选功能会联网下载公开的价格表。
 - **只改写桌面端的请求**，命令行 `agy` 的请求原样放行。
@@ -25,18 +25,13 @@ Antigravity 的很多功能由 Google 服务端下发的「实验开关」控制
 curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash
 ```
 
-装完后设置页面会在浏览器里打开。选好功能，按页面提示重启 Antigravity 即可。不需要输入密码。
+装完后退出并重新打开 Antigravity，打开它的「设置」，左侧最后一项就是 **AGY-flags**。在那里选好功能，按页面提示重启 Antigravity 即可。不需要输入密码。
 
 - 电脑上没有 Node.js 18 或更高版本时，脚本从 nodejs.org 下载官方的 Node.js 24.22.3（约 55 MB），核对 SHA-256 后放进本工具自己的文件夹，不往系统里装东西。它需要 macOS 13.5 或更新。
-- 建议把设置页面加入书签。
 - 再运行一次安装命令就是更新。更新会重启本工具的常驻进程，正在生成的回答会被打断。
 - 要靠代理软件才能访问 Google 时，请用代理软件的 TUN 模式（增强模式）。下载和转发都直接连网，不读「系统代理」设置。
 
-只重新打开设置页面、查看状态、卸载：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- open
-```
+查看状态、卸载：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/prefusify/agy-flags/main/install.sh | bash -s -- status
@@ -64,20 +59,20 @@ cd agy-flags && node bin/agy-flags.mjs install
 
 ## 使用
 
-```bash
-agy-flags ui
-```
+1. 在 Antigravity 里打开「设置」，点左侧最后一项「AGY-flags」。
+2. 打开想要的功能。有风险说明的功能会先问一句，确认后才打开。
+3. 点页面顶部的「重启 Antigravity」。Antigravity 只在启动时读取开关；「中文对话标题」不用重启。
+4. 想恢复默认，把开关拨回去再重启。
 
-1. 在页面上打开想要的功能。
-2. 点页面顶部的「重启 Antigravity」。Antigravity 只在启动时读取开关；「中文对话标题」不用重启。
-3. 想恢复默认，把开关拨回去再重启。
+页面最上面的「启用 agy-flags」是总开关。关掉它再重启，Antigravity 就直连 Google，什么都不改写；「AGY-flags」这一页还在，可以随时再打开。
 
-页面上只有「精选功能」：逐个打开看过、确实有用的功能，每项配一句说明。每一项标「已实测」（在标出的版本上看到过效果）或「未实测」（效果只读自客户端代码）。精选以外的开关可以手工写进 `config.json` 的 `flags`，例如 `"some-flag": true`，效果自负。
+页面上只有「精选功能」：逐个打开看过、确实有用的功能，每项配一句说明。只读过客户端代码、没有亲眼看到效果的，名字后面标「未实测」；鼠标停在功能名上，能看到实测用的版本。精选以外的开关可以手工写进 `config.json` 的 `flags`，例如 `"some-flag": true`，效果自负。
+
+设置里没有「AGY-flags」这一页时，见「出问题时」。
 
 | 命令 | 作用 |
 | --- | --- |
 | `agy-flags status` | 显示常驻进程、环境变量、客户端和已改动开关的状态 |
-| `agy-flags ui --print` | 只打印页面地址 |
 | `agy-flags uninstall [--restart-client] [--purge]` | 卸载；可顺便重启 Antigravity、删除设置和日志 |
 | `agy-flags daemon` | 在前台运行常驻进程 |
 
@@ -92,9 +87,8 @@ Antigravity ──HTTP──▶ agy-flags（127.0.0.1:47931 / 47932）──HTTP
 - 常驻进程开两个转发端口，用 `launchctl setenv` 把变量设到登录会话里，之后启动的 Antigravity 就把请求发到本机。
 - 两个开关响应里，只把你选的开关换成你要的值，其余字段原样保留。改写失败时原样放行。
 - 其他请求（包括对话内容）原样流式转发。
-- 变量只在端口开始监听后才设置，常驻进程停止前清除。别的程序已经设了这些变量时不覆盖，页面会提示。
+- 变量只在端口开始监听后才设置，常驻进程停止前清除。别的程序已经设了这些变量时不覆盖，设置页和 `agy-flags status` 会提示。
 - 常驻进程崩溃后由系统在 1 秒内拉起。
-- 设置页面在 47930 端口。
 
 ### 对命令行 agy 的影响
 
@@ -109,12 +103,13 @@ Antigravity ──HTTP──▶ agy-flags（127.0.0.1:47931 / 47932）──HTTP
 unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 ```
 
-### 改界面的三项功能
+### 设置页和改界面的三项功能
 
-上下文用量指示器、估算费用、界面汉化都要改 Antigravity 的界面脚本 `main.js`。本工具不改应用，而是用语言服务器认的第三个环境变量 `AGY_DEV_UI_URL`：设了它，语言服务器就从这个地址取界面文件。常驻进程在 47933 端口提供这些文件：从已安装的语言服务器程序里原样读出，只在 `main.js` 里加本工具的代码。找不到要改的位置时（客户端更新后），原样提供并在页面上警告。
+「AGY-flags」这一页，以及上下文用量指示器、估算费用、界面汉化，都要改 Antigravity 的界面脚本 `main.js`。本工具不改应用，而是用语言服务器认的第三个环境变量 `AGY_DEV_UI_URL`：设了它，语言服务器就从这个地址取界面文件。常驻进程在 47933 端口提供这些文件：从已安装的语言服务器程序里原样读出，只在 `main.js` 里加本工具的代码。找不到要改的位置时（客户端更新后），那一处不改，其余照常，并给出警告。
 
-代价：**这三项开着时，界面加载依赖本工具在运行**。本工具不在运行时，重新加载的窗口只显示一段以「The dev UI server at … is not reachable」开头的文字。所以这个变量只在你打开其中一项时才设置。
+代价：**界面加载依赖本工具在运行**。本工具不在运行时，重新加载的窗口只显示一段以「The dev UI server at … is not reachable」开头的文字。总开关关掉时这个变量也留着，否则「AGY-flags」这一页会消失，没法在页面上再打开；想让 Antigravity 完全不经过本工具，请卸载。
 
+- **AGY-flags 设置页**：在客户端的设置里加一页，样式用客户端自己的。页面向窗口自己的地址请求 `/__agy_flags/` 下的几个接口，语言服务器把它们转给常驻进程。客户端会统计你看了设置里的哪一页，本工具让它不上报这一页。
 - **上下文用量指示器**：对外版本有开关但缺组件，本工具补上自己写的组件，只显示上下文用量，不显示配额。重启后还要在客户端打开 Settings → Appearance → Advanced Settings → Chat Layout →「Context and quota indicator」（默认关）。
 - **估算费用**：「回复用量」里的费用在对外版本上全是 $0.0000，因为语言服务器里没有价格表。本工具每天最多一次从 `https://models.dev/api.json` 下载 Vertex AI 的公开价格，在界面里重算：每一轮按那一轮的模型计价，子代理按它自己的模型计价。只在客户端没给价格时才填。这是按列表价的估算，不是账单；只算输入、缓存读取和输出，Claude 的缓存写入没有计入；价格表里对不上的模型仍显示 $0.0000。
 - **界面汉化**：在界面脚本末尾加一段翻译程序，页面上的一段文字和词条表 `src/l10n/zh-CN.json` 里的英文完全相同时整段换成中文。对话正文、代码、终端、输入框，以及对话名、项目名、模型名和文件名不翻译。系统菜单栏、Dock 菜单、系统弹窗、嵌在框架里的页面（例如 Swarm 面板）和词条表里没有的文字保持英文。词条表的一部分取自 [antigravity-chinese](https://github.com/yiheng8023/antigravity-chinese)（MIT）。
@@ -129,18 +124,21 @@ unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 
 - 所有端口只监听 `127.0.0.1`。上游地址只来自 `config.json`，全程 HTTPS，证书照常校验。
 - 日志只记录事件，不记录请求头、请求体或响应体。
-- 设置页面的接口要一个随机令牌（放在地址的 `#` 之后，浏览器不会发给服务器），还检查 `Host` 和 `Origin`，别的网站不能借你的浏览器改设置。页面把令牌存在本地存储里，书签才能一直用。
-- 加进界面的代码不发网络请求，写进页面的一律是纯文本。
+- 设置页的接口在 47933 端口。它只回答你自己账户下的程序：常驻进程用 `lsof` 查连接的另一头是谁。请求经语言服务器转来时，还要求当时连着语言服务器的全是你自己账户下的程序，有一个查不到来源就拒绝。这样这台 Mac 上别的用户改不了你的设置。
+- 接口还检查 `Host`，拒绝带 `Origin` 的请求，`Sec-Fetch-Site` 只认 `same-origin`，改动必须以 JSON 发送。别的网站因此不能借你的浏览器读取或修改设置。
+- 接口里没有秘密：能读到的是开关名、设置和状态，没有对话内容。
+- 加进界面的代码只向窗口自己的地址请求上面这些接口，不连别的地方；写进页面的一律是纯文本。
 - 「估算费用」开着时，常驻进程只请求 `https://models.dev/api.json`，不带登录信息和你的数据。下载的价格表只保留模型键、数字和模型名，其余丢弃。这一项开着时还会读取模型列表里的显示名，不改动它。
 - 「中文对话标题」是唯一改动模型请求内容的地方。它开着时，转发进程看桌面端每个模型请求开头的 512 个字节，把疑似起标题的请求完整读进内存检查后再发出，不保存、不写日志。
 - 一键安装脚本只从 `github.com` 和 `nodejs.org` 下载，不用 `sudo`。
 
-本机上以你的身份运行的其他程序本来就能读你的文件，本工具不防这类程序。
+本机上以你的身份运行的其他程序本来就能读写你的文件，也能调用上面的接口，本工具不防这类程序。
 
 ## 测过什么
 
-设置页面上每项功能标的「已实测」版本，就是看到效果的版本。整体上测过的：
+设置页上每项功能的实测版本（鼠标停在功能名上显示），就是看到效果的版本。整体上测过的：
 
+- 「AGY-flags」设置页在 2.35.2 上：开关功能、风险确认、总开关、页面里的「重启 Antigravity」；中文和英文两种语言、720 宽的窄窗口下都看过。
 - 开关改写在 2.35.0 到 2.35.2 上都生效。在 2.35.0 上还测过：关掉或卸载后恢复原样；对话正常收发；强制杀掉常驻进程后 1 秒内被拉起；卸载后变量、端口和自启项都清理干净。
 - 命令行 `agy` 1.5.17：请求全部原样放行，拿到的开关值和直连一样。
 - 一键安装：在有和没有 Node.js 的 Apple 芯片 Mac 上，用真实命令装通；校验值不符时停止安装。
@@ -154,16 +152,26 @@ unset CLOUD_CODE_URL AICODE_ENDPOINT_URL AGY_DEV_UI_URL
 - WebSocket 透传（只有单元测试）。
 - 开着改界面的功能时客户端自动更新。
 - 从 Dock 或启动台启动 Antigravity。
+- 一台 Mac 上有别的用户同时登录的情况。「别的用户会被拒绝」这一支只有单元测试。
+- 手机网页版（远程控制）里的「AGY-flags」页。那里的设置是另一种单页排版，在桌面端看不到。
 
 ## 已知限制
 
-- **改动要重启 Antigravity 才生效**。登录时系统自动恢复的 Antigravity 可能比常驻进程先启动，不经过本工具；页面会提示你重启一次。
+- **改动要重启 Antigravity 才生效**。登录时系统自动恢复的 Antigravity 可能比常驻进程先启动，不经过本工具，设置里也没有「AGY-flags」一页；退出并重新打开它一次即可。
+- **客户端更新后，设置页可能不出现**。这一页是按界面脚本里三处代码的形状加进去的，形状变了就不加，其余功能不受影响。这时用 `agy-flags status` 看原因，功能可以先手工写进 `config.json`。
+- **本工具停了，Antigravity 的窗口重新加载后只显示报错文字**，见「设置页和改界面的三项功能」。
 - **这条路可能随时失效**。Google 可以在任何版本里去掉这些环境变量或改变下发方式。Antigravity 改用别的云端主机时，页面会显示「地址不一致」，这时更新本工具或改 `config.json` 里的 `upstreams`。
 - **「提示词缓存保活」已删除**。它常常发一两次就停，没命中缓存的那次还按整段输入计费。以前打开过的话，请手工从 `config.json` 的 `flags` 删掉 `enable-prompt-cache-keep-alive` 和 `prompt_cache_keep_alive_max_pings`。
 
 ## 出问题时
 
 客户端连不上服务器或显示「Error Loading Models」时，先运行 `agy-flags status`（一键安装的用上面的 `status` 那一行）。日志在 `~/Library/Application Support/agy-flags/daemon.log`。
+
+设置里没有「AGY-flags」这一页时：
+
+1. 先退出并重新打开 Antigravity。这一页只在本工具运行期间启动的 Antigravity 里有。
+2. 还没有，就运行 `agy-flags status`。`pending` 一行说明还差一次重启；`warning: page-not-changed` 说明客户端更新后这一页加不进去了，后面是原因。
+3. 页面用不了时，可以直接编辑 `~/Library/Application Support/agy-flags/config.json`，保存后自动生效：`enabled` 是总开关，`flags` 是开关（例如 `"some-flag": true`），`features` 里是 `costPrices`（估算费用）、`uiChinese`（界面汉化）、`chineseTitles`（中文对话标题）。改完重启 Antigravity。
 
 要立刻绕开本工具，清除三个变量再重启 Antigravity：
 
@@ -186,7 +194,6 @@ launchctl unsetenv AGY_DEV_UI_URL
 | 文件 | 内容 |
 | --- | --- |
 | `config.json` | 已改动的开关、端口、上游地址。可以手工编辑，会自动重新读取 |
-| `token` | 设置页面的访问令牌 |
 | `state.json` | 最近一次看到的服务端开关清单和模型显示名 |
 | `prices.json` | 从 models.dev 下载的价格表 |
 | `daemon.log` | 日志 |
@@ -207,16 +214,19 @@ npm test
 - `src/forward.mjs`：HTTP 转发、按 `User-Agent` 区分来源、改写起标题的请求。
 - `src/bundle.mjs`：从语言服务器程序里读内置的界面文件。
 - `src/uipatch.mjs`：对界面脚本的改写：指示器组件、费用重算、翻译程序。
+- `src/settingspage.mjs`：「AGY-flags」设置页，以及把它加进界面脚本的改写。
 - `src/l10n.mjs`、`src/l10n/zh-CN.json`：翻译程序和词条表。
 - `src/prices.mjs`：下载和检查价格表。
-- `src/uiserver.mjs`：向语言服务器提供界面文件。
+- `src/uiserver.mjs`：向语言服务器提供界面文件，并接收设置页的请求。
 - `src/env.mjs`、`src/launchd.mjs`、`src/client.mjs`：环境变量、登录自启项、Antigravity 的状态和重启。
-- `src/daemon.mjs`、`src/api.mjs`：常驻进程、设置页面的接口和访问控制。
+- `src/daemon.mjs`：常驻进程。
+- `src/api.mjs`、`src/peer.mjs`：设置页的接口，以及「请求是谁发的」的检查。
 - `src/catalog.json`：「精选功能」清单。欢迎补充实测结果。
-- `ui/`：设置页面，不用框架，不用构建。
 - `install.sh`：一键安装和卸载脚本。
 - `tools/l10n-candidates.mjs`：列出界面脚本里词条表还翻不了的文字，客户端更新后用来找新文字。
 
 ## 许可
 
 MIT。界面汉化词条表的一部分取自 antigravity-chinese（MIT），许可声明见 `src/l10n/LICENSE-antigravity-chinese.txt`。
+
+把功能选择放进客户端设置页的想法来自 [obsidian-prism](https://github.com/RMvdesi/obsidian-prism)，本项目没有使用它的代码。

@@ -1,5 +1,5 @@
 // The environment variables that point Antigravity at this program: two for the local
-// forwarders, and one more for the page files while a page feature is on.
+// forwarders, and one more for the page files, which hold the settings page of agy-flags.
 //
 // They live in the login session (launchctl setenv), so every app started afterwards
 // inherits them. The dangerous state is "variable still set, nobody listening": a client
@@ -20,7 +20,7 @@ export function ourEnv(ports) {
   };
 }
 
-/** The variable that makes the client take its page files from us. Set only while a page feature is on. */
+/** The variable that makes the client take its page files from us. Set while those files can be served. */
 export function ourUiEnv(ports) {
   return { [ENV_NAMES.devui]: `http://127.0.0.1:${ports.devui}` };
 }
@@ -81,7 +81,8 @@ export async function applyEnv(runner, desired) {
   const results = {};
   const conflicts = {};
   const current = await readEnv(runner, desired);
-  // Check every variable first: setting one and not the other would split the traffic.
+  // Check every variable first: of the two forwarder variables, setting one and not the
+  // other would split the traffic.
   for (const [name, { value, ours }] of Object.entries(current)) {
     if (value && !ours) conflicts[name] = value;
   }

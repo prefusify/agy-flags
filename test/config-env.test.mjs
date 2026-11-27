@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { parsePsLine, envFromPs } from '../src/client.mjs';
-import { DEFAULT_CONFIG, FEATURE_NAMES, dataDir, ensureToken, files, loadConfig, normalizeConfig, saveConfig } from '../src/config.mjs';
-import { applyEnv, clearEnv, ourEnv, readEnv } from '../src/env.mjs';
+import { DEFAULT_CONFIG, FEATURE_NAMES, dataDir, files, loadConfig, normalizeConfig, removeObsoleteFiles, saveConfig } from '../src/config.mjs';
+import { allOurEnv, applyEnv, clearEnv, ourEnv, ourUiEnv, readEnv } from '../src/env.mjs';
 import { buildPlist } from '../src/launchd.mjs';
 import { fakeRunner, tempHome } from './helpers.mjs';
 
@@ -26,7 +26,8 @@ test('normalizeConfig fills defaults and drops what is not valid', () => {
   const config = normalizeConfig({
     enabled: false,
     flags: { good: true, 'bad name': true, nested: { a: 1 }, n: 5 },
-    ports: { cloudcode: 80, aicode: 50000, ui: 'x' },
+    // "ui" was the port of the web page that versions up to 0.2 had.
+    ports: { cloudcode: 80, aicode: 50000, ui: 47930, devui: 'x' },
     upstreams: { cloudcode: 'ftp://example.com', aicode: 'https://example.com/some/path' },
     appPath: 'relative/Antigravity.app',
   });
@@ -36,15 +37,15 @@ test('normalizeConfig fills defaults and drops what is not valid', () => {
   assert.deepEqual(config.ports, {
     cloudcode: DEFAULT_CONFIG.ports.cloudcode,
     aicode: 50000,
-    ui: DEFAULT_CONFIG.ports.ui,
     devui: DEFAULT_CONFIG.ports.devui,
   });
+  assert.deepEqual(DEFAULT_CONFIG.ports, { cloudcode: 47931, aicode: 47932, devui: 47933 });
   assert.equal(config.upstreams.cloudcode, DEFAULT_CONFIG.upstreams.cloudcode);
   assert.equal(config.upstreams.aicode, 'https://example.com');
   assert.equal(config.appPath, DEFAULT_CONFIG.appPath);
 });
 
-test('the config and the token are stored in the data directory, readable by the user only', (t) => {
+test('the config is stored in the data directory, readable by the user only', (t) => {
   const home = useTempHome(t);
   assert.equal(dataDir(), home);
   assert.deepEqual(loadConfig().flags, {});
@@ -52,11 +53,21 @@ test('the config and the token are stored in the data directory, readable by the
   assert.deepEqual(loadConfig().flags, { a: true });
   assert.equal(loadConfig().flagsChangedAt, 42);
   assert.equal(fs.statSync(files.config()).mode & 0o777, 0o600);
+  // A config file of an older version keeps its settings and loses the port that is gone.
+  fs.writeFileSync(files.config(), JSON.stringify({ flags: { b: true }, ports: { cloudcode: 50001, aicode: 50002, ui: 50003, devui: 50004 } }));
+  assert.deepEqual(loadConfig().flags, { b: true });
+  assert.deepEqual(loadConfig().ports, { cloudcode: 50001, aicode: 50002, devui: 50004 });
+});
 
-  const token = ensureToken();
-  assert.match(token, /^[0-9a-f]{64}$/);
-  assert.equal(ensureToken(), token);
-  assert.equal(fs.statSync(files.token()).mode & 0o777, 0o600);
+test('the secret of the old web page is removed, and nothing else', (t) => {
+  const home = useTempHome(t);
+  saveConfig({ ...loadConfig(), flags: { a: true } });
+  // Nothing to remove: no error.
+  removeObsoleteFiles();
+  fs.writeFileSync(`${home}/token`, 'a'.repeat(64), { mode: 0o600 });
+  removeObsoleteFiles();
+  assert.deepEqual(fs.readdirSync(home), ['config.json']);
+  assert.equal(Object.hasOwn(files, 'token'), false);
 });
 
 test('a broken config file falls back to defaults', (t) => {
@@ -67,11 +78,14 @@ test('a broken config file falls back to defaults', (t) => {
 
 const DESIRED = ourEnv({ cloudcode: 47931, aicode: 47932 });
 
-test('ourEnv names the two variables', () => {
+test('ourEnv names the two forwarder variables, ourUiEnv the one for the page files', () => {
   assert.deepEqual(DESIRED, {
     CLOUD_CODE_URL: 'http://127.0.0.1:47931',
     AICODE_ENDPOINT_URL: 'http://127.0.0.1:47932',
   });
+  // Scheme, host and port only: the language server does not start with a path in this address.
+  assert.deepEqual(ourUiEnv(DEFAULT_CONFIG.ports), { AGY_DEV_UI_URL: 'http://127.0.0.1:47933' });
+  assert.deepEqual(allOurEnv(DEFAULT_CONFIG.ports), { ...DESIRED, AGY_DEV_UI_URL: 'http://127.0.0.1:47933' });
 });
 
 test('applyEnv sets both variables and is idempotent', async () => {

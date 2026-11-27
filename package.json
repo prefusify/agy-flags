@@ -1,7 +1,7 @@
 {
   "name": "agy-flags",
-  "version": "0.2.0",
-  "description": "Choose which Antigravity experiment flags are on, from a local web page. No app modification, no certificates.",
+  "version": "0.3.0",
+  "description": "Choose which Antigravity experiment flags are on, from a page in Antigravity's own settings. No app modification, no certificates.",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,6 @@
   "files": [
     "bin",
     "src",
-    "ui",
     "README.md",
     "README.en.md",
     "install.sh",
